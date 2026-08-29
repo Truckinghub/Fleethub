@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>FleetHub - Fleet Records, All In One Place</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 220'%3E%3Cpath d='M40 100 Q130 78 220 100' fill='none' stroke='%231E2A38' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M58 94 L58 45 L140 45 L140 94 Z' fill='%231E2A38'/%3E%3Cpath d='M140 65 L166 65 L184 84 L184 94 L140 94 Z' fill='%231E2A38'/%3E%3Crect x='148' y='70' width='14' height='10' fill='%23F4F5F6'/%3E%3Ccircle cx='82' cy='98' r='14' fill='%231E2A38'/%3E%3Ccircle cx='82' cy='98' r='5' fill='%23F4F5F6'/%3E%3Ccircle cx='164' cy='98' r='14' fill='%231E2A38'/%3E%3Ccircle cx='164' cy='98' r='5' fill='%23F4F5F6'/%3E%3Ccircle cx='99' cy='68' r='20' fill='%23C1703D'/%3E%3Ctext x='99' y='76' font-size='24' font-family='Arial' font-weight='700' fill='%231E2A38' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 220'%3E%3Crect width='260' height='220' fill='%231E2A38'/%3E%3Cpath d='M40 100 Q130 78 220 100' fill='none' stroke='%23F4F5F6' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M58 94 L58 45 L140 45 L140 94 Z' fill='%23F4F5F6'/%3E%3Cpath d='M140 65 L166 65 L184 84 L184 94 L140 94 Z' fill='%23F4F5F6'/%3E%3Crect x='148' y='70' width='14' height='10' fill='%231E2A38'/%3E%3Ccircle cx='82' cy='98' r='14' fill='%23F4F5F6'/%3E%3Ccircle cx='82' cy='98' r='5' fill='%231E2A38'/%3E%3Ccircle cx='164' cy='98' r='14' fill='%23F4F5F6'/%3E%3Ccircle cx='164' cy='98' r='5' fill='%231E2A38'/%3E%3Ccircle cx='99' cy='68' r='20' fill='%23C1703D'/%3E%3Ctext x='99' y='76' font-size='24' font-family='Arial' font-weight='700' fill='%231E2A38' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --charcoal:#1E2A38;
+    --charcoal-light:#2C3B4E;
+    --blue:#5B8DBE;
+    --blue-light:#8FB4D9;
+    --blue-pale:#E4EDF5;
+    --copper:#C1703D;
+    --bg:#F4F5F6;
+    --card:#FFFFFF;
+    --border:#E1E4E8;
+    --text-muted:#6B7280;
+    --danger:#C0392B;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--charcoal);
+    height:100vh; display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    background:var(--charcoal); color:#fff; display:flex; align-items:center;
+    padding:10px 20px; gap:14px; flex-shrink:0; border-bottom:3px solid var(--copper); position:relative; flex-wrap:wrap;
+  }
+  header .logo-icon{width:40px;height:34px;flex-shrink:0;}
+  header .titles{display:flex; flex-direction:column; line-height:1.2;}
+  header .titles .name{font-size:18px; font-weight:bold; letter-spacing:.5px;}
+  header .titles .sub{font-size:10px; color:var(--blue-light); letter-spacing:1.2px;}
+  header .titles .underline{width:100%; height:2px; background:var(--copper); margin-top:3px;}
+  header .toolbar{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  header .status{font-size:11px; color:#C9CDD3; text-align:right; margin-right:4px;}
+  header .status .dot{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--copper); margin-left:6px;}
+  button{
+    font-family:inherit; cursor:pointer; border:none; border-radius:6px; padding:9px 14px;
+    font-size:13px; font-weight:bold; transition:opacity .15s;
+  }
+  button:hover{opacity:.88;}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+  .btn-blue{background:var(--blue); color:#fff;}
+  .btn-ghost{background:transparent; color:#fff; border:1px solid #445367;}
+  .btn-sm{padding:6px 12px; font-size:12px;}
+  .btn-danger{background:transparent; color:var(--danger); border:1px solid #E8B4AC; padding:6px 10px; font-size:12px;}
+  .hamburger-btn{background:transparent; color:#fff; border:1px solid #445367; padding:9px 12px; font-size:16px; line-height:1;}
+  .hamburger-wrap{position:relative;}
+  .hamburger-menu{
+    position:absolute; top:calc(100% + 8px); right:0; background:var(--charcoal-light); border:1px solid #445367;
+    border-radius:8px; min-width:190px; box-shadow:0 6px 18px rgba(0,0,0,.35); overflow:hidden; z-index:50;
+  }
+  .hamburger-menu.hidden{display:none;}
+  .hamburger-menu button{
+    display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD; border-radius:0;
+    padding:11px 16px; font-size:13px; font-weight:normal; border-bottom:1px solid #445367;
+  }
+  .hamburger-menu button:last-child{border-bottom:none;}
+  .hamburger-menu button:hover{background:#37485D;}
+  .hamburger-menu button.active{color:#fff; font-weight:bold; border-left:3px solid var(--blue); padding-left:13px;}
+  .app-body{flex:1; display:flex; overflow:hidden; min-height:0;}
+  nav{
+    width:190px; background:var(--charcoal-light); overflow-y:auto; flex-shrink:0; display:flex; flex-direction:column;
+    border-left:1px solid #445367;
+  }
+  .year-switch{
+    display:flex; align-items:center; justify-content:center; padding:14px; border-bottom:1px solid #445367; flex-shrink:0;
+  }
+  .year-switch .yr{font-size:17px; font-weight:bold; color:#fff; letter-spacing:1px;}
+  .home-btn{
+    display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD; border-radius:0;
+    padding:12px 16px; font-size:13px; font-weight:bold; border-left:3px solid transparent; border-bottom:1px solid #445367;
+  }
+  .home-btn:hover{background:#37485D;}
+  .home-btn.active{background:#37485D; color:#fff; border-left:3px solid var(--blue);}
+  .cal-scroll{flex:1; overflow-y:auto; padding-bottom:10px;}
+  .month-header{
+    padding:12px 16px 4px 16px; font-size:10px; font-weight:bold; letter-spacing:1.5px;
+    color:#8A97A6; text-transform:uppercase;
+  }
+  button.navbtn{
+    display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD;
+    border-radius:0; padding:8px 16px 8px 20px; font-size:13px; font-weight:normal; border-left:3px solid transparent;
+  }
+  button.navbtn:hover{background:#37485D;}
+  button.navbtn.active{background:#37485D; color:#fff; border-left:3px solid var(--blue); font-weight:bold;}
+  button.navbtn .wk-dates{display:block; font-size:10px; color:#8A97A6; font-weight:normal;}
+  main{flex:1; overflow-y:auto; padding:24px 30px; min-width:0;}
+  .page-title{font-size:20px; font-weight:bold; margin:0 0 4px 0;}
+  .page-sub{font-size:12px; color:var(--text-muted); margin:0 0 20px 0;}
+  .section-label{font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:.6px; margin:22px 0 10px 0;}
+  .section-label:first-of-type{margin-top:0;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:16px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .card.company{background:var(--charcoal); border-color:var(--charcoal);}
+  .card.company h3, .card.company .label{color:#D6D9DD;}
+  .card.company .big{color:#fff;}
+  .card.company h3 .tag{background:var(--blue);}
+  .card.clickable{cursor:pointer; transition:box-shadow .15s, transform .15s;}
+  .card.clickable:hover{box-shadow:0 4px 14px rgba(0,0,0,.1); transform:translateY(-1px);}
+  .card h3{margin:0 0 12px 0; font-size:15px; display:flex; align-items:center; gap:8px;}
+  .card h3 .tag{background:var(--charcoal); color:#fff; font-size:11px; padding:3px 9px; border-radius:20px;}
+  .field{margin-bottom:10px;}
+  .field label{display:block; font-size:11px; color:var(--text-muted); margin-bottom:3px; font-weight:bold; text-transform:uppercase; letter-spacing:.4px;}
+  .field input, .field select{
+    width:100%; padding:9px 9px; border:1px solid var(--border); border-radius:5px; font-size:14px; font-family:inherit;
+  }
+  .field input:focus, .field select:focus{outline:none; border-color:var(--blue);}
+  .field.readonly input{background:var(--blue-pale); font-weight:bold; color:var(--charcoal); border-color:#C7D9EB;}
+  .blockgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .totalsrow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px; padding-top:10px; border-top:1px dashed var(--border);}
+  .summary-cards .card .big{font-size:22px; font-weight:bold; color:var(--charcoal); margin:2px 0 12px 0;}
+  .summary-cards .card .big.negative{color:var(--danger);}
+  .summary-cards .card .label{font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px;}
+  .summary-cards .card .metric{margin-bottom:10px;}
+  .hint{font-size:12px; color:var(--text-muted); margin-top:2px;}
+  .banner{background:var(--blue-pale); border:1px solid #C7D9EB; color:#2A4E70; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;}
+  .banner b{display:block; margin-bottom:2px;}
+  .banner.soon{background:#EDEFF1; border-color:var(--border); color:var(--text-muted);}
+  .banner.error{background:#FBEAE8; border-color:#E8B4AC; color:#8A2E22;}
+  .subtabs{display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap;}
+  .subtabs button{background:var(--card); color:var(--charcoal); border:1px solid var(--border); padding:8px 14px; font-size:12px; font-weight:bold;}
+  .subtabs button.active{background:var(--charcoal); color:#fff; border-color:var(--charcoal);}
+  table.logtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+  table.logtable th{background:var(--charcoal); color:#fff; text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.4px;}
+  table.logtable td{padding:6px 10px; border-top:1px solid var(--border); vertical-align:middle;}
+  table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:13px; font-family:inherit;}
+  table.logtable td input:focus, table.logtable td select:focus{outline:none; border-color:var(--blue);}
+  .addrow-wrap{margin-top:14px;}
+
+  /* ---------- Auth screen ---------- */
+  #authScreen{
+    display:none; height:100%; align-items:center; justify-content:center; background:var(--bg); overflow-y:auto; padding:20px;
+  }
+  .auth-card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:32px 28px; width:100%; max-width:360px;
+    box-shadow:0 4px 24px rgba(0,0,0,.08);
+  }
+  .auth-card .logo-icon{width:60px; height:50px; display:block; margin:0 auto 10px auto;}
+  .auth-card h1{font-size:20px; text-align:center; margin:0 0 2px 0; color:var(--charcoal);}
+  .auth-card .tag-line{font-size:11px; text-align:center; color:var(--text-muted); letter-spacing:1px; margin-bottom:24px; text-transform:uppercase;}
+  .auth-card .field{margin-bottom:14px;}
+  .auth-card button.primary{width:100%; padding:11px; font-size:14px; margin-top:6px;}
+  .auth-toggle{text-align:center; font-size:13px; color:var(--text-muted); margin-top:16px;}
+  .auth-toggle a{color:var(--blue); cursor:pointer; font-weight:bold; text-decoration:none;}
+  .auth-error{color:var(--danger); font-size:12px; margin-top:10px; text-align:center;}
+
+  /* ---------- Mobile layout ---------- */
+  @media (max-width: 760px){
+    header{padding:10px 12px;}
+    header .titles .sub{display:none;}
+    header .status{display:none;}
+    header .toolbar{gap:6px;}
+    header button{padding:8px 10px; font-size:12px;}
+    .app-body{flex-direction:column;}
+    nav{
+      width:100%; max-height:none; border-left:none; border-top:1px solid #445367;
+      order:2; flex-direction:column;
+    }
+    .year-switch{display:none;}
+    .cal-scroll{
+      display:flex; flex-direction:row; overflow-x:auto; overflow-y:hidden; padding:8px; gap:6px; -webkit-overflow-scrolling:touch;
+    }
+    .month-header{display:none;}
+    button.navbtn{
+      flex-shrink:0; width:auto; white-space:nowrap; border-left:none; border-radius:8px; border:1px solid #445367; padding:8px 12px;
+    }
+    button.navbtn.active{border:1px solid var(--blue);}
+    button.navbtn .wk-dates{display:none;}
+    .home-btn{order:1; border-bottom:1px solid #445367;}
+    main{order:1; padding:16px; flex:1 1 auto;}
+    .cards{grid-template-columns:1fr;}
+    .blockgrid{grid-template-columns:1fr 1fr;}
+    .totalsrow{grid-template-columns:1fr; gap:8px;}
+    table.logtable{display:block; overflow-x:auto; white-space:nowrap;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="authScreen">
+  <div class="auth-card">
+    <svg class="logo-icon" viewBox="0 0 260 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M40 100 Q130 78 220 100" fill="none" stroke="#1E2A38" stroke-width="6" stroke-linecap="round"/>
+      <path d="M58 94 L58 45 L140 45 L140 94 Z" fill="#1E2A38"/>
+      <path d="M140 65 L166 65 L184 84 L184 94 L140 94 Z" fill="#1E2A38"/>
+      <rect x="148" y="70" width="14" height="10" fill="#F4F5F6"/>
+      <circle cx="82" cy="98" r="14" fill="#1E2A38"/>
+      <circle cx="82" cy="98" r="5" fill="#F4F5F6"/>
+      <circle cx="164" cy="98" r="14" fill="#1E2A38"/>
+      <circle cx="164" cy="98" r="5" fill="#F4F5F6"/>
+      <circle cx="99" cy="68" r="20" fill="#C1703D"/>
+      <text x="99" y="76" font-size="24" font-family="Arial" font-weight="700" fill="#1E2A38" text-anchor="middle">$</text>
+    </svg>
+    <h1>FleetHub</h1>
+    <div class="tag-line">Fleet records, all in one place</div>
+    <div class="field"><label>Email</label><input type="email" id="authEmail" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input type="password" id="authPassword" autocomplete="current-password"></div>
+    <button class="btn-blue primary" id="authSubmitBtn">Sign In</button>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-toggle" id="authToggle">Don't have an account? <a id="authToggleLink">Sign up</a></div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP (hidden until logged in) ============ -->
+<div id="appRoot" style="display:none; flex-direction:column; height:100%;">
+<header>
+  <svg class="logo-icon" viewBox="0 0 260 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M40 100 Q130 78 220 100" fill="none" stroke="#F4F5F6" stroke-width="6" stroke-linecap="round"/>
+    <path d="M58 94 L58 45 L140 45 L140 94 Z" fill="#F4F5F6"/>
+    <path d="M140 65 L166 65 L184 84 L184 94 L140 94 Z" fill="#F4F5F6"/>
+    <rect x="148" y="70" width="14" height="10" fill="#1E2A38"/>
+    <circle cx="82" cy="98" r="14" fill="#F4F5F6"/>
+    <circle cx="82" cy="98" r="5" fill="#1E2A38"/>
+    <circle cx="164" cy="98" r="14" fill="#F4F5F6"/>
+    <circle cx="164" cy="98" r="5" fill="#1E2A38"/>
+    <circle cx="99" cy="68" r="20" fill="#C1703D"/>
+    <text x="99" y="76" font-size="24" font-family="Arial" font-weight="700" fill="#1E2A38" text-anchor="middle">$</text>
+  </svg>
+  <div class="titles">
+    <div class="name">FleetHub</div>
+    <div class="sub">FLEET RECORDS, ALL IN ONE PLACE</div>
+    <div class="underline"></div>
+  </div>
+  <div class="toolbar">
+    <div class="status" id="statusText"></div>
+    <button class="btn-ghost" id="btnExport">Export Excel</button>
+    <button class="btn-blue" id="btnSave">Save</button>
+    <div class="hamburger-wrap">
+      <button class="hamburger-btn" id="hamburgerBtn">&#9776;</button>
+      <div class="hamburger-menu hidden" id="hamburgerMenu">
+        <button data-module="contracts">Contracts</button>
+        <button data-module="payroll">Payroll</button>
+        <button data-module="expenses">Expenses</button>
+        <button data-module="maintenance">Maintenance Records</button>
+        <button data-action="signout">Sign Out</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="app-body">
+  <main id="mainArea"></main>
+  <nav id="weekNav">
+    <div class="year-switch"><span class="yr">2026</span></div>
+    <button class="home-btn" id="homeBtn">&#9679; Dashboard</button>
+    <div class="cal-scroll" id="navList"></div>
+  </nav>
+</div>
+</div>
+
+<script>
+/* ======================================================================
+   SUPABASE CONFIG - fill these in with your own project's values
+   (Supabase Dashboard -> Project Settings -> API)
+   ====================================================================== */
+const SUPABASE_URL = "https://supabase.com/dashboard/project/fszqfhntaofgrompboap/settings/api-keys";
+const SUPABASE_ANON_KEY = "sb_publishable_mIhle8vWmsYr5ELwStQs-g_OQs-84Jr";
+const sb = (SUPABASE_URL.startsWith("http")) ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+/* ============ WEEK ENGINE: Sunday-Saturday business weeks, single year 2026 ============ */
+const ANCHOR_WEEK = 34;
+const ANCHOR_SUNDAY_UTC = Date.UTC(2026, 7, 16);
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function weekSunday(week){ return new Date(ANCHOR_SUNDAY_UTC + (week-ANCHOR_WEEK)*7*86400000); }
+function fmtShort(date){ return `${MONTH_NAMES[date.getUTCMonth()]} ${String(date.getUTCDate()).padStart(2,"0")}`; }
+function weekDateRangeLabel(week){
+  const sun = weekSunday(week);
+  const sat = new Date(sun); sat.setUTCDate(sun.getUTCDate()+6);
+  if(sun.getUTCFullYear() !== sat.getUTCFullYear()){
+    return `${fmtShort(sun)}, ${sun.getUTCFullYear()} - ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
+  }
+  return `${fmtShort(sun)} - ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
+}
+function buildWeekList(){
+  const list = [];
+  let week = ANCHOR_WEEK;
+  const yearEnd = Date.UTC(2026, 11, 31);
+  while(true){
+    const sun = weekSunday(week);
+    const sat = new Date(sun); sat.setUTCDate(sun.getUTCDate()+6);
+    list.push(week);
+    if(sat.getTime() >= yearEnd) break;
+    week++;
+  }
+  return list;
+}
+const WEEKS = buildWeekList();
+function groupWeeksByMonth(){
+  const groups = [];
+  let current = null;
+  WEEKS.forEach(w=>{
+    const sun = weekSunday(w);
+    const key = `${sun.getUTCFullYear()}-${sun.getUTCMonth()}`;
+    if(!current || current.key !== key){
+      current = { key, label: `${MONTH_NAMES[sun.getUTCMonth()]} ${sun.getUTCFullYear()}`, weeks: [] };
+      groups.push(current);
+    }
+    current.weeks.push(w);
+  });
+  return groups;
+}
+
+const TRUCKS = ["31","32","001"];
+const FELITO_ALIAS = "Felito";
+function normalizeTruck(t){ return t === FELITO_ALIAS ? "001" : t; }
+
+/* ============ APP STATE ============ */
+let weeksData = {};
+WEEKS.forEach(w=>{
+  weeksData[w] = {};
+  TRUCKS.forEach(t=>{ weeksData[w][t] = { contractId:"", blockRate:"", numBlocks:"", block1:"", block2:"", block3:"" }; });
+});
+let fuelData = {};
+let payrollData = {};
+WEEKS.forEach(w=>{
+  fuelData[w] = {}; payrollData[w] = {};
+  TRUCKS.forEach(t=>{ fuelData[w][t] = ""; payrollData[w][t] = ""; });
+});
+let partsLog = [];
+let mechanicLog = [];
+let maintenanceLog = [];
+
+let currentModule = "contracts";
+let currentExpenseTab = "overview";
+let currentView = { type:"summary" };
+let unsaved = false;
+let currentUserId = null;
+
+/* ============ COMPUTE HELPERS (same math as desktop version) ============ */
+function computeRow(truck, d){
+  const rate=parseFloat(d.blockRate)||0, n=parseInt(d.numBlocks)||0;
+  const contractRate=rate*n;
+  const b1=parseFloat(d.block1)||0, b2=parseFloat(d.block2)||0, b3=parseFloat(d.block3)||0;
+  const contractAcc=b1+b2+b3;
+  const totalAcc=contractAcc-contractRate;
+  return { truck, contractId:d.contractId||"", blockRate:d.blockRate||"", numBlocks:d.numBlocks||"",
+    block1:d.block1||"", block2:d.block2||"", block3:d.block3||"", contractRate, contractAcc, totalAcc };
+}
+
+function computeAllTimeTotals(){
+  const totals = TRUCKS.map(truck=>{
+    let grossContracts=0, grossContractsAcc=0, grossAcc=0;
+    WEEKS.forEach(w=>{
+      const row = computeRow(truck, weeksData[w][truck]);
+      grossContracts += row.contractRate; grossContractsAcc += row.contractAcc; grossAcc += row.totalAcc;
+    });
+    return { truck, grossContracts, grossContractsAcc, grossAcc };
+  });
+  const company = totals.reduce((acc,t)=>({
+    grossContracts: acc.grossContracts + t.grossContracts,
+    grossContractsAcc: acc.grossContractsAcc + t.grossContractsAcc,
+    grossAcc: acc.grossAcc + t.grossAcc
+  }), { grossContracts:0, grossContractsAcc:0, grossAcc:0 });
+  return { totals, company };
+}
+
+function computeSimpleWeekTotals(dataObj){
+  const totals = TRUCKS.map(truck=>{
+    let total=0;
+    WEEKS.forEach(w=>{ total += parseFloat(dataObj[w][truck])||0; });
+    return { truck, total };
+  });
+  const company = totals.reduce((a,t)=>a+t.total,0);
+  return { totals, company };
+}
+
+function computeLogSummary(entries, summaryType){
+  if(summaryType==="sum"){
+    const sums = {}; TRUCKS.forEach(t=>sums[t]=0);
+    entries.forEach(e=>{ const t = normalizeTruck(e.truck); if(TRUCKS.includes(t)) sums[t] += parseFloat(e.amount)||0; });
+    const grand = TRUCKS.reduce((a,t)=>a+sums[t],0);
+    return { sums, grand };
+  } else {
+    const maxes = {}; TRUCKS.forEach(t=>maxes[t]=0);
+    entries.forEach(e=>{ const t = normalizeTruck(e.truck); if(TRUCKS.includes(t)) maxes[t] = Math.max(maxes[t], parseFloat(e.amount)||0); });
+    return { maxes };
+  }
+}
+
+function computeDashboardYTD(){
+  const contracts = computeAllTimeTotals();
+  const fuel = computeSimpleWeekTotals(fuelData);
+  const parts = computeLogSummary(partsLog, "sum");
+  const mechanic = computeLogSummary(mechanicLog, "sum");
+  const payroll = computeSimpleWeekTotals(payrollData);
+
+  const perTruck = TRUCKS.map((truck, i)=>{
+    const ytdContracts = contracts.totals[i].grossContracts;
+    const ytdAccessories = contracts.totals[i].grossAcc;
+    const ytdExpenses = (fuel.totals[i].total||0) + (parts.sums[truck]||0) + (mechanic.sums[truck]||0);
+    const ytdPayroll = payroll.totals[i].total;
+    const grossYTD = ytdContracts + ytdAccessories;
+    const netYTD = grossYTD - ytdExpenses - ytdPayroll;
+    return { truck, ytdContracts, ytdAccessories, ytdExpenses, ytdPayroll, grossYTD, netYTD };
+  });
+
+  const company = perTruck.reduce((acc,t)=>({
+    ytdContracts: acc.ytdContracts + t.ytdContracts,
+    ytdAccessories: acc.ytdAccessories + t.ytdAccessories,
+    ytdExpenses: acc.ytdExpenses + t.ytdExpenses,
+    ytdPayroll: acc.ytdPayroll + t.ytdPayroll,
+    grossYTD: acc.grossYTD + t.grossYTD,
+    netYTD: acc.netYTD + t.netYTD
+  }), { ytdContracts:0, ytdAccessories:0, ytdExpenses:0, ytdPayroll:0, grossYTD:0, netYTD:0 });
+
+  return { perTruck, company };
+}
+
+/* ======================================================================
+   SUPABASE DATA LAYER
+   Strategy: on Save, wipe this user's rows in each table and re-insert
+   the current in-memory state. Simple and safe at personal-account scale.
+   ====================================================================== */
+
+function rowsFromWeeklyGrid(dataObj, isContracts){
+  const rows = [];
+  WEEKS.forEach(w=>{
+    TRUCKS.forEach(t=>{
+      if(isContracts){
+        const d = dataObj[w][t];
+        rows.push({
+          user_id: currentUserId, week:w, truck:t,
+          contract_id: d.contractId || null,
+          block_rate: d.blockRate!=="" ? parseFloat(d.blockRate) : null,
+          num_blocks: d.numBlocks!=="" ? parseFloat(d.numBlocks) : null,
+          block1: d.block1!=="" ? parseFloat(d.block1) : null,
+          block2: d.block2!=="" ? parseFloat(d.block2) : null,
+          block3: d.block3!=="" ? parseFloat(d.block3) : null,
+        });
+      } else {
+        const v = dataObj[w][t];
+        rows.push({ user_id: currentUserId, week:w, truck:t, amount: v!=="" ? parseFloat(v) : null });
+      }
+    });
+  });
+  return rows;
+}
+
+function rowsFromLog(entries, fieldMap){
+  // fieldMap maps {date:'entry_date', description:'description', amount:'amount'} etc.
+  return entries
+    .filter(e => e.truck || e[Object.keys(fieldMap)[0]] || e[Object.keys(fieldMap)[1]] || e[Object.keys(fieldMap)[2]])
+    .map(e=>{
+      const row = { user_id: currentUserId, truck: e.truck || null };
+      Object.keys(fieldMap).forEach(k=>{ row[fieldMap[k]] = e[k] || null; });
+      if(row.amount !== undefined && row.amount !== null) row.amount = parseFloat(row.amount) || null;
+      if(row.mileage !== undefined && row.mileage !== null) row.mileage = parseFloat(row.mileage) || null;
+      return row;
+    });
+}
+
+async function saveAll(){
+  if(!sb){ alert("Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"); return; }
+  setStatus("Saving...");
+  try{
+    const tasks = [
+      ["contracts", rowsFromWeeklyGrid(weeksData, true)],
+      ["fuel", rowsFromWeeklyGrid(fuelData, false)],
+      ["payroll", rowsFromWeeklyGrid(payrollData, false)],
+      ["parts", rowsFromLog(partsLog, {date:"entry_date", description:"description", amount:"amount"})],
+      ["mechanic", rowsFromLog(mechanicLog, {date:"entry_date", description:"description", amount:"amount"})],
+      ["maintenance", rowsFromLog(maintenanceLog, {description:"description", date:"entry_date", amount:"mileage"})],
+    ];
+    for(const [table, rows] of tasks){
+      const { error: delErr } = await sb.from(table).delete().eq("user_id", currentUserId);
+      if(delErr) throw delErr;
+      if(rows.length){
+        const { error: insErr } = await sb.from(table).insert(rows);
+        if(insErr) throw insErr;
+      }
+    }
+    markSaved();
+  } catch(e){
+    console.error(e);
+    alert("Save failed: " + (e.message || e));
+    setStatus("Save failed");
+  }
+}
+
+async function loadAll(){
+  if(!sb) return;
+  setStatus("Loading...");
+  try{
+    const [c, f, p, parts, mech, maint] = await Promise.all([
+      sb.from("contracts").select("*"),
+      sb.from("fuel").select("*"),
+      sb.from("payroll").select("*"),
+      sb.from("parts").select("*"),
+      sb.from("mechanic").select("*"),
+      sb.from("maintenance").select("*"),
+    ]);
+    [c,f,p,parts,mech,maint].forEach(r=>{ if(r.error) throw r.error; });
+
+    (c.data||[]).forEach(r=>{
+      const t = normalizeTruck(r.truck);
+      if(!weeksData[r.week] || !TRUCKS.includes(t)) return;
+      weeksData[r.week][t] = {
+        contractId: r.contract_id ?? "", blockRate: r.block_rate ?? "", numBlocks: r.num_blocks ?? "",
+        block1: r.block1 ?? "", block2: r.block2 ?? "", block3: r.block3 ?? ""
+      };
+    });
+    (f.data||[]).forEach(r=>{ const t=normalizeTruck(r.truck); if(fuelData[r.week] && TRUCKS.includes(t)) fuelData[r.week][t] = r.amount ?? ""; });
+    (p.data||[]).forEach(r=>{ const t=normalizeTruck(r.truck); if(payrollData[r.week] && TRUCKS.includes(t)) payrollData[r.week][t] = r.amount ?? ""; });
+    partsLog = (parts.data||[]).map(r=>({ truck:normalizeTruck(r.truck||""), date:r.entry_date||"", description:r.description||"", amount:r.amount??"" }));
+    mechanicLog = (mech.data||[]).map(r=>({ truck:normalizeTruck(r.truck||""), date:r.entry_date||"", description:r.description||"", amount:r.amount??"" }));
+    maintenanceLog = (maint.data||[]).map(r=>({ truck:normalizeTruck(r.truck||""), description:r.description||"", date:r.entry_date||"", amount:r.mileage??"" }));
+
+    setStatus("");
+    markSaved();
+  } catch(e){
+    console.error(e);
+    setStatus("Load failed");
+  }
+}
+
+/* ======================================================================
+   XLSX EXPORT ENGINE (same tested engine as the desktop version, just
+   triggers a browser download instead of writing to a local file handle)
+   ====================================================================== */
+const CRC_TABLE = (()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[n]=c>>>0;} return t; })();
+function crc32(bytes){ let c=0xFFFFFFFF; for(let i=0;i<bytes.length;i++) c=CRC_TABLE[(c^bytes[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function strToBytes(str){ return new TextEncoder().encode(str); }
+function concatBytes(arrays){ let total=0; for(const a of arrays) total+=a.length; const out=new Uint8Array(total); let off=0; for(const a of arrays){out.set(a,off); off+=a.length;} return out; }
+function u16(v){ const b=new Uint8Array(2); new DataView(b.buffer).setUint16(0,v,true); return b; }
+function u32(v){ const b=new Uint8Array(4); new DataView(b.buffer).setUint32(0,v>>>0,true); return b; }
+
+function buildZip(files){
+  const localParts=[], centralParts=[]; let offset=0;
+  for(const f of files){
+    const nameBytes=strToBytes(f.name), dataBytes=f.data, crc=crc32(dataBytes), size=dataBytes.length;
+    const localHeader=concatBytes([u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(size),u32(size),u16(nameBytes.length),u16(0),nameBytes]);
+    localParts.push(localHeader,dataBytes);
+    const centralHeader=concatBytes([u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(size),u32(size),u16(nameBytes.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),nameBytes]);
+    centralParts.push(centralHeader);
+    offset += localHeader.length + dataBytes.length;
+  }
+  const centralDir=concatBytes(centralParts), centralOffset=offset, centralSize=centralDir.length;
+  const eocd=concatBytes([u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(centralSize),u32(centralOffset),u16(0)]);
+  return concatBytes([...localParts, centralDir, eocd]);
+}
+
+function sheetNameFor(week){ return `Week ${week}`; }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function inlineStrCell(ref,value,styleId){ const s=styleId!==undefined?` s="${styleId}"`:""; return `<c r="${ref}"${s} t="inlineStr"><is><t>${esc(value)}</t></is></c>`; }
+function numCell(ref,value,styleId){ const s=styleId!==undefined?` s="${styleId}"`:""; const v=(value===""||value===null||value===undefined||isNaN(value))?"":value; if(v==="") return `<c r="${ref}"${s}/>`; return `<c r="${ref}"${s}><v>${v}</v></c>`; }
+function formulaCell(ref,formula,cachedValue,styleId){ const s=styleId!==undefined?` s="${styleId}"`:""; return `<c r="${ref}"${s}><f>${esc(formula)}</f><v>${cachedValue}</v></c>`; }
+
+function buildWeekSheetXML(week, dateRange, rows){
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
+  xml += `<row r="1">${inlineStrCell("A1",`Week ${week}  (${dateRange})`,3)}</row>`;
+  xml += `<row r="2">${inlineStrCell("A2","Acc = Accessories (fuel surcharge/tolls). Contract Rate = Block Rate x Number of Blocks. Week runs Sunday-Saturday.",0)}</row>`;
+  const headers=["Truck ID","Contract ID","Block Rate","Number of Blocks","Block 1 + Acc","Block 2 + Acc","Block 3 + Acc","Contract Rate","Contract + Acc","Total Acc"];
+  const cols=["A","B","C","D","E","F","G","H","I","J"];
+  xml += `<row r="4">` + headers.map((h,i)=>inlineStrCell(cols[i]+"4",h,2)).join("") + `</row>`;
+  rows.forEach((r,idx)=>{
+    const rr=5+idx;
+    xml += `<row r="${rr}">`;
+    xml += inlineStrCell(`A${rr}`,r.truck,0);
+    xml += inlineStrCell(`B${rr}`,r.contractId,0);
+    xml += numCell(`C${rr}`,r.blockRate,1);
+    xml += numCell(`D${rr}`,r.numBlocks,0);
+    xml += numCell(`E${rr}`,r.block1,1);
+    xml += numCell(`F${rr}`,r.block2,1);
+    xml += numCell(`G${rr}`,r.block3,1);
+    xml += formulaCell(`H${rr}`,`C${rr}*D${rr}`,r.contractRate,1);
+    xml += formulaCell(`I${rr}`,`SUM(E${rr}:G${rr})`,r.contractAcc,1);
+    xml += formulaCell(`J${rr}`,`I${rr}-H${rr}`,r.totalAcc,1);
+    xml += `</row>`;
+  });
+  xml += `</sheetData></worksheet>`;
+  return xml;
+}
+
+function buildSummarySheetXML(summaryRows, companyRow){
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
+  xml += `<row r="1">${inlineStrCell("A1","LASS LOGISTICS - Load Tracker Summary",3)}</row>`;
+  xml += `<row r="2">${inlineStrCell("A2","All-time running totals across every week tab entered (Week 34 onward, Sunday-Saturday).",0)}</row>`;
+  const headers=["Truck ID","Gross Contracts","Gross Contracts + Acc","Gross Acc"];
+  const cols=["A","B","C","D"];
+  xml += `<row r="4">` + headers.map((h,i)=>inlineStrCell(cols[i]+"4",h,2)).join("") + `</row>`;
+  summaryRows.forEach((r,idx)=>{
+    const rr=5+idx;
+    const refsH=WEEKS.map(w=>`'${sheetNameFor(w)}'!H${idx+5}`).join(",");
+    const refsI=WEEKS.map(w=>`'${sheetNameFor(w)}'!I${idx+5}`).join(",");
+    const refsJ=WEEKS.map(w=>`'${sheetNameFor(w)}'!J${idx+5}`).join(",");
+    xml += `<row r="${rr}">`;
+    xml += inlineStrCell(`A${rr}`,r.truck,0);
+    xml += formulaCell(`B${rr}`,`SUM(${refsH})`,r.grossContracts,1);
+    xml += formulaCell(`C${rr}`,`SUM(${refsI})`,r.grossContractsAcc,1);
+    xml += formulaCell(`D${rr}`,`SUM(${refsJ})`,r.grossAcc,1);
+    xml += `</row>`;
+  });
+  const compRow = 5 + summaryRows.length;
+  const firstRow = 5, lastRow = compRow - 1;
+  xml += `<row r="${compRow}">`;
+  xml += inlineStrCell(`A${compRow}`,"Company Total",2);
+  xml += formulaCell(`B${compRow}`,`SUM(B${firstRow}:B${lastRow})`,companyRow.grossContracts,1);
+  xml += formulaCell(`C${compRow}`,`SUM(C${firstRow}:C${lastRow})`,companyRow.grossContractsAcc,1);
+  xml += formulaCell(`D${compRow}`,`SUM(D${firstRow}:D${lastRow})`,companyRow.grossAcc,1);
+  xml += `</row>`;
+  xml += `</sheetData></worksheet>`;
+  return xml;
+}
+
+function buildWeeklyAmountSheetXML(title, subtitle, colLabels, dataObj, sectionLabel){
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
+  xml += `<row r="1">${inlineStrCell("A1",title,3)}</row>`;
+  xml += `<row r="2">${inlineStrCell("A2",subtitle,0)}</row>`;
+  const sumHeaders = ["", colLabels[0], colLabels[1], colLabels[2], "Company Total"];
+  xml += `<row r="4">` + sumHeaders.map((h,i)=> h ? inlineStrCell(["A","B","C","D","E"][i]+"4",h,2) : "").join("") + `</row>`;
+  const firstDataRow = 9;
+  const lastDataRow = firstDataRow + WEEKS.length - 1;
+  const refB = `SUM(C${firstDataRow}:C${lastDataRow})`;
+  const refC = `SUM(D${firstDataRow}:D${lastDataRow})`;
+  const refD = `SUM(E${firstDataRow}:E${lastDataRow})`;
+  let totalB=0, totalC=0, totalD=0;
+  WEEKS.forEach(w=>{ totalB += parseFloat(dataObj[w][TRUCKS[0]])||0; totalC += parseFloat(dataObj[w][TRUCKS[1]])||0; totalD += parseFloat(dataObj[w][TRUCKS[2]])||0; });
+  xml += `<row r="5">`;
+  xml += inlineStrCell("A5", sectionLabel==="Fuel"?"Season to Date":"Total Paid to Date", 0);
+  xml += formulaCell("B5", refB, totalB, 1);
+  xml += formulaCell("C5", refC, totalC, 1);
+  xml += formulaCell("D5", refD, totalD, 1);
+  xml += formulaCell("E5", `SUM(B5:D5)`, totalB+totalC+totalD, 1);
+  xml += `</row>`;
+  xml += `<row r="7">${inlineStrCell("A7", `Weekly ${sectionLabel}`, 0)}</row>`;
+  const gridHeaders = ["Week","Date Range",colLabels[0],colLabels[1],colLabels[2]];
+  xml += `<row r="8">` + gridHeaders.map((h,i)=>inlineStrCell(["A","B","C","D","E"][i]+"8",h,2)).join("") + `</row>`;
+  WEEKS.forEach((w,idx)=>{
+    const rr = firstDataRow + idx;
+    const d = dataObj[w];
+    xml += `<row r="${rr}">`;
+    xml += numCell(`A${rr}`, w, 0);
+    xml += inlineStrCell(`B${rr}`, weekDateRangeLabel(w), 0);
+    xml += numCell(`C${rr}`, d[TRUCKS[0]], 1);
+    xml += numCell(`D${rr}`, d[TRUCKS[1]], 1);
+    xml += numCell(`E${rr}`, d[TRUCKS[2]], 1);
+    xml += `</row>`;
+  });
+  xml += `</sheetData></worksheet>`;
+  return xml;
+}
+
+function buildLogSheetXML(title, subtitle, colHeaders, fieldOrder, entries, summaryType){
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
+  xml += `<row r="1">${inlineStrCell("A1",title,3)}</row>`;
+  xml += `<row r="2">${inlineStrCell("A2",subtitle,0)}</row>`;
+  const firstDataRow = 9;
+  const nRows = Math.max(150, entries.length);
+  const lastDataRow = firstDataRow + nRows - 1;
+  if(summaryType === "sum"){
+    const sumHeaders = ["", "Truck 31", "Truck 32", "Felito", "Grand Total"];
+    xml += `<row r="4">` + sumHeaders.map((h,i)=> h ? inlineStrCell(["A","B","C","D","E"][i]+"4",h,2) : "").join("") + `</row>`;
+    let sums = {}; TRUCKS.forEach(t=>sums[t]=0);
+    entries.forEach(e=>{ const t=normalizeTruck(e.truck); if(TRUCKS.includes(t)) sums[t] += parseFloat(e.amount)||0; });
+    const grand = TRUCKS.reduce((a,t)=>a+sums[t],0);
+    xml += `<row r="5">`;
+    xml += inlineStrCell("A5","Total Paid",0);
+    TRUCKS.forEach((t,i)=>{
+      const col = ["B","C","D"][i];
+      const legacyName = t === "001" ? FELITO_ALIAS : t;
+      const f = `SUMIF(A${firstDataRow}:A${lastDataRow},"${legacyName}",D${firstDataRow}:D${lastDataRow})+SUMIF(A${firstDataRow}:A${lastDataRow},"${t}",D${firstDataRow}:D${lastDataRow})`;
+      xml += formulaCell(`${col}5`, f, sums[t], 1);
+    });
+    xml += formulaCell("E5", `SUM(D${firstDataRow}:D${lastDataRow})`, grand, 1);
+    xml += `</row>`;
+  } else {
+    const sumHeaders = ["", "Truck 31", "Truck 32", "Felito"];
+    xml += `<row r="4">` + sumHeaders.map((h,i)=> h ? inlineStrCell(["A","B","C","D"][i]+"4",h,2) : "").join("") + `</row>`;
+    let maxes = {}; TRUCKS.forEach(t=>maxes[t]=0);
+    entries.forEach(e=>{ const t=normalizeTruck(e.truck); if(TRUCKS.includes(t)) maxes[t] = Math.max(maxes[t], parseFloat(e.amount)||0); });
+    xml += `<row r="5">`;
+    xml += inlineStrCell("A5","Latest Recorded Mileage",0);
+    TRUCKS.forEach((t,i)=>{
+      const col = ["B","C","D"][i];
+      const legacyName = t === "001" ? FELITO_ALIAS : t;
+      const f = `SUMPRODUCT(MAX((A${firstDataRow}:A${lastDataRow}="${legacyName}")*D${firstDataRow}:D${lastDataRow},(A${firstDataRow}:A${lastDataRow}="${t}")*D${firstDataRow}:D${lastDataRow}))`;
+      xml += formulaCell(`${col}5`, f, maxes[t], 4);
+    });
+    xml += `</row>`;
+  }
+  xml += `<row r="7">${inlineStrCell("A7","Entry Log",0)}</row>`;
+  const logHeaders = ["Truck", colHeaders[0], colHeaders[1], colHeaders[2]];
+  xml += `<row r="8">` + logHeaders.map((h,i)=>inlineStrCell(["A","B","C","D"][i]+"8",h,2)).join("") + `</row>`;
+  for(let i=0;i<nRows;i++){
+    const rr = firstDataRow + i;
+    const e = entries[i] || { truck:"", [fieldOrder[0]]:"", [fieldOrder[1]]:"", [fieldOrder[2]]:"" };
+    xml += `<row r="${rr}">`;
+    xml += inlineStrCell(`A${rr}`, e.truck||"", 0);
+    const v0 = e[fieldOrder[0]]||"", v1 = e[fieldOrder[1]]||"", v2 = e[fieldOrder[2]]||"";
+    xml += inlineStrCell(`B${rr}`, v0, 0);
+    xml += inlineStrCell(`C${rr}`, v1, 0);
+    if(fieldOrder[2] === "amount"){
+      xml += numCell(`D${rr}`, v2, summaryType==="max" ? 4 : 1);
+    } else {
+      xml += inlineStrCell(`D${rr}`, v2, 0);
+    }
+    xml += `</row>`;
+  }
+  xml += `</sheetData></worksheet>`;
+  return xml;
+}
+
+function buildWorkbookXML(sheetNames){
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>`;
+  sheetNames.forEach((name,i)=>{ xml += `<sheet name="${esc(name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`; });
+  xml += `</sheets></workbook>`;
+  return xml;
+}
+function buildWorkbookRelsXML(sheetCount){
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`;
+  for(let i=0;i<sheetCount;i++) xml += `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`;
+  xml += `<Relationship Id="rId${sheetCount+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+  xml += `</Relationships>`;
+  return xml;
+}
+function buildContentTypesXML(sheetCount){
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`;
+  for(let i=0;i<sheetCount;i++) xml += `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+  xml += `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+  return xml;
+}
+function buildRootRelsXML(){ return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`; }
+function buildStylesXML(){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/><numFmt numFmtId="165" formatCode="#,##0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+}
+
+function buildWorkbookBytes(){
+  const sheetNames = ["Summary","Fuel","Parts","Mechanic","Maintenance","Payroll", ...WEEKS.map(w=>sheetNameFor(w))];
+  const sheetXMLs = [];
+  const rowsByWeek = {};
+  WEEKS.forEach(w=>{ rowsByWeek[w] = TRUCKS.map(t=>computeRow(t, weeksData[w][t])); });
+  const { totals, company } = computeAllTimeTotals();
+  sheetXMLs.push(buildSummarySheetXML(totals, company));
+  sheetXMLs.push(buildWeeklyAmountSheetXML("LASS LOGISTICS - Fuel Expense Log","Fuel cost logged per truck per week. Same weeks as Contracts (Sunday-Saturday).",["Truck 31","Truck 32","Felito"], fuelData, "Fuel"));
+  sheetXMLs.push(buildLogSheetXML("LASS LOGISTICS - Parts Expense Log","Parts purchased per truck.",["Date","Description","Price"], ["date","description","amount"], partsLog, "sum"));
+  sheetXMLs.push(buildLogSheetXML("LASS LOGISTICS - Mechanic / Repair Log","Repairs paid per truck.",["Date","Description of Repair","Amount Paid"], ["date","description","amount"], mechanicLog, "sum"));
+  sheetXMLs.push(buildLogSheetXML("LASS LOGISTICS - Maintenance Records","Service history per truck.",["Description","Date","Mileage"], ["description","date","amount"], maintenanceLog, "max"));
+  sheetXMLs.push(buildWeeklyAmountSheetXML("LASS LOGISTICS - Payroll Log","Driver pay entered manually per week (separate from contract totals). Drivers named after trucks.",["Driver 31","Driver 32","Driver Felito"], payrollData, "Payroll"));
+  WEEKS.forEach(w=>{ sheetXMLs.push(buildWeekSheetXML(w, weekDateRangeLabel(w), rowsByWeek[w])); });
+  const files=[];
+  files.push({name:"[Content_Types].xml", data:strToBytes(buildContentTypesXML(sheetNames.length))});
+  files.push({name:"_rels/.rels", data:strToBytes(buildRootRelsXML())});
+  files.push({name:"xl/workbook.xml", data:strToBytes(buildWorkbookXML(sheetNames))});
+  files.push({name:"xl/_rels/workbook.xml.rels", data:strToBytes(buildWorkbookRelsXML(sheetNames.length))});
+  files.push({name:"xl/styles.xml", data:strToBytes(buildStylesXML())});
+  sheetXMLs.forEach((xml,i)=>{ files.push({name:`xl/worksheets/sheet${i+1}.xml`, data:strToBytes(xml)}); });
+  return buildZip(files);
+}
+
+function exportExcel(){
+  const bytes = buildWorkbookBytes();
+  const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "FleetHub_Export.xlsx";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ============ UI ELEMENT REFS ============ */
+const navList = document.getElementById("navList");
+const mainArea = document.getElementById("mainArea");
+const statusText = document.getElementById("statusText");
+const btnSave = document.getElementById("btnSave");
+const btnExport = document.getElementById("btnExport");
+const homeBtn = document.getElementById("homeBtn");
+const weekNav = document.getElementById("weekNav");
+const hamburgerBtn = document.getElementById("hamburgerBtn");
+const hamburgerMenu = document.getElementById("hamburgerMenu");
+const authScreen = document.getElementById("authScreen");
+const appRoot = document.getElementById("appRoot");
+
+function weekNavApplies(){
+  if(currentModule === "contracts") return true;
+  if(currentModule === "payroll") return true;
+  if(currentModule === "expenses" && currentExpenseTab === "fuel") return true;
+  return false;
+}
+
+function renderNav(){
+  const applies = weekNavApplies();
+  weekNav.style.display = applies ? "flex" : "none";
+  if(!applies) return;
+  homeBtn.classList.toggle("active", currentView.type === "summary");
+  const groups = groupWeeksByMonth();
+  let html = "";
+  groups.forEach(g=>{
+    html += `<div class="month-header">${g.label}</div>`;
+    g.weeks.forEach(w=>{
+      const isActive = currentView.type==="week" && currentView.week===w;
+      html += `<button class="navbtn ${isActive?'active':''}" data-week="${w}">Week ${w}<span class="wk-dates">${weekDateRangeLabel(w)}</span></button>`;
+    });
+  });
+  navList.innerHTML = html;
+  navList.querySelectorAll(".navbtn").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      currentView = { type:"week", week: parseInt(b.dataset.week) };
+      renderNav(); renderMain();
+    });
+  });
+}
+
+function fieldHTML(id, label, value, opts){
+  opts = opts||{};
+  const step = opts.step || "0.01";
+  return `<div class="field"><label>${label}</label><input type="${opts.type||'text'}" ${opts.type==='number'?`step="${step}" min="0"`:''} id="${id}" value="${value!==undefined?value:''}" ${opts.readonly?'readonly':''}></div>`;
+}
+
+function renderMain(){
+  if(currentModule === "maintenance"){ renderLogPage({
+    key:"maintenance", title:"Maintenance Records", subtitle:"Service history and upcoming maintenance by truck.",
+    colHeaders:["Description","Date","Mileage"], fieldOrder:["description","date","amount"],
+    amountType:"number", amountLabel:"Mileage", summaryType:"max", currency:false,
+    summaryLabel:"Latest Recorded Mileage"
+  }); return; }
+
+  if(currentModule === "expenses"){
+    if(currentExpenseTab === "overview"){ renderExpensesOverview(); return; }
+    if(currentExpenseTab === "fuel"){ renderWeeklyAmountPage({
+      key:"fuel", title:"Fuel", labels:["Truck 31","Truck 32","001"], dataObj:fuelData,
+      summaryTitle:"", entryLabel:"Fuel Cost", companyLabel:"FUEL YTD"
+    }); return; }
+    if(currentExpenseTab === "parts"){ renderLogPage({
+      key:"parts", title:"Parts", subtitle:"Parts purchased per truck.",
+      colHeaders:["Date","Description","Price"], fieldOrder:["date","description","amount"],
+      amountType:"number", amountLabel:"Price", summaryType:"sum", currency:true,
+      summaryLabel:"YTD Parts", companyLabel:"PARTS YTD"
+    }); return; }
+    if(currentExpenseTab === "mechanic"){ renderLogPage({
+      key:"mechanic", title:"Mechanic / Repair Log", subtitle:"Repairs paid per truck.",
+      colHeaders:["Date Paid","Description of Repair","Amount Paid"], fieldOrder:["date","description","amount"],
+      amountType:"number", amountLabel:"Amount Paid", summaryType:"sum", currency:true,
+      summaryLabel:"YTD Mechanic", companyLabel:"MECHANIC YTD"
+    }); return; }
+  }
+
+  if(currentModule === "payroll"){ renderWeeklyAmountPage({
+    key:"payroll", title:"Payroll", labels:["Driver 31","Driver 32","Driver 001"], dataObj:payrollData,
+    summaryTitle:"YTD Payroll", entryLabel:"Weekly Pay", companyLabel:"PAYROLL YTD"
+  }); return; }
+
+  renderContractsPage();
+}
+
+function renderContractsPage(){
+  if(currentView.type === "summary"){ renderDashboard(); return; }
+  const { week } = currentView;
+  const dateRange = weekDateRangeLabel(week);
+  let html = `<h1 class="page-title">Week ${week}</h1><p class="page-sub">${dateRange} (Sun-Sat) &nbsp;|&nbsp; Acc = Accessories (fuel surcharge / tolls)</p><div class="cards">`;
+  TRUCKS.forEach(truck=>{
+    const d = weeksData[week][truck];
+    const row = computeRow(truck, d);
+    html += `<div class="card" data-truck="${truck}">
+      <h3>Truck <span class="tag">${truck}</span></h3>
+      ${fieldHTML(`ci-${week}-${truck}`,"Contract ID", d.contractId)}
+      <div class="blockgrid">
+        ${fieldHTML(`br-${week}-${truck}`,"Block Rate", d.blockRate, {type:'number'})}
+        ${fieldHTML(`nb-${week}-${truck}`,"Blocks (QTY)", d.numBlocks, {type:'number', step:'1'})}
+      </div>
+      <div class="blockgrid" style="grid-template-columns:1fr 1fr 1fr;">
+        ${fieldHTML(`b1-${week}-${truck}`,"1. Payout", d.block1, {type:'number'})}
+        ${fieldHTML(`b2-${week}-${truck}`,"2. Payout", d.block2, {type:'number'})}
+        ${fieldHTML(`b3-${week}-${truck}`,"3. Payout", d.block3, {type:'number'})}
+      </div>
+      <div class="totalsrow">
+        <div class="field readonly"><label>Contract Rate</label><input readonly value="$${row.contractRate.toFixed(2)}"></div>
+        <div class="field readonly"><label>Contract Payout</label><input readonly value="$${row.contractAcc.toFixed(2)}"></div>
+        <div class="field readonly"><label>Total Accessories</label><input readonly value="$${row.totalAcc.toFixed(2)}"></div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  mainArea.innerHTML = html;
+  TRUCKS.forEach(truck=>{
+    const map = { ci:'contractId', br:'blockRate', nb:'numBlocks', b1:'block1', b2:'block2', b3:'block3' };
+    Object.keys(map).forEach(prefix=>{
+      const el = document.getElementById(`${prefix}-${week}-${truck}`);
+      el.addEventListener("input", ()=>{
+        weeksData[week][truck][map[prefix]] = el.value;
+        markUnsaved();
+        updateContractTotalsInline(week, truck);
+      });
+    });
+  });
+}
+
+function updateContractTotalsInline(week, truck){
+  const card = mainArea.querySelector(`.card[data-truck="${truck}"]`);
+  if(!card) return;
+  const row = computeRow(truck, weeksData[week][truck]);
+  const inputs = card.querySelectorAll(".totalsrow input");
+  inputs[0].value = `$${row.contractRate.toFixed(2)}`;
+  inputs[1].value = `$${row.contractAcc.toFixed(2)}`;
+  inputs[2].value = `$${row.totalAcc.toFixed(2)}`;
+}
+
+function moneyStr(v){ return v<0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`; }
+
+function renderDashboard(){
+  const { perTruck, company } = computeDashboardYTD();
+  let html = `<h1 class="page-title">Dashboard</h1><p class="page-sub">All-time (YTD) totals across every week entered (Week 34 onward).</p>`;
+  html += `<div class="section-label">By Truck</div><div class="cards summary-cards">`;
+  perTruck.forEach(t=>{
+    html += `<div class="card">
+      <h3>Truck <span class="tag">${t.truck}</span></h3>
+      <div class="metric"><div class="label">YTD Contracts</div><div class="big">${moneyStr(t.ytdContracts)}</div></div>
+      <div class="metric"><div class="label">YTD Accessories</div><div class="big">${moneyStr(t.ytdAccessories)}</div></div>
+      <div class="metric"><div class="label">YTD Expenses</div><div class="big">${moneyStr(t.ytdExpenses)}</div></div>
+      <div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(t.ytdPayroll)}</div></div>
+      <div class="metric"><div class="label">Gross YTD</div><div class="big">${moneyStr(t.grossYTD)}</div></div>
+      <div class="metric"><div class="label">Net YTD</div><div class="big ${t.netYTD<0?'negative':''}">${moneyStr(t.netYTD)}</div></div>
+    </div>`;
+  });
+  html += `</div>`;
+  html += `<div class="section-label">Entire Company</div><div class="cards summary-cards">`;
+  html += `<div class="card company">
+      <h3>All Trucks <span class="tag">Combined</span></h3>
+      <div class="metric"><div class="label">YTD Contracts</div><div class="big">${moneyStr(company.ytdContracts)}</div></div>
+      <div class="metric"><div class="label">YTD Accessories</div><div class="big">${moneyStr(company.ytdAccessories)}</div></div>
+      <div class="metric"><div class="label">YTD Expenses</div><div class="big">${moneyStr(company.ytdExpenses)}</div></div>
+      <div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(company.ytdPayroll)}</div></div>
+      <div class="metric"><div class="label">Gross YTD</div><div class="big">${moneyStr(company.grossYTD)}</div></div>
+      <div class="metric"><div class="label">Net YTD</div><div class="big ${company.netYTD<0?'negative':''}">${moneyStr(company.netYTD)}</div></div>
+    </div>`;
+  html += `</div>`;
+  mainArea.innerHTML = html;
+}
+
+function renderExpensesOverview(){
+  const fuelTotals = computeSimpleWeekTotals(fuelData);
+  const partsSum = computeLogSummary(partsLog, "sum");
+  const mechSum = computeLogSummary(mechanicLog, "sum");
+  let html = `<h1 class="page-title">Expenses</h1><p class="page-sub">Fuel, Parts, and Mechanic costs at a glance.</p>`;
+  html += subtabsHTML();
+  html += `<div class="cards">`;
+  html += `<div class="card clickable" data-tab="fuel"><h3>Fuel</h3><div class="metric"><div class="label">FUEL YTD</div><div class="big">${moneyStr(fuelTotals.company)}</div></div><div class="hint">Click to view weekly entries</div></div>`;
+  html += `<div class="card clickable" data-tab="parts"><h3>Parts</h3><div class="metric"><div class="label">PARTS YTD</div><div class="big">${moneyStr(partsSum.grand)}</div></div><div class="hint">Click to view/edit log</div></div>`;
+  html += `<div class="card clickable" data-tab="mechanic"><h3>Mechanic</h3><div class="metric"><div class="label">MECHANIC YTD</div><div class="big">${moneyStr(mechSum.grand)}</div></div><div class="hint">Click to view/edit log</div></div>`;
+  html += `</div>`;
+  mainArea.innerHTML = html;
+  wireSubtabs();
+  mainArea.querySelectorAll(".card.clickable").forEach(c=>{
+    c.addEventListener("click", ()=>{ currentExpenseTab = c.dataset.tab; currentView = {type:"summary"}; renderNav(); renderMain(); });
+  });
+}
+
+function subtabsHTML(){
+  const tabs = [["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"]];
+  return `<div class="subtabs">` + tabs.map(([k,label])=>
+    `<button data-tab="${k}" class="${currentExpenseTab===k?'active':''}">${label}</button>`
+  ).join("") + `</div>`;
+}
+function wireSubtabs(){
+  mainArea.querySelectorAll(".subtabs button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      currentExpenseTab = b.dataset.tab;
+      currentView = {type:"summary"};
+      renderNav(); renderMain();
+    });
+  });
+}
+
+function renderWeeklyAmountPage(cfg){
+  if(currentView.type === "summary"){ renderWeeklyAmountSummary(cfg); return; }
+  const { week } = currentView;
+  let html = `<h1 class="page-title">${cfg.title} - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat)</p>`;
+  if(cfg.key === "fuel") html += subtabsHTML();
+  html += `<div class="cards">`;
+  TRUCKS.forEach((truck,i)=>{
+    const val = cfg.dataObj[week][truck];
+    html += `<div class="card" data-truck="${truck}">
+      <h3>${cfg.labels[i]}</h3>
+      ${fieldHTML(`wa-${cfg.key}-${week}-${truck}`, cfg.entryLabel, val, {type:'number'})}
+    </div>`;
+  });
+  html += `</div>`;
+  mainArea.innerHTML = html;
+  if(cfg.key === "fuel") wireSubtabs();
+  TRUCKS.forEach(truck=>{
+    const el = document.getElementById(`wa-${cfg.key}-${week}-${truck}`);
+    el.addEventListener("input", ()=>{
+      cfg.dataObj[week][truck] = el.value;
+      markUnsaved();
+    });
+  });
+}
+
+function renderWeeklyAmountSummary(cfg){
+  const { totals, company } = computeSimpleWeekTotals(cfg.dataObj);
+  let html = `<h1 class="page-title">${cfg.title}</h1>`;
+  if(cfg.summaryTitle) html += `<p class="page-sub">${cfg.summaryTitle} across every week entered.</p>`;
+  if(cfg.key === "fuel") html += subtabsHTML();
+  html += `<div class="cards summary-cards">`;
+  totals.forEach((t,i)=>{
+    const rowLabel = cfg.summaryTitle || "";
+    html += `<div class="card"><h3>${cfg.labels[i]}</h3><div class="metric">${rowLabel?`<div class="label">${rowLabel}</div>`:''}<div class="big">${moneyStr(t.total)}</div></div></div>`;
+  });
+  html += `<div class="card company"><h3>${cfg.companyLabel}</h3><div class="metric"><div class="big">${moneyStr(company)}</div></div></div>`;
+  html += `</div>`;
+  mainArea.innerHTML = html;
+  if(cfg.key === "fuel") wireSubtabs();
+}
+
+function getLogArray(key){
+  if(key==="parts") return partsLog;
+  if(key==="mechanic") return mechanicLog;
+  return maintenanceLog;
+}
+
+function renderLogPage(cfg){
+  const entries = getLogArray(cfg.key);
+  const summary = computeLogSummary(entries, cfg.summaryType);
+  let html = `<h1 class="page-title">${cfg.title}</h1><p class="page-sub">${cfg.subtitle}</p>`;
+  if(cfg.key==="parts" || cfg.key==="mechanic") html += subtabsHTML();
+  html += `<div class="cards summary-cards">`;
+  TRUCKS.forEach(truck=>{
+    const val = cfg.summaryType==="sum" ? summary.sums[truck] : summary.maxes[truck];
+    const display = cfg.currency ? moneyStr(val) : val.toLocaleString();
+    const label = cfg.summaryLabel || (cfg.summaryType==="sum" ? "Total Paid" : "Latest Mileage");
+    html += `<div class="card"><h3>Truck <span class="tag">${truck}</span></h3><div class="metric"><div class="label">${label}</div><div class="big">${display}</div></div></div>`;
+  });
+  if(cfg.summaryType==="sum"){
+    html += `<div class="card company"><h3>${cfg.companyLabel}</h3><div class="metric"><div class="big">${moneyStr(summary.grand)}</div></div></div>`;
+  }
+  html += `</div>`;
+  html += `<div class="section-label">Entry Log</div>`;
+  html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th></th></tr></thead><tbody id="logTbody">`;
+  entries.forEach((e,idx)=>{ html += logRowHTML(cfg, e, idx); });
+  html += `</tbody></table>`;
+  html += `<div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add Entry</button></div>`;
+  mainArea.innerHTML = html;
+  if(cfg.key==="parts" || cfg.key==="mechanic") wireSubtabs();
+  wireLogTable(cfg);
+}
+
+function logRowHTML(cfg, e, idx){
+  const truckOptions = TRUCKS.map(t=>`<option value="${t}" ${normalizeTruck(e.truck)===t?'selected':''}>${t}</option>`).join("");
+  const f0 = cfg.fieldOrder[0], f1 = cfg.fieldOrder[1], f2 = cfg.fieldOrder[2];
+  const type0 = f0==="date" ? "date" : "text";
+  const type1 = f1==="date" ? "date" : "text";
+  const type2 = f2==="amount" ? "number" : (f2==="date" ? "date" : "text");
+  return `<tr data-idx="${idx}">
+    <td><select class="log-truck"><option value="">-</option>${truckOptions}</select></td>
+    <td><input class="log-f0" type="${type0}" value="${e[f0]||''}"></td>
+    <td><input class="log-f1" type="${type1}" value="${e[f1]||''}"></td>
+    <td><input class="log-f2" type="${type2}" ${type2==='number'?'step="0.01" min="0"':''} value="${e[f2]||''}"></td>
+    <td><button class="btn-danger log-delete">Remove</button></td>
+  </tr>`;
+}
+
+function wireLogTable(cfg){
+  const entries = getLogArray(cfg.key);
+  const tbody = document.getElementById("logTbody");
+  tbody.querySelectorAll("tr").forEach(tr=>{
+    const idx = parseInt(tr.dataset.idx);
+    tr.querySelector(".log-truck").addEventListener("change", (e)=>{ entries[idx].truck = e.target.value; markUnsaved(); refreshLogSummary(cfg); });
+    tr.querySelector(".log-f0").addEventListener("input", (e)=>{ entries[idx][cfg.fieldOrder[0]] = e.target.value; markUnsaved(); });
+    tr.querySelector(".log-f1").addEventListener("input", (e)=>{ entries[idx][cfg.fieldOrder[1]] = e.target.value; markUnsaved(); });
+    tr.querySelector(".log-f2").addEventListener("input", (e)=>{ entries[idx][cfg.fieldOrder[2]] = e.target.value; markUnsaved(); refreshLogSummary(cfg); });
+    tr.querySelector(".log-delete").addEventListener("click", ()=>{ entries.splice(idx,1); markUnsaved(); renderMain(); });
+  });
+  document.getElementById("addLogRow").addEventListener("click", ()=>{
+    const blank = { truck:"" };
+    blank[cfg.fieldOrder[0]]=""; blank[cfg.fieldOrder[1]]=""; blank[cfg.fieldOrder[2]]="";
+    entries.push(blank);
+    markUnsaved();
+    renderMain();
+  });
+}
+
+function refreshLogSummary(cfg){
+  const entries = getLogArray(cfg.key);
+  const summary = computeLogSummary(entries, cfg.summaryType);
+  const cards = mainArea.querySelectorAll(".summary-cards .card");
+  TRUCKS.forEach((truck,i)=>{
+    const val = cfg.summaryType==="sum" ? summary.sums[truck] : summary.maxes[truck];
+    const display = cfg.currency ? moneyStr(val) : val.toLocaleString();
+    const bigEl = cards[i] && cards[i].querySelector(".big");
+    if(bigEl) bigEl.textContent = display;
+  });
+  if(cfg.summaryType==="sum" && cards[TRUCKS.length]){
+    const bigEl = cards[TRUCKS.length].querySelector(".big");
+    if(bigEl) bigEl.textContent = moneyStr(summary.grand);
+  }
+}
+
+function markUnsaved(){ unsaved = true; setStatus("Unsaved changes"); }
+function markSaved(){ unsaved = false; setStatus(""); }
+function setStatus(msg){ statusText.textContent = msg; }
+
+btnSave.addEventListener("click", saveAll);
+btnExport.addEventListener("click", exportExcel);
+homeBtn.addEventListener("click", ()=>{ currentView = { type:"summary" }; renderNav(); renderMain(); });
+
+hamburgerBtn.addEventListener("click", (e)=>{ e.stopPropagation(); hamburgerMenu.classList.toggle("hidden"); });
+document.addEventListener("click", ()=>{ hamburgerMenu.classList.add("hidden"); });
+hamburgerMenu.querySelectorAll("button").forEach(b=>{
+  b.addEventListener("click", async (e)=>{
+    e.stopPropagation();
+    if(b.dataset.action === "signout"){ await sb.auth.signOut(); return; }
+    currentModule = b.dataset.module;
+    if(currentModule === "expenses") currentExpenseTab = "overview";
+    currentView = { type:"summary" };
+    hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    hamburgerMenu.classList.add("hidden");
+    renderNav(); renderMain();
+  });
+});
+
+/* ============ AUTH UI ============ */
+let authMode = "signin"; // signin | signup
+const authEmail = document.getElementById("authEmail");
+const authPassword = document.getElementById("authPassword");
+const authSubmitBtn = document.getElementById("authSubmitBtn");
+const authError = document.getElementById("authError");
+const authToggle = document.getElementById("authToggle");
+const authToggleLink = document.getElementById("authToggleLink");
+
+authToggleLink.addEventListener("click", ()=>{
+  authMode = authMode === "signin" ? "signup" : "signin";
+  authSubmitBtn.textContent = authMode === "signin" ? "Sign In" : "Create Account";
+  authToggle.innerHTML = authMode === "signin"
+    ? `Don't have an account? <a id="authToggleLink">Sign up</a>`
+    : `Already have an account? <a id="authToggleLink">Sign in</a>`;
+  document.getElementById("authToggleLink").addEventListener("click", ()=>authToggleLink.click());
+  authError.textContent = "";
+});
+
+authSubmitBtn.addEventListener("click", async ()=>{
+  if(!sb){ authError.textContent = "Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"; return; }
+  authError.textContent = "";
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  if(!email || !password){ authError.textContent = "Enter both email and password."; return; }
+  authSubmitBtn.disabled = true;
+  try{
+    if(authMode === "signin"){
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+    } else {
+      const { error } = await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      authError.style.color = "#2A7A4E";
+      authError.textContent = "Account created. Check your email to confirm, then sign in.";
+    }
+  } catch(e){
+    authError.style.color = "";
+    authError.textContent = e.message || "Something went wrong.";
+  } finally {
+    authSubmitBtn.disabled = false;
+  }
+});
+
+/* ============ AUTH STATE / INIT ============ */
+async function showApp(userId){
+  currentUserId = userId;
+  authScreen.style.display = "none";
+  appRoot.style.display = "flex";
+  hamburgerMenu.querySelector('button[data-module="contracts"]').classList.add("active");
+  await loadAll();
+  renderNav();
+  renderMain();
+}
+function showAuth(){
+  appRoot.style.display = "none";
+  authScreen.style.display = "flex";
+}
+
+if(sb){
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(session && session.user){ showApp(session.user.id); }
+    else { showAuth(); }
+  });
+} else {
+  showAuth();
+  authError.textContent = "Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md";
+}
+</script>
+</body>
+</html>
