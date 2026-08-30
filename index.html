@@ -67,6 +67,8 @@
   .totalsrow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px; padding-top:10px; border-top:1px dashed var(--border);}
   .summary-cards .card .big{font-size:22px; font-weight:bold; color:var(--charcoal); margin:2px 0 12px 0;}
   .summary-cards .card .big.negative{color:var(--danger);}
+  .summary-cards .card.company .big{color:#fff;}
+  .summary-cards .card.company .big.negative{color:#FF9B8A;}
   .summary-cards .card .label{font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px;}
   .summary-cards .card .metric{margin-bottom:10px;}
   .hint{font-size:12px; color:var(--text-muted); margin-top:2px;}
@@ -176,8 +178,8 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://fszqfhntaofgrompboap.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_mIhle8vWmsYr5ELwStQs-g_OQs-84Jr";
+const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
 const sb = (SUPABASE_URL.startsWith("http")) ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 /* ============ WEEK ENGINE ============ */
@@ -688,6 +690,7 @@ const authScreen=document.getElementById("authScreen"), appRoot=document.getElem
 
 function weekNavApplies(){
   if(currentModule==="contracts") return true;
+  if(currentModule==="payroll") return true;
   if(currentModule==="expenses" && currentExpenseTab==="fuel") return true;
   return false;
 }
@@ -933,19 +936,12 @@ function renderPayrollPage(){
 }
 function renderPayrollSummary(){
   const byDriver = computePayrollTotalsByDriver();
-  let html = `<h1 class="page-title">Payroll</h1><p class="page-sub">YTD pay per driver. Click a week below to log pay entries.</p>`;
+  let html = `<h1 class="page-title">Payroll</h1><p class="page-sub">YTD pay per driver. Pick a week from the list on the right (or the week strip on mobile) to log pay entries.</p>`;
   if(!drivers.length){ html += `<div class="banner"><b>No drivers yet</b>Go to Manage Fleet (hamburger menu) to add your first driver.</div>`; }
   html += `<div class="section-label">By Driver</div><div class="cards summary-cards">`;
   byDriver.totals.forEach(t=>{ html += `<div class="card"><h3>${t.driver}</h3><div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(t.total)}</div></div></div>`; });
   html += `<div class="card company"><h3>PAYROLL YTD</h3><div class="metric"><div class="big">${moneyStr(byDriver.company)}</div></div></div></div>`;
-
-  html += `<div class="section-label">Log Pay By Week</div><div class="cards">`;
-  WEEKS.slice(0,8).forEach(w=>{
-    html += `<div class="card clickable" data-week="${w}"><h3>Week ${w}</h3><div class="hint">${weekDateRangeLabel(w)}</div></div>`;
-  });
-  html += `</div><p class="hint">Showing the first 8 weeks here - use the week list on the right (desktop) or scroll the week strip (mobile) once you're on a week page. Weeks 34 onward are also selectable from Contracts' week nav if you switch modules, but Payroll entry itself is per-week via the cards above or by returning to this page.</p>`;
   mainArea.innerHTML = html;
-  mainArea.querySelectorAll(".card.clickable").forEach(c=>{ c.addEventListener("click", ()=>{ currentView={type:"week", week:parseInt(c.dataset.week)}; renderMain(); }); });
 }
 function renderPayrollWeek(week){
   const entries = payrollEntries.filter(e=>e.week===week);
