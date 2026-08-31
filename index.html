@@ -17,6 +17,8 @@
   body{margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--charcoal); height:100vh; display:flex; flex-direction:column; overflow:hidden;}
   header{background:var(--charcoal); color:#fff; display:flex; align-items:center; padding:10px 20px; gap:14px; flex-shrink:0; border-bottom:3px solid var(--copper); position:relative; flex-wrap:wrap;}
   header .logo-icon{width:40px;height:34px;flex-shrink:0;}
+  .brand-home{display:flex; align-items:center; gap:14px; cursor:pointer; opacity:1; transition:opacity .15s;}
+  .brand-home:hover{opacity:.85;}
   header .titles{display:flex; flex-direction:column; line-height:1.2;}
   header .titles .name{font-size:18px; font-weight:bold; letter-spacing:.5px;}
   header .titles .sub{font-size:10px; color:var(--blue-light); letter-spacing:1.2px;}
@@ -40,11 +42,9 @@
   .year-switch .yr{font-size:17px; font-weight:bold; color:#fff; letter-spacing:1px;}
   .home-btn{display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD; border-radius:0; padding:12px 16px; font-size:13px; font-weight:bold; border-left:3px solid transparent; border-bottom:1px solid #445367;}
   .home-btn:hover{background:#37485D;} .home-btn.active{background:#37485D; color:#fff; border-left:3px solid var(--blue);}
-  .cal-scroll{flex:1; overflow-y:auto; padding-bottom:10px;}
-  .month-header{padding:12px 16px 4px 16px; font-size:10px; font-weight:bold; letter-spacing:1.5px; color:#8A97A6; text-transform:uppercase;}
-  button.navbtn{display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD; border-radius:0; padding:8px 16px 8px 20px; font-size:13px; font-weight:normal; border-left:3px solid transparent;}
-  button.navbtn:hover{background:#37485D;} button.navbtn.active{background:#37485D; color:#fff; border-left:3px solid var(--blue); font-weight:bold;}
-  button.navbtn .wk-dates{display:block; font-size:10px; color:#8A97A6; font-weight:normal;}
+  .cal-scroll{flex:1; overflow-y:auto; padding:14px;}
+  #navList select{width:100%; padding:10px; border-radius:6px; border:1px solid #445367; background:#22303F; color:#fff; font-size:13px; font-family:inherit;}
+  #navList select:focus{outline:none; border-color:var(--blue);}
   main{flex:1; overflow-y:auto; padding:24px 30px; min-width:0;}
   .page-title{font-size:20px; font-weight:bold; margin:0 0 4px 0;}
   .page-sub{font-size:12px; color:var(--text-muted); margin:0 0 20px 0;}
@@ -103,10 +103,6 @@
     .app-body{flex-direction:column;}
     nav{width:100%; max-height:none; border-left:none; border-top:1px solid #445367; order:2; flex-direction:column;}
     .year-switch{display:none;}
-    .cal-scroll{display:flex; flex-direction:row; overflow-x:auto; overflow-y:hidden; padding:8px; gap:6px; -webkit-overflow-scrolling:touch;}
-    .month-header{display:none;}
-    button.navbtn{flex-shrink:0; width:auto; white-space:nowrap; border-left:none; border-radius:8px; border:1px solid #445367; padding:8px 12px;}
-    button.navbtn.active{border:1px solid var(--blue);} button.navbtn .wk-dates{display:none;}
     .home-btn{order:1; border-bottom:1px solid #445367;}
     main{order:1; padding:16px; flex:1 1 auto;}
     .cards{grid-template-columns:1fr;} .blockgrid{grid-template-columns:1fr 1fr;}
@@ -140,6 +136,7 @@
 
 <div id="appRoot" style="display:none; flex-direction:column; height:100%;">
 <header>
+  <div class="brand-home" id="brandHomeBtn" title="Go to Dashboard">
   <svg class="logo-icon" viewBox="0 0 260 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path d="M40 100 Q130 78 220 100" fill="none" stroke="#F4F5F6" stroke-width="6" stroke-linecap="round"/>
     <path d="M58 94 L58 45 L140 45 L140 94 Z" fill="#F4F5F6"/><path d="M140 65 L166 65 L184 84 L184 94 L140 94 Z" fill="#F4F5F6"/>
@@ -150,10 +147,9 @@
     <text x="99" y="76" font-size="24" font-family="Arial" font-weight="700" fill="#1E2A38" text-anchor="middle">$</text>
   </svg>
   <div class="titles"><div class="name">FleetHub</div><div class="sub">FLEET RECORDS, ALL IN ONE PLACE</div><div class="underline"></div></div>
+  </div>
   <div class="toolbar">
     <div class="status" id="statusText"></div>
-    <button class="btn-ghost" id="btnExport">Export Excel</button>
-    <button class="btn-blue" id="btnSave">Save</button>
     <div class="hamburger-wrap">
       <button class="hamburger-btn" id="hamburgerBtn">&#9776;</button>
       <div class="hamburger-menu hidden" id="hamburgerMenu">
@@ -162,6 +158,7 @@
         <button data-module="expenses">Expenses</button>
         <button data-module="maintenance">Maintenance Records</button>
         <button data-module="fleet">Manage Fleet</button>
+        <button data-action="export">Export Excel</button>
         <button data-action="signout">Sign Out</button>
       </div>
     </div>
@@ -684,7 +681,7 @@ async function loadAll(){
 
 /* ============ UI ELEMENT REFS ============ */
 const navList=document.getElementById("navList"), mainArea=document.getElementById("mainArea"), statusText=document.getElementById("statusText");
-const btnSave=document.getElementById("btnSave"), btnExport=document.getElementById("btnExport"), homeBtn=document.getElementById("homeBtn");
+const homeBtn=document.getElementById("homeBtn");
 const weekNav=document.getElementById("weekNav"), hamburgerBtn=document.getElementById("hamburgerBtn"), hamburgerMenu=document.getElementById("hamburgerMenu");
 const authScreen=document.getElementById("authScreen"), appRoot=document.getElementById("appRoot");
 
@@ -701,17 +698,22 @@ function renderNav(){
   if(!applies) return;
   homeBtn.classList.toggle("active", currentView.type==="summary");
   const groups = groupWeeksByMonth();
-  let html="";
+  let html = `<select id="weekSelect"><option value="">Select a week...</option>`;
   groups.forEach(g=>{
-    html += `<div class="month-header">${g.label}</div>`;
+    html += `<optgroup label="${g.label}">`;
     g.weeks.forEach(w=>{
-      const isActive = currentView.type==="week" && currentView.week===w;
-      html += `<button class="navbtn ${isActive?'active':''}" data-week="${w}">Week ${w}<span class="wk-dates">${weekDateRangeLabel(w)}</span></button>`;
+      const isSelected = currentView.type==="week" && currentView.week===w;
+      html += `<option value="${w}" ${isSelected?'selected':''}>Week ${w} (${weekDateRangeLabel(w)})</option>`;
     });
+    html += `</optgroup>`;
   });
+  html += `</select>`;
   navList.innerHTML = html;
-  navList.querySelectorAll(".navbtn").forEach(b=>{
-    b.addEventListener("click", ()=>{ currentView={type:"week", week:parseInt(b.dataset.week)}; renderNav(); renderMain(); });
+  document.getElementById("weekSelect").addEventListener("change", e=>{
+    if(!e.target.value) return;
+    flushIfNeeded();
+    currentView = { type:"week", week: parseInt(e.target.value) };
+    renderNav(); renderMain();
   });
 }
 
@@ -936,12 +938,31 @@ function renderPayrollPage(){
 }
 function renderPayrollSummary(){
   const byDriver = computePayrollTotalsByDriver();
-  let html = `<h1 class="page-title">Payroll</h1><p class="page-sub">YTD pay per driver. Pick a week from the list on the right (or the week strip on mobile) to log pay entries.</p>`;
+  const orphanEntries = payrollEntries.filter(e=>e.driver && !drivers.some(d=>d.name===e.driver));
+  let html = `<h1 class="page-title">Payroll</h1><p class="page-sub">YTD pay per driver. Pick a week from the dropdown on the right (or below on mobile) to log pay entries.</p>`;
   if(!drivers.length){ html += `<div class="banner"><b>No drivers yet</b>Go to Manage Fleet (hamburger menu) to add your first driver.</div>`; }
   html += `<div class="section-label">By Driver</div><div class="cards summary-cards">`;
   byDriver.totals.forEach(t=>{ html += `<div class="card"><h3>${t.driver}</h3><div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(t.total)}</div></div></div>`; });
   html += `<div class="card company"><h3>PAYROLL YTD</h3><div class="metric"><div class="big">${moneyStr(byDriver.company)}</div></div></div></div>`;
+
+  if(orphanEntries.length){
+    html += `<div class="section-label">Entries For Removed Drivers</div>`;
+    html += `<div class="banner"><b>These drivers are no longer in your roster</b>Their past pay entries are kept for your records. Remove any you no longer need below.</div>`;
+    html += `<table class="logtable"><thead><tr><th>Week</th><th>Driver</th><th>Truck</th><th>Amount</th><th></th></tr></thead><tbody>`;
+    orphanEntries.forEach(e=>{
+      const globalIdx = payrollEntries.indexOf(e);
+      html += `<tr><td>Week ${e.week} (${weekDateRangeLabel(e.week)})</td><td>${e.driver}</td><td>${e.truck||'-'}</td><td>${moneyStr(parseFloat(e.amount)||0)}</td><td><button class="btn-danger" data-remove-orphan="${globalIdx}">Remove</button></td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
   mainArea.innerHTML = html;
+  mainArea.querySelectorAll("[data-remove-orphan]").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      payrollEntries.splice(parseInt(b.dataset.removeOrphan),1);
+      markUnsaved(); renderMain();
+    });
+  });
 }
 function renderPayrollWeek(week){
   const entries = payrollEntries.filter(e=>e.week===week);
@@ -958,9 +979,11 @@ function renderPayrollWeek(week){
 }
 function payrollRowHTML(e, idx, active){
   const driverOptions = drivers.map(d=>`<option value="${d.name}" ${e.driver===d.name?'selected':''}>${d.name}</option>`).join("");
+  const orphanOption = (e.driver && !drivers.some(d=>d.name===e.driver))
+    ? `<option value="${e.driver}" selected>${e.driver} (removed)</option>` : "";
   const truckOptions = active.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}</option>`).join("");
   return `<tr data-idx="${idx}">
-    <td><select class="pr-driver"><option value="">-</option>${driverOptions}</select></td>
+    <td><select class="pr-driver"><option value="">-</option>${orphanOption}${driverOptions}</select></td>
     <td><select class="pr-truck"><option value="">-</option>${truckOptions}</select></td>
     <td><input class="pr-amount" type="number" step="0.01" min="0" value="${e.amount||''}"></td>
     <td><button class="btn-danger pr-delete">Remove</button></td>
@@ -1052,19 +1075,34 @@ function refreshLogSummary(cfg){
   }
 }
 
-function markUnsaved(){ unsaved=true; setStatus("Unsaved changes"); }
+let autoSaveTimer = null;
+function scheduleAutoSave(){
+  if(autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(()=>{ autoSaveTimer=null; saveAll(); }, 1500);
+}
+function flushIfNeeded(){
+  if(autoSaveTimer){ clearTimeout(autoSaveTimer); autoSaveTimer=null; saveAll(); }
+}
+function markUnsaved(){ unsaved=true; setStatus("Unsaved changes..."); scheduleAutoSave(); }
 function markSaved(){ unsaved=false; setStatus(""); }
 function setStatus(msg){ statusText.textContent = msg; }
 
-btnSave.addEventListener("click", saveAll);
-btnExport.addEventListener("click", exportExcel);
-homeBtn.addEventListener("click", ()=>{ currentView={type:"summary"}; renderNav(); renderMain(); });
+document.getElementById("brandHomeBtn").addEventListener("click", ()=>{
+  flushIfNeeded();
+  currentModule="contracts"; currentExpenseTab="overview"; currentView={type:"summary"};
+  hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
+  hamburgerMenu.querySelector('button[data-module="contracts"]').classList.add("active");
+  renderNav(); renderMain();
+});
+homeBtn.addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderNav(); renderMain(); });
 hamburgerBtn.addEventListener("click", e=>{ e.stopPropagation(); hamburgerMenu.classList.toggle("hidden"); });
 document.addEventListener("click", ()=>{ hamburgerMenu.classList.add("hidden"); });
 hamburgerMenu.querySelectorAll("button").forEach(b=>{
   b.addEventListener("click", async e=>{
     e.stopPropagation();
-    if(b.dataset.action==="signout"){ await sb.auth.signOut(); return; }
+    if(b.dataset.action==="export"){ exportExcel(); hamburgerMenu.classList.add("hidden"); return; }
+    if(b.dataset.action==="signout"){ flushIfNeeded(); await sb.auth.signOut(); return; }
+    flushIfNeeded();
     currentModule = b.dataset.module;
     if(currentModule==="expenses") currentExpenseTab="overview";
     currentView={type:"summary"};
@@ -1108,6 +1146,7 @@ async function showApp(userId){
 function showAuth(){ appRoot.style.display="none"; authScreen.style.display="flex"; }
 if(sb){ sb.auth.onAuthStateChange((event,session)=>{ if(session&&session.user) showApp(session.user.id); else showAuth(); }); }
 else { showAuth(); authError.textContent="Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"; }
+window.addEventListener("beforeunload", ()=>{ if(autoSaveTimer){ saveAll(); } });
 </script>
 </body>
 </html>
