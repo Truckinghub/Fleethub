@@ -856,7 +856,7 @@ function warpPerspectiveCrop(img, corners){
   return dstCanvas;
 }
 
-function openCornerAdjustOverlay(img, cfg, scanBtn, originalText){
+function openCornerAdjustOverlay(img, cfg, scanBtn, originalText, selectedTruck){
   let corners = detectInitialCorners(img);
   if(!corners){
     const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
@@ -962,7 +962,7 @@ function openCornerAdjustOverlay(img, cfg, scanBtn, originalText){
       };
       const croppedCanvas = warpPerspectiveCrop(img, orig);
       document.body.removeChild(overlay);
-      await runOcrOnCanvas(croppedCanvas, cfg, scanBtn, originalText);
+      await runOcrOnCanvas(croppedCanvas, cfg, scanBtn, originalText, selectedTruck);
     } catch(e){
       console.error(e);
       alert("Couldn't process the crop: " + (e.message||e));
@@ -994,7 +994,7 @@ async function renderPdfFirstPageToCanvas(file){
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 2 });
+  const viewport = page.getViewport({ scale: 3 });
   const canvas = document.createElement("canvas");
   canvas.width = viewport.width; canvas.height = viewport.height;
   await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
@@ -1033,7 +1033,38 @@ async function getReceiptSignedUrl(path){
   } catch(e){ console.error(e); return null; }
 }
 
-async function runOcrOnCanvas(canvas, cfg, scanBtn, originalText){
+function promptVehicleSelection(){
+  return new Promise((resolve)=>{
+    if(!vehicles.length){ alert("Add a vehicle first under Manage Fleet."); resolve(null); return; }
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#fff; border-radius:12px; padding:24px; max-width:340px; width:100%;";
+    const truckOptions = vehicles.map(v=>`<option value="${v.truckId}">${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
+    box.innerHTML = `
+      <h3 style="margin:0 0 4px 0; font-size:16px; color:#1E2A38;">Which truck is this receipt for?</h3>
+      <p style="font-size:12px; color:#6B7280; margin:0 0 14px 0;">You can still change this after scanning if needed.</p>
+      <select id="vehiclePromptSelect" style="width:100%; padding:9px; border:1px solid #E1E4E8; border-radius:6px; font-size:14px; margin-bottom:16px; font-family:inherit;">${truckOptions}</select>
+      <div style="display:flex; gap:8px;">
+        <button id="vehiclePromptContinue" class="btn-blue" style="flex:1;">Continue</button>
+        <button id="vehiclePromptCancel" class="btn-danger" style="flex:1;">Cancel</button>
+      </div>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.getElementById("vehiclePromptContinue").addEventListener("click", ()=>{
+      const val = document.getElementById("vehiclePromptSelect").value;
+      document.body.removeChild(overlay);
+      resolve(val);
+    });
+    document.getElementById("vehiclePromptCancel").addEventListener("click", ()=>{
+      document.body.removeChild(overlay);
+      resolve(null);
+    });
+  });
+}
+
+async function runOcrOnCanvas(canvas, cfg, scanBtn, originalText, selectedTruck){
   if(scanBtn) scanBtn.textContent = "Scanning...";
   try{
     await ensureTesseractLoaded();
@@ -1041,14 +1072,14 @@ async function runOcrOnCanvas(canvas, cfg, scanBtn, originalText){
     const parsed = parseReceiptText(result.data.text);
     const receiptPath = await uploadReceiptImage(canvas);
     const entries = getLogArray(cfg.key);
-    const blank = { truck:"", receiptPath: receiptPath || "" };
+    const blank = { truck: selectedTruck || "", receiptPath: receiptPath || "" };
     blank[cfg.fieldOrder[0]] = cfg.fieldOrder[0]==="date" ? parsed.date : parsed.description;
     blank[cfg.fieldOrder[1]] = cfg.fieldOrder[1]==="description" ? parsed.description : (cfg.fieldOrder[1]==="date" ? parsed.date : "");
     blank[cfg.fieldOrder[2]] = parsed.amount;
     entries.push(blank);
     markUnsaved();
     renderMain();
-    setTimeout(()=>{ alert("Receipt scanned. Please double-check the date, description, and amount below, and pick the correct truck - scanning isn't always perfect."); }, 100);
+    setTimeout(()=>{ alert("Receipt scanned. Please double-check the date, description, and amount below - scanning isn't always perfect."); }, 100);
   } catch(e){
     console.error(e);
     alert("Couldn't read that receipt: " + (e.message||e));
@@ -1057,7 +1088,10 @@ async function runOcrOnCanvas(canvas, cfg, scanBtn, originalText){
   }
 }
 
-function scanReceiptForLog(cfg, mode){
+async function scanReceiptForLog(cfg, mode){
+  const selectedTruck = await promptVehicleSelection();
+  if(!selectedTruck) return;
+
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "image/*,application/pdf";
@@ -1081,9 +1115,9 @@ function scanReceiptForLog(cfg, mode){
       }
       if(isPdfFile(file)){
         // PDF pages are already flat/rectangular - skip corner adjustment, go straight to OCR.
-        await runOcrOnCanvas(img, cfg, scanBtn, originalText);
+        await runOcrOnCanvas(img, cfg, scanBtn, originalText, selectedTruck);
       } else {
-        openCornerAdjustOverlay(img, cfg, scanBtn, originalText);
+        openCornerAdjustOverlay(img, cfg, scanBtn, originalText, selectedTruck);
       }
     } catch(e){
       console.error(e);
