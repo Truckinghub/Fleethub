@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>FleetHub - Fleet Records, All In One Place</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 220'%3E%3Cpath d='M40 100 Q130 78 220 100' fill='none' stroke='%231E2A38' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M58 94 L58 45 L140 45 L140 94 Z' fill='%231E2A38'/%3E%3Cpath d='M140 65 L166 65 L184 84 L184 94 L140 94 Z' fill='%231E2A38'/%3E%3Crect x='148' y='70' width='14' height='10' fill='%23F4F5F6'/%3E%3Ccircle cx='82' cy='98' r='14' fill='%231E2A38'/%3E%3Ccircle cx='82' cy='98' r='5' fill='%23F4F5F6'/%3E%3Ccircle cx='164' cy='98' r='14' fill='%231E2A38'/%3E%3Ccircle cx='164' cy='98' r='5' fill='%23F4F5F6'/%3E%3Ccircle cx='99' cy='68' r='20' fill='%23C1703D'/%3E%3Ctext x='99' y='76' font-size='24' font-family='Arial' font-weight='700' fill='%231E2A38' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1E2A38">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -24,11 +27,11 @@
   header .titles .sub{font-size:10px; color:var(--blue-light); letter-spacing:1.2px;}
   header .titles .underline{width:100%; height:2px; background:var(--copper); margin-top:3px;}
   header .toolbar{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-  header .status{font-size:11px; color:#C9CDD3; text-align:right; margin-right:4px;}
   button{font-family:inherit; cursor:pointer; border:none; border-radius:6px; padding:9px 14px; font-size:13px; font-weight:bold; transition:opacity .15s;}
   button:hover{opacity:.88;} button:disabled{opacity:.35; cursor:not-allowed;}
   .btn-blue{background:var(--blue); color:#fff;} .btn-ghost{background:transparent; color:#fff; border:1px solid #445367;}
   .btn-sm{padding:6px 12px; font-size:12px;} .btn-danger{background:transparent; color:var(--danger); border:1px solid #E8B4AC; padding:6px 10px; font-size:12px;}
+  .btn-success{background:transparent; color:#2A7A4E; border:1px solid #A9D6BC; padding:6px 10px; font-size:12px;}
   .hamburger-btn{background:transparent; color:#fff; border:1px solid #445367; padding:9px 12px; font-size:16px; line-height:1;}
   .hamburger-wrap{position:relative;}
   .hamburger-menu{position:absolute; top:calc(100% + 8px); right:0; background:var(--charcoal-light); border:1px solid #445367; border-radius:8px; min-width:190px; box-shadow:0 6px 18px rgba(0,0,0,.35); overflow:hidden; z-index:50;}
@@ -36,20 +39,17 @@
   .hamburger-menu button{display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD; border-radius:0; padding:11px 16px; font-size:13px; font-weight:normal; border-bottom:1px solid #445367;}
   .hamburger-menu button:last-child{border-bottom:none;} .hamburger-menu button:hover{background:#37485D;}
   .hamburger-menu button.active{color:#fff; font-weight:bold; border-left:3px solid var(--blue); padding-left:13px;}
-  .app-body{flex:1; display:flex; overflow:hidden; min-height:0;}
-  nav{width:190px; background:var(--charcoal-light); overflow-y:auto; flex-shrink:0; display:flex; flex-direction:column; border-left:1px solid #445367;}
-  .year-switch{display:flex; align-items:center; justify-content:center; padding:14px; border-bottom:1px solid #445367; flex-shrink:0;}
-  .year-switch .yr{font-size:17px; font-weight:bold; color:#fff; letter-spacing:1px;}
-  .home-btn{display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD; border-radius:0; padding:12px 16px; font-size:13px; font-weight:bold; border-left:3px solid transparent; border-bottom:1px solid #445367;}
-  .home-btn:hover{background:#37485D;} .home-btn.active{background:#37485D; color:#fff; border-left:3px solid var(--blue);}
-  .cal-scroll{flex:1; overflow-y:auto; padding:14px;}
-  #navList select{width:100%; padding:10px; border-radius:6px; border:1px solid #445367; background:#22303F; color:#fff; font-size:13px; font-family:inherit;}
-  #navList select:focus{outline:none; border-color:var(--blue);}
   main{flex:1; overflow-y:auto; padding:24px 30px; min-width:0;}
   .page-title{font-size:20px; font-weight:bold; margin:0 0 4px 0;}
+  .page-title .clickable-title{cursor:pointer; text-decoration:underline; text-decoration-color:var(--blue); text-underline-offset:4px;}
+  .page-title .clickable-title:hover{color:var(--blue);}
   .page-sub{font-size:12px; color:var(--text-muted); margin:0 0 20px 0;}
   .section-label{font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:.6px; margin:22px 0 10px 0;}
   .section-label:first-of-type{margin-top:0;}
+  .week-picker-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:20px;}
+  .week-picker-row select{padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; font-size:14px; font-family:inherit; color:var(--charcoal); min-width:260px;}
+  .week-picker-row select:focus{outline:none; border-color:var(--blue);}
+  .inactive-toggle{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted);}
   .cards{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:16px;}
   .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; box-shadow:0 1px 2px rgba(0,0,0,.04);}
   .card.company{background:var(--charcoal); border-color:var(--charcoal);}
@@ -65,12 +65,14 @@
   .field.readonly input{background:var(--blue-pale); font-weight:bold; color:var(--charcoal); border-color:#C7D9EB;}
   .blockgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .totalsrow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px; padding-top:10px; border-top:1px dashed var(--border);}
-  .summary-cards .card .big{font-size:22px; font-weight:bold; color:var(--charcoal); margin:2px 0 12px 0;}
+  .ytd-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:12px 16px;}
+  .ytd-grid .metric{margin-bottom:0;}
+  .summary-cards .card .big{font-size:20px; font-weight:bold; color:var(--charcoal); margin:2px 0 0 0;}
   .summary-cards .card .big.negative{color:var(--danger);}
   .summary-cards .card.company .big{color:#fff;}
   .summary-cards .card.company .big.negative{color:#FF9B8A;}
-  .summary-cards .card .label{font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px;}
-  .summary-cards .card .metric{margin-bottom:10px;}
+  .summary-cards .card .label{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.3px;}
+  .summary-cards .card.company .label{color:#B9C2CD;}
   .hint{font-size:12px; color:var(--text-muted); margin-top:2px;}
   .banner{background:var(--blue-pale); border:1px solid #C7D9EB; color:#2A4E70; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;}
   .banner b{display:block; margin-bottom:2px;} .banner.soon{background:#EDEFF1; border-color:var(--border); color:var(--text-muted);}
@@ -97,17 +99,19 @@
   .auth-toggle a{color:var(--blue); cursor:pointer; font-weight:bold; text-decoration:none;}
   .auth-error{color:var(--danger); font-size:12px; margin-top:10px; text-align:center;}
 
+  #statusToast{position:fixed; left:14px; bottom:14px; background:var(--charcoal); color:#fff; padding:8px 14px; border-radius:6px; font-size:12px; box-shadow:0 2px 10px rgba(0,0,0,.2); z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;}
+  #statusToast.visible{opacity:1;}
+
   @media (max-width: 760px){
-    header{padding:10px 12px;} header .titles .sub{display:none;} header .status{display:none;}
+    header{padding:10px 12px;} header .titles .sub{display:none;}
     header .toolbar{gap:6px;} header button{padding:8px 10px; font-size:12px;}
-    .app-body{flex-direction:column;}
-    nav{width:100%; max-height:none; border-left:none; border-top:1px solid #445367; order:2; flex-direction:column;}
-    .year-switch{display:none;}
-    .home-btn{order:1; border-bottom:1px solid #445367;}
-    main{order:1; padding:16px; flex:1 1 auto;}
+    main{padding:16px;}
     .cards{grid-template-columns:1fr;} .blockgrid{grid-template-columns:1fr 1fr;}
     .totalsrow{grid-template-columns:1fr; gap:8px;}
+    .ytd-grid{grid-template-columns:repeat(3, 1fr); gap:8px 10px;}
+    .summary-cards .card .big{font-size:16px;}
     table.logtable{display:block; overflow-x:auto; white-space:nowrap;}
+    .week-picker-row select{min-width:0; width:100%;}
   }
 </style>
 </head>
@@ -149,7 +153,6 @@
   <div class="titles"><div class="name">FleetHub</div><div class="sub">FLEET RECORDS, ALL IN ONE PLACE</div><div class="underline"></div></div>
   </div>
   <div class="toolbar">
-    <div class="status" id="statusText"></div>
     <div class="hamburger-wrap">
       <button class="hamburger-btn" id="hamburgerBtn">&#9776;</button>
       <div class="hamburger-menu hidden" id="hamburgerMenu">
@@ -166,13 +169,10 @@
 </header>
 <div class="app-body">
   <main id="mainArea"></main>
-  <nav id="weekNav">
-    <div class="year-switch"><span class="yr">2026</span></div>
-    <button class="home-btn" id="homeBtn">&#9679; Dashboard</button>
-    <div class="cal-scroll" id="navList"></div>
-  </nav>
 </div>
 </div>
+
+<div id="statusToast"></div>
 
 <script>
 const SUPABASE_URL = "https://fszqfhntaofgrompboap.supabase.co";
@@ -207,11 +207,11 @@ function groupWeeksByMonth(){
 }
 
 /* ============ APP STATE ============ */
-let vehicles = [];   // {truckId, addedWeek}
-let drivers = [];    // {name}
-let contractsEntries = []; // {week, truck, contractId, blockRate, numBlocks, block1, block2, block3}
-let fuelEntries = [];       // {week, truck, amount}
-let payrollEntries = [];    // {week, driver, truck, amount}
+let vehicles = [];   // {truckId, addedWeek, active}
+let drivers = [];    // {name, active}
+let contractsEntries = [];
+let fuelEntries = [];
+let payrollEntries = [];
 let partsLog = [], mechanicLog = [], maintenanceLog = [];
 
 let currentModule = "contracts";
@@ -219,8 +219,13 @@ let currentExpenseTab = "overview";
 let currentView = { type:"summary" };
 let unsaved = false;
 let currentUserId = null;
+let showInactive = false; // "show inactive too" toggle for week pages
 
-function activeVehiclesForWeek(week){ return vehicles.filter(v=>v.addedWeek<=week); }
+function activeVehicles(){ return vehicles.filter(v=>v.active); }
+function activeDrivers(){ return drivers.filter(d=>d.active); }
+function vehiclesForWeek(week, includeInactive){
+  return vehicles.filter(v => v.addedWeek<=week && (includeInactive || v.active));
+}
 function vehicleExists(truckId){ return vehicles.some(v=>v.truckId===truckId); }
 
 function getContractEntry(week, truck){
@@ -234,7 +239,10 @@ function getFuelEntry(week, truck){
   return e;
 }
 
-/* ============ COMPUTE HELPERS ============ */
+/* ============ COMPUTE HELPERS ============
+   Per-truck/per-driver breakdowns only include ACTIVE roster entries.
+   Company-wide totals sum ALL historical entries regardless of active status,
+   so tax/accounting totals never lose money just because a truck/driver was removed. */
 function computeRow(truck, d){
   const rate=parseFloat(d.blockRate)||0, n=parseInt(d.numBlocks)||0;
   const contractRate=rate*n;
@@ -245,7 +253,7 @@ function computeRow(truck, d){
 }
 
 function computeAllTimeTotals(){
-  const totals = vehicles.map(v=>{
+  const totals = activeVehicles().map(v=>{
     const truck=v.truckId;
     let grossContracts=0, grossContractsAcc=0, grossAcc=0;
     contractsEntries.filter(e=>e.truck===truck).forEach(e=>{
@@ -254,49 +262,51 @@ function computeAllTimeTotals(){
     });
     return { truck, grossContracts, grossContractsAcc, grossAcc };
   });
-  const company = totals.reduce((acc,t)=>({
-    grossContracts:acc.grossContracts+t.grossContracts, grossContractsAcc:acc.grossContractsAcc+t.grossContractsAcc, grossAcc:acc.grossAcc+t.grossAcc
-  }), {grossContracts:0, grossContractsAcc:0, grossAcc:0});
-  return { totals, company };
+  let companyContracts=0, companyContractsAcc=0, companyAcc=0;
+  contractsEntries.forEach(e=>{
+    const row=computeRow(e.truck,e);
+    companyContracts+=row.contractRate; companyContractsAcc+=row.contractAcc; companyAcc+=row.totalAcc;
+  });
+  return { totals, company:{ grossContracts:companyContracts, grossContractsAcc:companyContractsAcc, grossAcc:companyAcc } };
 }
 
 function computeFuelTotals(){
-  const totals = vehicles.map(v=>{
+  const totals = activeVehicles().map(v=>{
     const truck=v.truckId;
     const total = fuelEntries.filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     return { truck, total };
   });
-  const company = totals.reduce((a,t)=>a+t.total,0);
+  const company = fuelEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   return { totals, company };
 }
 
 function computePayrollTotalsByTruck(){
-  const totals = vehicles.map(v=>{
+  const totals = activeVehicles().map(v=>{
     const truck=v.truckId;
     const total = payrollEntries.filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     return { truck, total };
   });
-  const company = totals.reduce((a,t)=>a+t.total,0);
+  const company = payrollEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   return { totals, company };
 }
 
 function computePayrollTotalsByDriver(){
-  const totals = drivers.map(d=>{
+  const totals = activeDrivers().map(d=>{
     const total = payrollEntries.filter(e=>e.driver===d.name).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     return { driver:d.name, total };
   });
-  const company = totals.reduce((a,t)=>a+t.total,0);
+  const company = payrollEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   return { totals, company };
 }
 
 function computeLogSummary(entries, summaryType){
   if(summaryType==="sum"){
-    const sums={}; vehicles.forEach(v=>sums[v.truckId]=0);
+    const sums={}; activeVehicles().forEach(v=>sums[v.truckId]=0);
     entries.forEach(e=>{ if(sums.hasOwnProperty(e.truck)) sums[e.truck]+=parseFloat(e.amount)||0; });
-    const grand = Object.values(sums).reduce((a,b)=>a+b,0);
+    const grand = entries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     return { sums, grand };
   } else {
-    const maxes={}; vehicles.forEach(v=>maxes[v.truckId]=0);
+    const maxes={}; activeVehicles().forEach(v=>maxes[v.truckId]=0);
     entries.forEach(e=>{ if(maxes.hasOwnProperty(e.truck)) maxes[e.truck]=Math.max(maxes[e.truck], parseFloat(e.amount)||0); });
     return { maxes };
   }
@@ -309,7 +319,7 @@ function computeDashboardYTD(){
   const mechanic = computeLogSummary(mechanicLog, "sum");
   const payroll = computePayrollTotalsByTruck();
 
-  const perTruck = vehicles.map((v,i)=>{
+  const perTruck = activeVehicles().map((v,i)=>{
     const truck = v.truckId;
     const ytdContracts = contracts.totals[i].grossContracts;
     const ytdAccessories = contracts.totals[i].grossAcc;
@@ -320,11 +330,13 @@ function computeDashboardYTD(){
     return { truck, ytdContracts, ytdAccessories, ytdExpenses, ytdPayroll, grossYTD, netYTD };
   });
 
-  const company = perTruck.reduce((acc,t)=>({
-    ytdContracts:acc.ytdContracts+t.ytdContracts, ytdAccessories:acc.ytdAccessories+t.ytdAccessories,
-    ytdExpenses:acc.ytdExpenses+t.ytdExpenses, ytdPayroll:acc.ytdPayroll+t.ytdPayroll,
-    grossYTD:acc.grossYTD+t.grossYTD, netYTD:acc.netYTD+t.netYTD
-  }), {ytdContracts:0, ytdAccessories:0, ytdExpenses:0, ytdPayroll:0, grossYTD:0, netYTD:0});
+  const companyYtdContracts = contracts.company.grossContracts;
+  const companyYtdAccessories = contracts.company.grossAcc;
+  const companyYtdExpenses = fuel.company + parts.grand + mechanic.grand;
+  const companyYtdPayroll = payroll.company;
+  const companyGrossYTD = companyYtdContracts + companyYtdAccessories;
+  const companyNetYTD = companyGrossYTD - companyYtdExpenses - companyYtdPayroll;
+  const company = { ytdContracts:companyYtdContracts, ytdAccessories:companyYtdAccessories, ytdExpenses:companyYtdExpenses, ytdPayroll:companyYtdPayroll, grossYTD:companyGrossYTD, netYTD:companyNetYTD };
 
   return { perTruck, company };
 }
@@ -360,7 +372,6 @@ function buildContentTypesXML(sheetCount){let xml=`<?xml version="1.0" encoding=
 function buildRootRelsXML(){return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;}
 function buildStylesXML(){return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/><numFmt numFmtId="165" formatCode="#,##0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;}
 
-/* ---- Contracts week sheet: rows = vehicles active that week ---- */
 function buildWeekSheetXML(week, dateRange, rows){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
   xml += `<row r="1">${inlineStrCell("A1",`Week ${week}  (${dateRange})`,3)}</row>`;
@@ -387,22 +398,35 @@ function buildWeekSheetXML(week, dateRange, rows){
   return xml;
 }
 
-/* ---- Summary sheet: one row per vehicle in the roster, YTD via SUMIF across every week sheet
-   (safer than fixed-row-position SUMs, since a vehicle may not appear in every week sheet) ---- */
+/* Excel export needs per-vehicle totals for ALL vehicles (including inactive), since the
+   exported file is meant to be the complete historical record for tax purposes - unlike the
+   app's own Dashboard, which only shows active vehicles in the per-truck breakdown. */
+function computeAllVehiclesContractTotals(){
+  return vehicles.map(v=>{
+    const truck=v.truckId;
+    let grossContracts=0, grossContractsAcc=0, grossAcc=0;
+    contractsEntries.filter(e=>e.truck===truck).forEach(e=>{
+      const row=computeRow(truck,e);
+      grossContracts+=row.contractRate; grossContractsAcc+=row.contractAcc; grossAcc+=row.totalAcc;
+    });
+    return { truck, grossContracts, grossContractsAcc, grossAcc };
+  });
+}
+
 function buildSummarySheetXML(perVehicleRows, companyRow){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
   xml += `<row r="1">${inlineStrCell("A1","FleetHub - Contracts Summary",3)}</row>`;
-  xml += `<row r="2">${inlineStrCell("A2","All-time totals per vehicle across every week tab.",0)}</row>`;
+  xml += `<row r="2">${inlineStrCell("A2","All-time totals per vehicle (including removed vehicles, for complete records) across every week tab.",0)}</row>`;
   const headers=["Truck ID","Gross Contracts","Gross Accessories"];
   xml += `<row r="4">` + headers.map((h,i)=>inlineStrCell(["A","B","C"][i]+"4",h,2)).join("") + `</row>`;
   perVehicleRows.forEach((r,idx)=>{
     const rr=5+idx;
     const refsH = WEEKS.map(w=>`SUMIF('Week ${w}'!A5:A500,"${r.truck}",'Week ${w}'!H5:H500)`).join("+");
-    const refsI = WEEKS.map(w=>`SUMIF('Week ${w}'!A5:A500,"${r.truck}",'Week ${w}'!I5:I500)`).join("+");
+    const refsJ = WEEKS.map(w=>`SUMIF('Week ${w}'!A5:A500,"${r.truck}",'Week ${w}'!J5:J500)`).join("+");
     xml += `<row r="${rr}">`;
     xml += inlineStrCell(`A${rr}`,r.truck,0);
     xml += formulaCell(`B${rr}`,refsH,r.grossContracts,1);
-    xml += formulaCell(`C${rr}`,refsI,r.grossContractsAcc,1);
+    xml += formulaCell(`C${rr}`,refsJ,r.grossAcc,1);
     xml += `</row>`;
   });
   const compRow = 5 + perVehicleRows.length;
@@ -410,20 +434,19 @@ function buildSummarySheetXML(perVehicleRows, companyRow){
   xml += `<row r="${compRow}">`;
   xml += inlineStrCell(`A${compRow}`,"Company Total",2);
   xml += formulaCell(`B${compRow}`,`SUM(B${firstRow}:B${lastRow})`,companyRow.grossContracts,1);
-  xml += formulaCell(`C${compRow}`,`SUM(C${firstRow}:C${lastRow})`,companyRow.grossContractsAcc,1);
+  xml += formulaCell(`C${compRow}`,`SUM(C${firstRow}:C${lastRow})`,companyRow.grossAcc,1);
   xml += `</row>`;
   xml += `</sheetData></worksheet>`;
   return xml;
 }
 
-/* ---- Vehicles / Drivers roster sheets ---- */
 function buildVehiclesSheetXML(){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
   xml += `<row r="1">${inlineStrCell("A1","FleetHub - Vehicle Roster",3)}</row>`;
-  xml += `<row r="3">${inlineStrCell("A3","Truck ID",2)}${inlineStrCell("B3","Added From Week",2)}</row>`;
+  xml += `<row r="3">${inlineStrCell("A3","Truck ID",2)}${inlineStrCell("B3","Added From Week",2)}${inlineStrCell("C3","Active",2)}</row>`;
   vehicles.forEach((v,idx)=>{
     const rr=4+idx;
-    xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,v.truckId,0)}${numCell(`B${rr}`,v.addedWeek,0)}</row>`;
+    xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,v.truckId,0)}${numCell(`B${rr}`,v.addedWeek,0)}${inlineStrCell(`C${rr}`,v.active?"Yes":"No",0)}</row>`;
   });
   xml += `</sheetData></worksheet>`;
   return xml;
@@ -431,16 +454,15 @@ function buildVehiclesSheetXML(){
 function buildDriversSheetXML(){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
   xml += `<row r="1">${inlineStrCell("A1","FleetHub - Driver Roster",3)}</row>`;
-  xml += `<row r="3">${inlineStrCell("A3","Driver Name",2)}</row>`;
+  xml += `<row r="3">${inlineStrCell("A3","Driver Name",2)}${inlineStrCell("B3","Active",2)}</row>`;
   drivers.forEach((d,idx)=>{
     const rr=4+idx;
-    xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,d.name,0)}</row>`;
+    xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,d.name,0)}${inlineStrCell(`B${rr}`,d.active?"Yes":"No",0)}</row>`;
   });
   xml += `</sheetData></worksheet>`;
   return xml;
 }
 
-/* ---- Fuel: flat log (Week, Date Range, Truck, Amount) + per-vehicle summary rows ---- */
 function buildFuelSheetXML(){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
   xml += `<row r="1">${inlineStrCell("A1","FleetHub - Fuel Expense Log",3)}</row>`;
@@ -456,8 +478,8 @@ function buildFuelSheetXML(){
     xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,v.truckId,0)}${formulaCell(`B${rr}`,f,total,1)}</row>`;
   });
   const compRow = 5+vehicles.length;
-  const total = computeFuelTotals().company;
-  xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"Company Total",2)}${formulaCell(`B${compRow}`,`SUM(B5:B${compRow-1})`,total,1)}</row>`;
+  const total = fuelEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"Company Total",2)}${formulaCell(`B${compRow}`,`SUM(D${firstDataRow}:D${lastDataRow})`,total,1)}</row>`;
 
   const logHeaderRow = firstDataRow-1;
   xml += `<row r="${logHeaderRow}">${["Week","Date Range","Truck","Amount"].map((h,i)=>inlineStrCell(["A","B","C","D"][i]+logHeaderRow,h,2)).join("")}</row>`;
@@ -476,7 +498,6 @@ function buildFuelSheetXML(){
   return xml;
 }
 
-/* ---- Payroll: flat log (Week, Date Range, Driver, Truck, Amount) + per-driver summary rows ---- */
 function buildPayrollSheetXML(){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
   xml += `<row r="1">${inlineStrCell("A1","FleetHub - Payroll Log",3)}</row>`;
@@ -492,8 +513,8 @@ function buildPayrollSheetXML(){
     xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,d.name,0)}${formulaCell(`B${rr}`,f,total,1)}</row>`;
   });
   const compRow = 5+drivers.length;
-  const total = computePayrollTotalsByDriver().company;
-  xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"PAYROLL YTD",2)}${formulaCell(`B${compRow}`,`SUM(B5:B${compRow-1})`,total,1)}</row>`;
+  const total = payrollEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"PAYROLL YTD",2)}${formulaCell(`B${compRow}`,`SUM(E${firstDataRow}:E${lastDataRow})`,total,1)}</row>`;
 
   const logHeaderRow = firstDataRow-1;
   xml += `<row r="${logHeaderRow}">${["Week","Date Range","Driver","Truck","Amount"].map((h,i)=>inlineStrCell(["A","B","C","D","E"][i]+logHeaderRow,h,2)).join("")}</row>`;
@@ -513,7 +534,6 @@ function buildPayrollSheetXML(){
   return xml;
 }
 
-/* ---- Parts / Mechanic (sum) and Maintenance (max): per-vehicle summary rows + flat log ---- */
 function buildLogSheetXML(title, subtitle, colHeaders, fieldOrder, entries, summaryType){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
   xml += `<row r="1">${inlineStrCell("A1",title,3)}</row>`;
@@ -531,8 +551,8 @@ function buildLogSheetXML(title, subtitle, colHeaders, fieldOrder, entries, summ
       xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,v.truckId,0)}${formulaCell(`B${rr}`,f,total,1)}</row>`;
     });
     const compRow=5+vehicles.length;
-    const grand = computeLogSummary(entries,"sum").grand;
-    xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"Grand Total",2)}${formulaCell(`B${compRow}`,`SUM(B5:B${compRow-1})`,grand,1)}</row>`;
+    const grand = entries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"Grand Total",2)}${formulaCell(`B${compRow}`,`SUM(D${firstDataRow}:D${lastDataRow})`,grand,1)}</row>`;
   } else {
     xml += `<row r="4">${inlineStrCell("A4","Truck ID",2)}${inlineStrCell("B4","Latest Mileage",2)}</row>`;
     vehicles.forEach((v,idx)=>{
@@ -567,7 +587,8 @@ function buildWorkbookBytes(){
   const sheetNames = ["Summary","Vehicles","Drivers","Fuel","Parts","Mechanic","Maintenance","Payroll", ...WEEKS.map(w=>`Week ${w}`)];
   const sheetXMLs = [];
   const { totals, company } = computeAllTimeTotals();
-  sheetXMLs.push(buildSummarySheetXML(totals, company));
+  const allVehicleTotals = computeAllVehiclesContractTotals();
+  sheetXMLs.push(buildSummarySheetXML(allVehicleTotals.length ? allVehicleTotals : vehicles.map(v=>({truck:v.truckId, grossContracts:0, grossContractsAcc:0, grossAcc:0})), company));
   sheetXMLs.push(buildVehiclesSheetXML());
   sheetXMLs.push(buildDriversSheetXML());
   sheetXMLs.push(buildFuelSheetXML());
@@ -576,7 +597,7 @@ function buildWorkbookBytes(){
   sheetXMLs.push(buildLogSheetXML("FleetHub - Maintenance Records","Service history per truck.",["Description","Date","Mileage"],["description","date","amount"],maintenanceLog,"max"));
   sheetXMLs.push(buildPayrollSheetXML());
   WEEKS.forEach(w=>{
-    const rows = activeVehiclesForWeek(w).map(v=>computeRow(v.truckId, getContractEntry(w, v.truckId)));
+    const rows = vehiclesForWeek(w, true).map(v=>computeRow(v.truckId, getContractEntry(w, v.truckId)));
     sheetXMLs.push(buildWeekSheetXML(w, weekDateRangeLabel(w), rows));
   });
 
@@ -601,12 +622,28 @@ function exportExcel(){
 }
 
 /* ============ SUPABASE DATA LAYER ============ */
+let autoSaveTimer = null;
+function scheduleAutoSave(){
+  if(autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(()=>{ autoSaveTimer=null; saveAll(); }, 1500);
+}
+function flushIfNeeded(){
+  if(autoSaveTimer){ clearTimeout(autoSaveTimer); autoSaveTimer=null; saveAll(); }
+}
+function markUnsaved(){ unsaved=true; setStatus("Unsaved changes..."); scheduleAutoSave(); }
+function markSaved(){ unsaved=false; setStatus(""); }
+function setStatus(msg){
+  const el = document.getElementById("statusToast");
+  el.textContent = msg;
+  el.classList.toggle("visible", !!msg);
+}
+
 async function saveAll(){
   if(!sb){ alert("Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"); return; }
   setStatus("Saving...");
   try{
-    const vehicleRows = vehicles.map(v=>({ user_id:currentUserId, truck_id:v.truckId, added_week:v.addedWeek }));
-    const driverRows = drivers.map(d=>({ user_id:currentUserId, name:d.name }));
+    const vehicleRows = vehicles.map(v=>({ user_id:currentUserId, truck_id:v.truckId, added_week:v.addedWeek, active:v.active }));
+    const driverRows = drivers.map(d=>({ user_id:currentUserId, name:d.name, active:d.active }));
     const contractRows = contractsEntries.map(e=>({
       user_id:currentUserId, week:e.week, truck:e.truck, contract_id:e.contractId||null,
       block_rate:e.blockRate!==""?parseFloat(e.blockRate):null, num_blocks:e.numBlocks!==""?parseFloat(e.numBlocks):null,
@@ -614,8 +651,8 @@ async function saveAll(){
     }));
     const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null }));
     const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null }));
-    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null }));
-    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null }));
+    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
+    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
     const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null }));
 
     const tasks = [
@@ -630,8 +667,8 @@ async function saveAll(){
     markSaved();
   } catch(e){
     console.error(e);
-    alert("Save failed: " + (e.message||e));
     setStatus("Save failed");
+    alert("Save failed: " + (e.message||e));
   }
 }
 
@@ -646,30 +683,24 @@ async function loadAll(){
     ]);
     [veh,drv,c,f,p,parts,mech,maint].forEach(r=>{ if(r.error) throw r.error; });
 
-    vehicles = (veh.data||[]).map(r=>({ truckId:r.truck_id, addedWeek:r.added_week }));
-    drivers = (drv.data||[]).map(r=>({ name:r.name }));
+    vehicles = (veh.data||[]).map(r=>({ truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false }));
+    drivers = (drv.data||[]).map(r=>({ name:r.name, active:r.active!==false }));
     contractsEntries = (c.data||[]).map(r=>({ week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"" }));
     fuelEntries = (f.data||[]).map(r=>({ week:r.week, truck:r.truck, amount:r.amount??"" }));
     payrollEntries = (p.data||[]).map(r=>({ week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"" }));
-    partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"" }));
-    mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"" }));
+    partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
+    mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
     maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"" }));
 
-    // Migration safety net: if no vehicle roster exists yet but data references trucks
-    // (e.g. upgrading from the older fixed-3-truck version), auto-create roster entries
-    // so existing history stays visible instead of disappearing.
     if(vehicles.length===0){
       const seen = {};
-      const noteTruck = (truck, week)=>{
-        if(!truck) return;
-        if(!seen[truck] || week<seen[truck]) seen[truck] = week ?? 34;
-      };
+      const noteTruck = (truck, week)=>{ if(!truck) return; if(!seen[truck] || week<seen[truck]) seen[truck] = week ?? 34; };
       contractsEntries.forEach(e=>noteTruck(e.truck, e.week));
       fuelEntries.forEach(e=>noteTruck(e.truck, e.week));
       payrollEntries.forEach(e=>noteTruck(e.truck, e.week));
       [...partsLog, ...mechanicLog, ...maintenanceLog].forEach(e=>noteTruck(e.truck, 34));
-      vehicles = Object.keys(seen).map(truckId=>({ truckId, addedWeek: seen[truckId] }));
-      if(vehicles.length) markUnsaved(); // so the recovered roster gets persisted on next Save
+      vehicles = Object.keys(seen).map(truckId=>({ truckId, addedWeek: seen[truckId], active:true }));
+      if(vehicles.length) markUnsaved();
     }
 
     setStatus(""); if(vehicles.length===0) markUnsaved(); else markSaved();
@@ -679,49 +710,503 @@ async function loadAll(){
   }
 }
 
-/* ============ UI ELEMENT REFS ============ */
-const navList=document.getElementById("navList"), mainArea=document.getElementById("mainArea"), statusText=document.getElementById("statusText");
-const homeBtn=document.getElementById("homeBtn");
-const weekNav=document.getElementById("weekNav"), hamburgerBtn=document.getElementById("hamburgerBtn"), hamburgerMenu=document.getElementById("hamburgerMenu");
-const authScreen=document.getElementById("authScreen"), appRoot=document.getElementById("appRoot");
-
-function weekNavApplies(){
-  if(currentModule==="contracts") return true;
-  if(currentModule==="payroll") return true;
-  if(currentModule==="expenses" && currentExpenseTab==="fuel") return true;
-  return false;
+/* ============ RECEIPT SCANNING: edge detection + perspective crop + OCR ============ */
+let tesseractLoadPromise = null;
+function ensureTesseractLoaded(){
+  if(window.Tesseract) return Promise.resolve();
+  if(tesseractLoadPromise) return tesseractLoadPromise;
+  tesseractLoadPromise = new Promise((resolve, reject)=>{
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Could not load the OCR library. Check your internet connection."));
+    document.head.appendChild(script);
+  });
+  return tesseractLoadPromise;
 }
 
-function renderNav(){
-  const applies = weekNavApplies();
-  weekNav.style.display = applies ? "flex" : "none";
-  if(!applies) return;
-  homeBtn.classList.toggle("active", currentView.type==="summary");
-  const groups = groupWeeksByMonth();
-  let html = `<select id="weekSelect"><option value="">Select a week...</option>`;
-  groups.forEach(g=>{
-    html += `<optgroup label="${g.label}">`;
-    g.weeks.forEach(w=>{
-      const isSelected = currentView.type==="week" && currentView.week===w;
-      html += `<option value="${w}" ${isSelected?'selected':''}>Week ${w} (${weekDateRangeLabel(w)})</option>`;
+let openCvLoadPromise = null;
+function ensureOpenCvLoaded(){
+  if(window.cv && window.cv.Mat) return Promise.resolve();
+  if(openCvLoadPromise) return openCvLoadPromise;
+  openCvLoadPromise = new Promise((resolve, reject)=>{
+    const script = document.createElement("script");
+    script.src = "https://docs.opencv.org/4.9.0/opencv.js";
+    script.onload = () => {
+      const check = setInterval(()=>{
+        if(window.cv && window.cv.Mat){ clearInterval(check); resolve(); }
+      }, 100);
+      setTimeout(()=>{ clearInterval(check); if(!(window.cv && window.cv.Mat)) reject(new Error("Scanning engine took too long to load.")); }, 20000);
+    };
+    script.onerror = () => reject(new Error("Could not load the scanning engine. Check your internet connection."));
+    document.head.appendChild(script);
+  });
+  return openCvLoadPromise;
+}
+
+let jscanifyLoadPromise = null;
+function ensureJscanifyLoaded(){
+  if(window.jscanify) return Promise.resolve();
+  if(jscanifyLoadPromise) return jscanifyLoadPromise;
+  jscanifyLoadPromise = new Promise((resolve, reject)=>{
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/jscanify@1.3.0/src/jscanify.min.js";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Could not load the document-edge detector."));
+    document.head.appendChild(script);
+  });
+  return jscanifyLoadPromise;
+}
+
+function loadImageFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not read that image file."));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function imgToCanvas(img){
+  const c = document.createElement("canvas");
+  c.width = img.naturalWidth || img.width;
+  c.height = img.naturalHeight || img.height;
+  c.getContext("2d").drawImage(img, 0, 0);
+  return c;
+}
+
+function detectInitialCorners(img){
+  try{
+    const scanner = new window.jscanify();
+    const contour = scanner.findPaperContour(imgToCanvas(img));
+    if(!contour) return null;
+    const corners = scanner.getCornerPoints(contour);
+    contour.delete && contour.delete();
+    if(!corners || !corners.topLeftCorner) return null;
+    return corners;
+  } catch(e){
+    console.warn("Auto edge-detection failed, falling back to default corners:", e);
+    return null;
+  }
+}
+
+function parseReceiptText(text){
+  const lines = text.split("\n").map(l=>l.trim()).filter(l=>l.length>0);
+
+  const amountRegex = /\$?\s?(\d{1,3}(?:,\d{3})*\.\d{2})/g;
+  let bestAmount = "", totalLineAmount = null, allAmounts = [];
+  for(const line of lines){
+    const lower = line.toLowerCase();
+    let m;
+    const re = new RegExp(amountRegex);
+    while((m = re.exec(line)) !== null){
+      const val = parseFloat(m[1].replace(/,/g,""));
+      allAmounts.push(val);
+      if(lower.includes("total") && !lower.includes("subtotal")) totalLineAmount = val;
+    }
+  }
+  if(totalLineAmount !== null) bestAmount = totalLineAmount.toFixed(2);
+  else if(allAmounts.length) bestAmount = Math.max(...allAmounts).toFixed(2);
+
+  let foundDate = "";
+  const datePatterns = [
+    { re:/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/, fmt:m=>`${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}` },
+    { re:/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/, fmt:m=>`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}` },
+  ];
+  for(const line of lines){
+    for(const p of datePatterns){ const m=line.match(p.re); if(m){ foundDate=p.fmt(m); break; } }
+    if(foundDate) break;
+  }
+
+  let description = "";
+  for(const line of lines){
+    if(/^[\d\s\$.,#-]+$/.test(line)) continue;
+    description = line.slice(0,60);
+    break;
+  }
+  return { amount:bestAmount, date:foundDate, description };
+}
+
+function warpPerspectiveCrop(img, corners){
+  const src = window.cv.imread(imgToCanvas(img));
+  const widthTop = Math.hypot(corners.tr.x-corners.tl.x, corners.tr.y-corners.tl.y);
+  const widthBottom = Math.hypot(corners.br.x-corners.bl.x, corners.br.y-corners.bl.y);
+  const maxWidth = Math.max(widthTop, widthBottom, 50);
+  const heightLeft = Math.hypot(corners.bl.x-corners.tl.x, corners.bl.y-corners.tl.y);
+  const heightRight = Math.hypot(corners.br.x-corners.tr.x, corners.br.y-corners.tr.y);
+  const maxHeight = Math.max(heightLeft, heightRight, 50);
+
+  const dstCanvas = document.createElement("canvas");
+  dstCanvas.width = maxWidth; dstCanvas.height = maxHeight;
+
+  const dst = new window.cv.Mat();
+  const dsize = new window.cv.Size(maxWidth, maxHeight);
+  const srcTri = window.cv.matFromArray(4, 1, window.cv.CV_32FC2, [
+    corners.tl.x, corners.tl.y, corners.tr.x, corners.tr.y,
+    corners.br.x, corners.br.y, corners.bl.x, corners.bl.y
+  ]);
+  const dstTri = window.cv.matFromArray(4, 1, window.cv.CV_32FC2, [
+    0,0, maxWidth,0, maxWidth,maxHeight, 0,maxHeight
+  ]);
+  const M = window.cv.getPerspectiveTransform(srcTri, dstTri);
+  window.cv.warpPerspective(src, dst, M, dsize, window.cv.INTER_LINEAR, window.cv.BORDER_CONSTANT, new window.cv.Scalar());
+  window.cv.imshow(dstCanvas, dst);
+
+  src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+  return dstCanvas;
+}
+
+function openCornerAdjustOverlay(img, cfg, scanBtn, originalText){
+  let corners = detectInitialCorners(img);
+  if(!corners){
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    corners = {
+      topLeftCorner: {x:w*0.08, y:h*0.08}, topRightCorner: {x:w*0.92, y:h*0.08},
+      bottomLeftCorner: {x:w*0.08, y:h*0.92}, bottomRightCorner: {x:w*0.92, y:h*0.92}
+    };
+  }
+
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px;";
+
+  const imgW = img.naturalWidth || img.width, imgH = img.naturalHeight || img.height;
+  const maxW = Math.min(window.innerWidth - 32, 700);
+  const maxHAvail = window.innerHeight - 140;
+  const scale = Math.min(1, maxW / imgW, maxHAvail / imgH);
+  const dispW = imgW * scale, dispH = imgH * scale;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = dispW; canvas.height = dispH;
+  canvas.style.cssText = "touch-action:none; border-radius:8px; max-width:100%;";
+  overlay.appendChild(canvas);
+
+  const hint = document.createElement("div");
+  hint.textContent = "Drag the corners to match the receipt's edges, then confirm.";
+  hint.style.cssText = "color:#fff; font-size:13px; margin-top:12px; text-align:center;";
+  overlay.appendChild(hint);
+
+  const btnRow = document.createElement("div");
+  btnRow.style.cssText = "margin-top:14px; display:flex; gap:10px;";
+  const confirmBtn = document.createElement("button"); confirmBtn.textContent = "Confirm Crop"; confirmBtn.className = "btn-blue";
+  const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Cancel"; cancelBtn.className = "btn-danger";
+  btnRow.appendChild(confirmBtn); btnRow.appendChild(cancelBtn);
+  overlay.appendChild(btnRow);
+  document.body.appendChild(overlay);
+
+  let pts = {
+    tl: { x: corners.topLeftCorner.x*scale, y: corners.topLeftCorner.y*scale },
+    tr: { x: corners.topRightCorner.x*scale, y: corners.topRightCorner.y*scale },
+    bl: { x: corners.bottomLeftCorner.x*scale, y: corners.bottomLeftCorner.y*scale },
+    br: { x: corners.bottomRightCorner.x*scale, y: corners.bottomRightCorner.y*scale },
+  };
+
+  const ctx = canvas.getContext("2d");
+  function draw(){
+    ctx.clearRect(0,0,dispW,dispH);
+    ctx.drawImage(img, 0,0,dispW,dispH);
+    ctx.strokeStyle = "#C1703D"; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(pts.tl.x,pts.tl.y); ctx.lineTo(pts.tr.x,pts.tr.y);
+    ctx.lineTo(pts.br.x,pts.br.y); ctx.lineTo(pts.bl.x,pts.bl.y); ctx.closePath();
+    ctx.stroke();
+    Object.values(pts).forEach(p=>{
+      ctx.beginPath(); ctx.arc(p.x,p.y,10,0,2*Math.PI);
+      ctx.fillStyle = "#5B8DBE"; ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
     });
-    html += `</optgroup>`;
+  }
+  draw();
+
+  let activeKey = null;
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX-rect.left) * (dispW/rect.width), y: (clientY-rect.top) * (dispH/rect.height) };
+  }
+  function findNearest(pos){
+    let nearest=null, minDist=Infinity;
+    Object.keys(pts).forEach(k=>{
+      const d = Math.hypot(pts[k].x-pos.x, pts[k].y-pos.y);
+      if(d<minDist){ minDist=d; nearest=k; }
+    });
+    return minDist < 40 ? nearest : null;
+  }
+  function startDrag(e){ activeKey = findNearest(getPos(e)); }
+  function moveDrag(e){
+    if(!activeKey) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    pts[activeKey] = { x: Math.max(0,Math.min(dispW,pos.x)), y: Math.max(0,Math.min(dispH,pos.y)) };
+    draw();
+  }
+  function endDrag(){ activeKey = null; }
+  canvas.addEventListener("mousedown", startDrag);
+  canvas.addEventListener("mousemove", moveDrag);
+  window.addEventListener("mouseup", endDrag);
+  canvas.addEventListener("touchstart", startDrag, {passive:false});
+  canvas.addEventListener("touchmove", moveDrag, {passive:false});
+  canvas.addEventListener("touchend", endDrag);
+
+  cancelBtn.addEventListener("click", ()=>{
+    document.body.removeChild(overlay);
+    if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
   });
-  html += `</select>`;
-  navList.innerHTML = html;
-  document.getElementById("weekSelect").addEventListener("change", e=>{
-    if(!e.target.value) return;
-    flushIfNeeded();
-    currentView = { type:"week", week: parseInt(e.target.value) };
-    renderNav(); renderMain();
+
+  confirmBtn.addEventListener("click", async ()=>{
+    confirmBtn.disabled = true; confirmBtn.textContent = "Processing...";
+    try{
+      const orig = {
+        tl: { x: pts.tl.x/scale, y: pts.tl.y/scale }, tr: { x: pts.tr.x/scale, y: pts.tr.y/scale },
+        bl: { x: pts.bl.x/scale, y: pts.bl.y/scale }, br: { x: pts.br.x/scale, y: pts.br.y/scale },
+      };
+      const croppedCanvas = warpPerspectiveCrop(img, orig);
+      document.body.removeChild(overlay);
+      await runOcrOnCanvas(croppedCanvas, cfg, scanBtn, originalText);
+    } catch(e){
+      console.error(e);
+      alert("Couldn't process the crop: " + (e.message||e));
+      document.body.removeChild(overlay);
+      if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
+    }
   });
 }
+
+let pdfJsLoadPromise = null;
+function ensurePdfJsLoaded(){
+  if(window.pdfjsLib) return Promise.resolve();
+  if(pdfJsLoadPromise) return pdfJsLoadPromise;
+  pdfJsLoadPromise = new Promise((resolve, reject)=>{
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+    script.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      resolve();
+    };
+    script.onerror = () => reject(new Error("Could not load the PDF reader. Check your internet connection."));
+    document.head.appendChild(script);
+  });
+  return pdfJsLoadPromise;
+}
+
+async function renderPdfFirstPageToCanvas(file){
+  await ensurePdfJsLoaded();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width; canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+  return canvas;
+}
+
+function isPdfFile(file){
+  return file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+}
+
+/* ============ RECEIPT STORAGE (Supabase Storage) ============ */
+function canvasToBlob(canvas, type, quality){
+  return new Promise(resolve => canvas.toBlob(resolve, type, quality));
+}
+
+async function uploadReceiptImage(canvas){
+  if(!sb || !currentUserId) return null;
+  try{
+    const blob = await canvasToBlob(canvas, "image/jpeg", 0.85);
+    const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+    const { error } = await sb.storage.from("receipts").upload(path, blob, { contentType: "image/jpeg" });
+    if(error){ console.error("Receipt upload failed:", error); return null; }
+    return path;
+  } catch(e){
+    console.error("Receipt upload failed:", e);
+    return null;
+  }
+}
+
+async function getReceiptSignedUrl(path){
+  if(!sb || !path) return null;
+  try{
+    const { data, error } = await sb.storage.from("receipts").createSignedUrl(path, 3600);
+    if(error){ console.error(error); return null; }
+    return data.signedUrl;
+  } catch(e){ console.error(e); return null; }
+}
+
+async function runOcrOnCanvas(canvas, cfg, scanBtn, originalText){
+  if(scanBtn) scanBtn.textContent = "Scanning...";
+  try{
+    await ensureTesseractLoaded();
+    const result = await window.Tesseract.recognize(canvas, "eng");
+    const parsed = parseReceiptText(result.data.text);
+    const receiptPath = await uploadReceiptImage(canvas);
+    const entries = getLogArray(cfg.key);
+    const blank = { truck:"", receiptPath: receiptPath || "" };
+    blank[cfg.fieldOrder[0]] = cfg.fieldOrder[0]==="date" ? parsed.date : parsed.description;
+    blank[cfg.fieldOrder[1]] = cfg.fieldOrder[1]==="description" ? parsed.description : (cfg.fieldOrder[1]==="date" ? parsed.date : "");
+    blank[cfg.fieldOrder[2]] = parsed.amount;
+    entries.push(blank);
+    markUnsaved();
+    renderMain();
+    setTimeout(()=>{ alert("Receipt scanned. Please double-check the date, description, and amount below, and pick the correct truck - scanning isn't always perfect."); }, 100);
+  } catch(e){
+    console.error(e);
+    alert("Couldn't read that receipt: " + (e.message||e));
+  } finally {
+    if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
+  }
+}
+
+function scanReceiptForLog(cfg, mode){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*,application/pdf";
+  if(mode === "camera") input.capture = "environment";
+  input.addEventListener("change", async ()=>{
+    const file = input.files[0];
+    if(!file) return;
+    const btnId = mode === "camera" ? "takePhotoBtn" : "uploadFileBtn";
+    const scanBtn = document.getElementById(btnId);
+    const originalText = scanBtn ? scanBtn.textContent : "";
+    if(scanBtn){ scanBtn.disabled=true; scanBtn.textContent="Loading..."; }
+    try{
+      let img;
+      if(isPdfFile(file)){
+        scanBtn && (scanBtn.textContent = "Reading PDF...");
+        img = await renderPdfFirstPageToCanvas(file);
+      } else {
+        await ensureOpenCvLoaded();
+        await ensureJscanifyLoaded();
+        img = await loadImageFromFile(file);
+      }
+      if(isPdfFile(file)){
+        // PDF pages are already flat/rectangular - skip corner adjustment, go straight to OCR.
+        await runOcrOnCanvas(img, cfg, scanBtn, originalText);
+      } else {
+        openCornerAdjustOverlay(img, cfg, scanBtn, originalText);
+      }
+    } catch(e){
+      console.error(e);
+      alert("Couldn't start the scanner: " + (e.message||e));
+      if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
+    }
+  });
+  input.click();
+}
+
+
+
+
+
+/* ============ PUSH NOTIFICATIONS ============ */
+const VAPID_PUBLIC_KEY = "BLw3RiD-yqev-jvI8zYBWCwnCgS7Xmy4ff0ZgzZS4ci_SA5jSidCvjNNCabIprpoMZuTpa1Qckfkhj7ykuVMo2s";
+
+function urlBase64ToUint8Array(base64String){
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for(let i=0;i<rawData.length;i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function registerServiceWorker(){
+  if(!("serviceWorker" in navigator)) return null;
+  try{ return await navigator.serviceWorker.register("sw.js"); }
+  catch(e){ console.warn("Service worker registration failed:", e); return null; }
+}
+
+async function getPushSubscriptionStatus(){
+  if(!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
+  const reg = await navigator.serviceWorker.getRegistration();
+  if(!reg) return "not-registered";
+  const sub = await reg.pushManager.getSubscription();
+  return sub ? "subscribed" : "not-subscribed";
+}
+
+async function enablePushNotifications(){
+  if(!("serviceWorker" in navigator) || !("PushManager" in window)){
+    alert("Push notifications aren't supported in this browser/app.");
+    return false;
+  }
+  try{
+    const permission = await Notification.requestPermission();
+    if(permission !== "granted"){ alert("Notification permission was not granted."); return false; }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    const subJson = sub.toJSON();
+    if(sb && currentUserId){
+      await sb.from("push_subscriptions").delete().eq("user_id", currentUserId).eq("endpoint", subJson.endpoint);
+      await sb.from("push_subscriptions").insert({
+        user_id: currentUserId, endpoint: subJson.endpoint,
+        p256dh: subJson.keys.p256dh, auth: subJson.keys.auth
+      });
+    }
+    return true;
+  } catch(e){
+    console.error(e);
+    alert("Could not enable notifications: " + (e.message||e));
+    return false;
+  }
+}
+
+async function disablePushNotifications(){
+  try{
+    const reg = await navigator.serviceWorker.getRegistration();
+    if(!reg) return;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub){
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      if(sb && currentUserId){ await sb.from("push_subscriptions").delete().eq("user_id", currentUserId).eq("endpoint", endpoint); }
+    }
+  } catch(e){ console.error(e); }
+}
+
+/* ============ UI ELEMENT REFS ============ */
+const mainArea=document.getElementById("mainArea");
+const hamburgerBtn=document.getElementById("hamburgerBtn"), hamburgerMenu=document.getElementById("hamburgerMenu");
+const authScreen=document.getElementById("authScreen"), appRoot=document.getElementById("appRoot");
 
 function fieldHTML(id,label,value,opts){
   opts=opts||{}; const step=opts.step||"0.01";
   return `<div class="field"><label>${label}</label><input type="${opts.type||'text'}" ${opts.type==='number'?`step="${step}" min="0"`:''} id="${id}" value="${value!==undefined?value:''}" ${opts.readonly?'readonly':''}></div>`;
 }
 function moneyStr(v){ return v<0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`; }
+
+/* Reusable inline week picker (replaces the old sidebar) */
+function weekPickerHTML(selectedWeek, selectId){
+  const groups = groupWeeksByMonth();
+  let html = `<div class="week-picker-row"><select id="${selectId}"><option value="">Jump to a week...</option>`;
+  groups.forEach(g=>{
+    html += `<optgroup label="${g.label}">`;
+    g.weeks.forEach(w=>{
+      html += `<option value="${w}" ${selectedWeek===w?'selected':''}>Week ${w} (${weekDateRangeLabel(w)})</option>`;
+    });
+    html += `</optgroup>`;
+  });
+  html += `</select>`;
+  html += `<label class="inactive-toggle"><input type="checkbox" id="${selectId}-inactive" ${showInactive?'checked':''}> Show inactive vehicles/drivers too</label>`;
+  html += `</div>`;
+  return html;
+}
+function wireWeekPicker(selectId, onWeekChange){
+  document.getElementById(selectId).addEventListener("change", e=>{
+    if(!e.target.value) return;
+    flushIfNeeded();
+    onWeekChange(parseInt(e.target.value));
+  });
+  document.getElementById(`${selectId}-inactive`).addEventListener("change", e=>{
+    showInactive = e.target.checked;
+    renderMain();
+  });
+}
 
 /* ============ MAIN DISPATCH ============ */
 function renderMain(){
@@ -735,6 +1220,7 @@ function renderMain(){
       colHeaders:["Date","Description","Price"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Parts", companyLabel:"PARTS YTD" }); return; }
     if(currentExpenseTab==="mechanic"){ renderLogPage({ key:"mechanic", title:"Mechanic / Repair Log", subtitle:"Repairs paid per truck.",
       colHeaders:["Date Paid","Description of Repair","Amount Paid"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Mechanic", companyLabel:"MECHANIC YTD" }); return; }
+    if(currentExpenseTab==="receipts"){ renderReceiptsPage(); return; }
   }
   if(currentModule==="payroll"){ renderPayrollPage(); return; }
   renderContractsPage();
@@ -742,14 +1228,26 @@ function renderMain(){
 
 /* ============ FLEET MANAGEMENT ============ */
 function renderFleetPage(){
-  let html = `<h1 class="page-title">Manage Fleet</h1><p class="page-sub">Add or remove vehicles and drivers. Removing one only affects future dropdowns - past entries stay in your records.</p>`;
+  let html = `<h1 class="page-title">Manage Fleet</h1><p class="page-sub">Deactivate a vehicle or driver to hide them from active use - their past records stay exactly as they are for tax purposes, and you can reactivate anytime.</p>`;
 
-  html += `<div class="fleet-section"><div class="section-label">Vehicles</div>`;
+  html += `<div class="fleet-section"><div class="section-label">Notifications</div>
+    <div class="card">
+      <h3>Push Reminders</h3>
+      <p class="hint" style="margin-bottom:12px;">Get a weekly reminder to log your data, plus an alert if a week is about to close with no fuel logged.</p>
+      <button class="btn-blue btn-sm" id="enableNotifBtn">Enable Notifications</button>
+      <button class="btn-danger btn-sm" id="disableNotifBtn" style="margin-left:8px;">Disable</button>
+      <div class="hint" id="notifStatus" style="margin-top:10px;"></div>
+    </div>
+  </div>`;
+
+  const activeV = vehicles.filter(v=>v.active), inactiveV = vehicles.filter(v=>!v.active);
+  html += `<div class="fleet-section"><div class="section-label">Active Vehicles</div>`;
   html += `<table class="logtable"><thead><tr><th>Truck ID</th><th>Added From Week</th><th></th></tr></thead><tbody>`;
-  vehicles.forEach((v,idx)=>{
-    html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek} (${weekDateRangeLabel(v.addedWeek)})</td><td><button class="btn-danger" data-remove-vehicle="${idx}">Remove</button></td></tr>`;
+  activeV.forEach(v=>{
+    const idx = vehicles.indexOf(v);
+    html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek} (${weekDateRangeLabel(v.addedWeek)})</td><td><button class="btn-danger" data-deactivate-vehicle="${idx}">Deactivate</button></td></tr>`;
   });
-  if(!vehicles.length) html += `<tr><td colspan="3" class="hint">No vehicles yet - add one below.</td></tr>`;
+  if(!activeV.length) html += `<tr><td colspan="3" class="hint">No active vehicles yet - add one below.</td></tr>`;
   html += `</tbody></table>`;
   html += `<div class="fleet-add-row">
     <div class="field"><label>Truck ID</label><input type="text" id="newTruckId" placeholder="e.g. 045"></div>
@@ -757,17 +1255,39 @@ function renderFleetPage(){
     <button class="btn-blue" id="addVehicleBtn">+ Add Vehicle</button>
   </div></div>`;
 
-  html += `<div class="fleet-section"><div class="section-label">Drivers</div>`;
+  if(inactiveV.length){
+    html += `<div class="fleet-section"><div class="section-label">Inactive Vehicles</div>`;
+    html += `<table class="logtable"><thead><tr><th>Truck ID</th><th>Added From Week</th><th></th></tr></thead><tbody>`;
+    inactiveV.forEach(v=>{
+      const idx = vehicles.indexOf(v);
+      html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek}</td><td><button class="btn-success" data-reactivate-vehicle="${idx}">Reactivate</button></td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  const activeD = drivers.filter(d=>d.active), inactiveD = drivers.filter(d=>!d.active);
+  html += `<div class="fleet-section"><div class="section-label">Active Drivers</div>`;
   html += `<table class="logtable"><thead><tr><th>Driver Name</th><th></th></tr></thead><tbody>`;
-  drivers.forEach((d,idx)=>{
-    html += `<tr><td>${d.name}</td><td><button class="btn-danger" data-remove-driver="${idx}">Remove</button></td></tr>`;
+  activeD.forEach(d=>{
+    const idx = drivers.indexOf(d);
+    html += `<tr><td>${d.name}</td><td><button class="btn-danger" data-deactivate-driver="${idx}">Deactivate</button></td></tr>`;
   });
-  if(!drivers.length) html += `<tr><td colspan="2" class="hint">No drivers yet - add one below.</td></tr>`;
+  if(!activeD.length) html += `<tr><td colspan="2" class="hint">No active drivers yet - add one below.</td></tr>`;
   html += `</tbody></table>`;
   html += `<div class="fleet-add-row">
     <div class="field"><label>Driver Name</label><input type="text" id="newDriverName" placeholder="e.g. John Smith"></div>
     <button class="btn-blue" id="addDriverBtn">+ Add Driver</button>
   </div></div>`;
+
+  if(inactiveD.length){
+    html += `<div class="fleet-section"><div class="section-label">Inactive Drivers</div>`;
+    html += `<table class="logtable"><thead><tr><th>Driver Name</th><th></th></tr></thead><tbody>`;
+    inactiveD.forEach(d=>{
+      const idx = drivers.indexOf(d);
+      html += `<tr><td>${d.name}</td><td><button class="btn-success" data-reactivate-driver="${idx}">Reactivate</button></td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
 
   mainArea.innerHTML = html;
 
@@ -776,39 +1296,60 @@ function renderFleetPage(){
     const wk = parseInt(document.getElementById("newTruckWeek").value);
     if(!id){ alert("Enter a Truck ID."); return; }
     if(vehicleExists(id)){ alert("That Truck ID already exists."); return; }
-    vehicles.push({ truckId:id, addedWeek:wk });
+    vehicles.push({ truckId:id, addedWeek:wk, active:true });
     markUnsaved(); renderMain();
   });
   document.getElementById("addDriverBtn").addEventListener("click", ()=>{
     const name = document.getElementById("newDriverName").value.trim();
     if(!name){ alert("Enter a driver name."); return; }
     if(drivers.some(d=>d.name===name)){ alert("That driver already exists."); return; }
-    drivers.push({ name });
+    drivers.push({ name, active:true });
     markUnsaved(); renderMain();
   });
-  mainArea.querySelectorAll("[data-remove-vehicle]").forEach(b=>{
-    b.addEventListener("click", ()=>{
-      if(!confirm("Remove this vehicle from the roster? Past entries stay in your records.")) return;
-      vehicles.splice(parseInt(b.dataset.removeVehicle),1); markUnsaved(); renderMain();
-    });
+  mainArea.querySelectorAll("[data-deactivate-vehicle]").forEach(b=>{
+    b.addEventListener("click", ()=>{ vehicles[parseInt(b.dataset.deactivateVehicle)].active=false; markUnsaved(); renderMain(); });
   });
-  mainArea.querySelectorAll("[data-remove-driver]").forEach(b=>{
-    b.addEventListener("click", ()=>{
-      if(!confirm("Remove this driver from the roster? Past entries stay in your records.")) return;
-      drivers.splice(parseInt(b.dataset.removeDriver),1); markUnsaved(); renderMain();
-    });
+  mainArea.querySelectorAll("[data-reactivate-vehicle]").forEach(b=>{
+    b.addEventListener("click", ()=>{ vehicles[parseInt(b.dataset.reactivateVehicle)].active=true; markUnsaved(); renderMain(); });
   });
+  mainArea.querySelectorAll("[data-deactivate-driver]").forEach(b=>{
+    b.addEventListener("click", ()=>{ drivers[parseInt(b.dataset.deactivateDriver)].active=false; markUnsaved(); renderMain(); });
+  });
+  mainArea.querySelectorAll("[data-reactivate-driver]").forEach(b=>{
+    b.addEventListener("click", ()=>{ drivers[parseInt(b.dataset.reactivateDriver)].active=true; markUnsaved(); renderMain(); });
+  });
+
+  document.getElementById("enableNotifBtn").addEventListener("click", async ()=>{
+    const ok = await enablePushNotifications();
+    if(ok) refreshNotifStatus();
+  });
+  document.getElementById("disableNotifBtn").addEventListener("click", async ()=>{
+    await disablePushNotifications();
+    refreshNotifStatus();
+  });
+  refreshNotifStatus();
+}
+async function refreshNotifStatus(){
+  const el = document.getElementById("notifStatus");
+  if(!el) return;
+  const status = await getPushSubscriptionStatus();
+  const labels = { unsupported:"Not supported in this browser.", "not-registered":"Not set up yet.", "not-subscribed":"Notifications are off.", subscribed:"Notifications are ON." };
+  el.textContent = labels[status] || "";
 }
 
 /* ============ CONTRACTS ============ */
 function renderContractsPage(){
   if(currentView.type==="summary"){ renderDashboard(); return; }
   const { week } = currentView;
-  const active = activeVehiclesForWeek(week);
-  let html = `<h1 class="page-title">Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat) &nbsp;|&nbsp; Acc = Accessories</p>`;
+  const active = vehiclesForWeek(week, showInactive);
+  let html = `<h1 class="page-title"><span class="clickable-title" id="contractsHomeTitle">Contracts</span> - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat) &nbsp;|&nbsp; Acc = Accessories</p>`;
+  html += weekPickerHTML(week, "contractsWeekSelect");
   if(!active.length){
-    html += `<div class="banner"><b>No vehicles active this week yet</b>Add one under Manage Fleet (hamburger menu) with an earlier "Added From Week."</div>`;
-    mainArea.innerHTML = html; return;
+    html += `<div class="banner"><b>No vehicles active this week yet</b>Add one under Manage Fleet (hamburger menu) with an earlier "Added From Week," or check "Show inactive too" above.</div>`;
+    mainArea.innerHTML = html;
+    wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+    document.getElementById("contractsHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
+    return;
   }
   html += `<div class="cards">`;
   active.forEach(v=>{
@@ -816,7 +1357,7 @@ function renderContractsPage(){
     const d = getContractEntry(week, truck);
     const row = computeRow(truck, d);
     html += `<div class="card" data-truck="${truck}">
-      <h3>Truck <span class="tag">${truck}</span></h3>
+      <h3>Truck <span class="tag">${truck}${v.active?'':' (inactive)'}</span></h3>
       ${fieldHTML(`ci-${week}-${truck}`,"Contract ID", d.contractId)}
       <div class="blockgrid">${fieldHTML(`br-${week}-${truck}`,"Block Rate", d.blockRate, {type:'number'})}${fieldHTML(`nb-${week}-${truck}`,"Blocks (QTY)", d.numBlocks, {type:'number', step:'1'})}</div>
       <div class="blockgrid" style="grid-template-columns:1fr 1fr 1fr;">
@@ -833,6 +1374,8 @@ function renderContractsPage(){
   });
   html += `</div>`;
   mainArea.innerHTML = html;
+  wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+  document.getElementById("contractsHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
   active.forEach(v=>{
     const truck=v.truckId;
     const map={ci:'contractId',br:'blockRate',nb:'numBlocks',b1:'block1',b2:'block2',b3:'block3'};
@@ -852,33 +1395,32 @@ function updateContractTotalsInline(week,truck){
   inputs[0].value=`$${row.contractRate.toFixed(2)}`; inputs[1].value=`$${row.contractAcc.toFixed(2)}`; inputs[2].value=`$${row.totalAcc.toFixed(2)}`;
 }
 
+function ytdMetricsHTML(m){
+  return `<div class="ytd-grid">
+    <div class="metric"><div class="label">YTD Contracts</div><div class="big">${moneyStr(m.ytdContracts)}</div></div>
+    <div class="metric"><div class="label">YTD Accessories</div><div class="big">${moneyStr(m.ytdAccessories)}</div></div>
+    <div class="metric"><div class="label">YTD Expenses</div><div class="big">${moneyStr(m.ytdExpenses)}</div></div>
+    <div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(m.ytdPayroll)}</div></div>
+    <div class="metric"><div class="label">Gross YTD</div><div class="big">${moneyStr(m.grossYTD)}</div></div>
+    <div class="metric"><div class="label">Net YTD</div><div class="big ${m.netYTD<0?'negative':''}">${moneyStr(m.netYTD)}</div></div>
+  </div>`;
+}
+
 function renderDashboard(){
   const { perTruck, company } = computeDashboardYTD();
-  let html = `<h1 class="page-title">Dashboard</h1><p class="page-sub">All-time (YTD) totals across every week entered.</p>`;
+  let html = `<h1 class="page-title">Dashboard</h1><p class="page-sub">All-time (YTD) totals across every week entered. Company totals include removed vehicles/drivers for accurate records.</p>`;
+  html += weekPickerHTML(null, "dashboardWeekSelect");
   if(!vehicles.length){
     html += `<div class="banner"><b>No vehicles yet</b>Go to Manage Fleet (hamburger menu) to add your first vehicle.</div>`;
   }
   html += `<div class="section-label">By Truck</div><div class="cards summary-cards">`;
   perTruck.forEach(t=>{
-    html += `<div class="card"><h3>Truck <span class="tag">${t.truck}</span></h3>
-      <div class="metric"><div class="label">YTD Contracts</div><div class="big">${moneyStr(t.ytdContracts)}</div></div>
-      <div class="metric"><div class="label">YTD Accessories</div><div class="big">${moneyStr(t.ytdAccessories)}</div></div>
-      <div class="metric"><div class="label">YTD Expenses</div><div class="big">${moneyStr(t.ytdExpenses)}</div></div>
-      <div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(t.ytdPayroll)}</div></div>
-      <div class="metric"><div class="label">Gross YTD</div><div class="big">${moneyStr(t.grossYTD)}</div></div>
-      <div class="metric"><div class="label">Net YTD</div><div class="big ${t.netYTD<0?'negative':''}">${moneyStr(t.netYTD)}</div></div>
-    </div>`;
+    html += `<div class="card"><h3>Truck <span class="tag">${t.truck}</span></h3>${ytdMetricsHTML(t)}</div>`;
   });
   html += `</div><div class="section-label">Entire Company</div><div class="cards summary-cards">
-    <div class="card company"><h3>All Trucks <span class="tag">Combined</span></h3>
-      <div class="metric"><div class="label">YTD Contracts</div><div class="big">${moneyStr(company.ytdContracts)}</div></div>
-      <div class="metric"><div class="label">YTD Accessories</div><div class="big">${moneyStr(company.ytdAccessories)}</div></div>
-      <div class="metric"><div class="label">YTD Expenses</div><div class="big">${moneyStr(company.ytdExpenses)}</div></div>
-      <div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(company.ytdPayroll)}</div></div>
-      <div class="metric"><div class="label">Gross YTD</div><div class="big">${moneyStr(company.grossYTD)}</div></div>
-      <div class="metric"><div class="label">Net YTD</div><div class="big ${company.netYTD<0?'negative':''}">${moneyStr(company.netYTD)}</div></div>
-    </div></div>`;
+    <div class="card company"><h3>All Trucks <span class="tag">Combined</span></h3>${ytdMetricsHTML(company)}</div></div>`;
   mainArea.innerHTML = html;
+  wireWeekPicker("dashboardWeekSelect", w=>{ currentModule="contracts"; currentView={type:"week", week:w}; renderMain(); });
 }
 
 /* ============ EXPENSES / FUEL ============ */
@@ -892,30 +1434,148 @@ function renderExpensesOverview(){
     <div class="card clickable" data-tab="mechanic"><h3>Mechanic</h3><div class="metric"><div class="label">MECHANIC YTD</div><div class="big">${moneyStr(mechSum.grand)}</div></div><div class="hint">Click to view/edit log</div></div>
   </div>`;
   mainArea.innerHTML = html; wireSubtabs();
-  mainArea.querySelectorAll(".card.clickable").forEach(c=>{ c.addEventListener("click", ()=>{ currentExpenseTab=c.dataset.tab; currentView={type:"summary"}; renderNav(); renderMain(); }); });
+  mainArea.querySelectorAll(".card.clickable").forEach(c=>{ c.addEventListener("click", ()=>{ currentExpenseTab=c.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
 }
 function subtabsHTML(){
-  const tabs=[["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"]];
+  const tabs=[["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"],["receipts","Receipts"]];
   return `<div class="subtabs">` + tabs.map(([k,label])=>`<button data-tab="${k}" class="${currentExpenseTab===k?'active':''}">${label}</button>`).join("") + `</div>`;
 }
 function wireSubtabs(){
-  mainArea.querySelectorAll(".subtabs button").forEach(b=>{ b.addEventListener("click", ()=>{ currentExpenseTab=b.dataset.tab; currentView={type:"summary"}; renderNav(); renderMain(); }); });
+  mainArea.querySelectorAll(".subtabs button").forEach(b=>{ b.addEventListener("click", ()=>{ currentExpenseTab=b.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
+}
+
+/* ============ RECEIPTS ARCHIVE ============ */
+function allReceiptEntries(){
+  const parts = partsLog.map(e=>({ ...e, logType:"Parts" })).filter(e=>e.receiptPath);
+  const mech = mechanicLog.map(e=>({ ...e, logType:"Mechanic" })).filter(e=>e.receiptPath);
+  return [...parts, ...mech];
+}
+
+async function renderReceiptsPage(){
+  const receipts = allReceiptEntries();
+  let html = `<h1 class="page-title">Receipts</h1><p class="page-sub">Every receipt scanned from Parts and Mechanic entries, in one place.</p>`;
+  html += subtabsHTML();
+  if(!receipts.length){
+    html += `<div class="banner"><b>No receipts yet</b>Scan one from the Parts or Mechanic page and it'll show up here.</div>`;
+    mainArea.innerHTML = html; wireSubtabs(); return;
+  }
+  html += `<div style="margin-bottom:16px;"><button class="btn-blue btn-sm" id="downloadAllReceiptsBtn">Download All as PDF (${receipts.length})</button></div>`;
+  html += `<div class="cards" id="receiptCards">`;
+  receipts.forEach((r,idx)=>{
+    html += `<div class="card">
+      <h3>${r.logType} <span class="tag">${r.truck||'?'}</span></h3>
+      <div class="hint">${r.date||''}</div>
+      <div style="margin:8px 0; font-weight:bold;">${r.description||''} - $${(parseFloat(r.amount)||0).toFixed(2)}</div>
+      <div id="receiptThumb-${idx}" style="width:100%; height:140px; background:var(--bg); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:12px;">Loading...</div>
+    </div>`;
+  });
+  html += `</div>`;
+  mainArea.innerHTML = html;
+  wireSubtabs();
+
+  receipts.forEach(async (r, idx) => {
+    const url = await getReceiptSignedUrl(r.receiptPath);
+    const thumb = document.getElementById(`receiptThumb-${idx}`);
+    if(!thumb) return;
+    if(url){
+      thumb.innerHTML = `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" style="max-width:100%; max-height:140px; border-radius:6px;"></a>`;
+    } else {
+      thumb.textContent = "Couldn't load image";
+    }
+  });
+
+  document.getElementById("downloadAllReceiptsBtn").addEventListener("click", downloadAllReceiptsAsPdf);
+}
+
+let jsPdfLoadPromise = null;
+function ensureJsPdfLoaded(){
+  if(window.jspdf) return Promise.resolve();
+  if(jsPdfLoadPromise) return jsPdfLoadPromise;
+  jsPdfLoadPromise = new Promise((resolve, reject)=>{
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Could not load the PDF export library. Check your internet connection."));
+    document.head.appendChild(script);
+  });
+  return jsPdfLoadPromise;
+}
+
+function loadImageFromUrl(url){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not load image"));
+    img.src = url;
+  });
+}
+
+async function downloadAllReceiptsAsPdf(){
+  const btn = document.getElementById("downloadAllReceiptsBtn");
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = "Building PDF...";
+  try{
+    await ensureJsPdfLoaded();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const receipts = allReceiptEntries();
+    let first = true;
+
+    for(const r of receipts){
+      const url = await getReceiptSignedUrl(r.receiptPath);
+      if(!url) continue;
+      let img;
+      try{ img = await loadImageFromUrl(url); } catch(e){ console.warn("Skipping receipt, could not load image:", e); continue; }
+
+      if(!first) doc.addPage();
+      first = false;
+
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 36;
+      const caption = `${r.logType} - Truck ${r.truck||'?'} - ${r.date||''} - ${r.description||''} - $${(parseFloat(r.amount)||0).toFixed(2)}`;
+      doc.setFontSize(10);
+      doc.text(caption, margin, margin, { maxWidth: pageW - margin*2 });
+
+      const availW = pageW - margin*2;
+      const availH = pageH - margin*2 - 24;
+      const ratio = Math.min(availW / img.width, availH / img.height);
+      const drawW = img.width * ratio, drawH = img.height * ratio;
+      const x = margin + (availW - drawW) / 2;
+      const y = margin + 24;
+      doc.addImage(img, "JPEG", x, y, drawW, drawH);
+    }
+
+    if(first){
+      alert("No receipt images could be loaded.");
+    } else {
+      doc.save("FleetHub_Receipts.pdf");
+    }
+  } catch(e){
+    console.error(e);
+    alert("Could not build the PDF: " + (e.message||e));
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
 }
 
 function renderFuelPage(){
   if(currentView.type==="summary"){ renderFuelSummary(); return; }
   const { week } = currentView;
-  const active = activeVehiclesForWeek(week);
+  const active = vehiclesForWeek(week, showInactive);
   let html = `<h1 class="page-title">Fuel - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat)</p>`;
   html += subtabsHTML();
-  if(!active.length){ html += `<div class="banner"><b>No vehicles active this week yet.</b></div>`; mainArea.innerHTML=html; wireSubtabs(); return; }
+  html += weekPickerHTML(week, "fuelWeekSelect");
+  if(!active.length){ html += `<div class="banner"><b>No vehicles active this week yet.</b></div>`; mainArea.innerHTML=html; wireSubtabs(); wireWeekPicker("fuelWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); }); return; }
   html += `<div class="cards">`;
   active.forEach(v=>{
     const e = getFuelEntry(week, v.truckId);
-    html += `<div class="card"><h3>Truck <span class="tag">${v.truckId}</span></h3>${fieldHTML(`fuel-${week}-${v.truckId}`,"Fuel Cost", e.amount, {type:'number'})}</div>`;
+    html += `<div class="card"><h3>Truck <span class="tag">${v.truckId}${v.active?'':' (inactive)'}</span></h3>${fieldHTML(`fuel-${week}-${v.truckId}`,"Fuel Cost", e.amount, {type:'number'})}</div>`;
   });
   html += `</div>`;
   mainArea.innerHTML = html; wireSubtabs();
+  wireWeekPicker("fuelWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
   active.forEach(v=>{
     const el = document.getElementById(`fuel-${week}-${v.truckId}`);
     el.addEventListener("input", ()=>{ getFuelEntry(week,v.truckId).amount = el.value; markUnsaved(); });
@@ -924,30 +1584,32 @@ function renderFuelPage(){
 function renderFuelSummary(){
   const { totals, company } = computeFuelTotals();
   let html = `<h1 class="page-title">Fuel</h1>`; html += subtabsHTML();
+  html += weekPickerHTML(null, "fuelSummaryWeekSelect");
   html += `<div class="cards summary-cards">`;
   totals.forEach(t=>{ html += `<div class="card"><h3>Truck <span class="tag">${t.truck}</span></h3><div class="metric"><div class="big">${moneyStr(t.total)}</div></div></div>`; });
   html += `<div class="card company"><h3>FUEL YTD</h3><div class="metric"><div class="big">${moneyStr(company)}</div></div></div></div>`;
   mainArea.innerHTML = html; wireSubtabs();
+  wireWeekPicker("fuelSummaryWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
 }
 
-/* ============ PAYROLL (weekly entry list: driver + truck + amount) ============ */
+/* ============ PAYROLL ============ */
 function renderPayrollPage(){
-  if(currentView.type==="summary" || currentView.type!=="week"){ renderPayrollSummary(); return; }
-  const { week } = currentView;
-  renderPayrollWeek(week);
+  if(currentView.type!=="week"){ renderPayrollSummary(); return; }
+  renderPayrollWeek(currentView.week);
 }
 function renderPayrollSummary(){
   const byDriver = computePayrollTotalsByDriver();
   const orphanEntries = payrollEntries.filter(e=>e.driver && !drivers.some(d=>d.name===e.driver));
-  let html = `<h1 class="page-title">Payroll</h1><p class="page-sub">YTD pay per driver. Pick a week from the dropdown on the right (or below on mobile) to log pay entries.</p>`;
-  if(!drivers.length){ html += `<div class="banner"><b>No drivers yet</b>Go to Manage Fleet (hamburger menu) to add your first driver.</div>`; }
+  let html = `<h1 class="page-title">Payroll</h1><p class="page-sub">YTD pay per driver. Pick a week below to log pay entries.</p>`;
+  html += weekPickerHTML(null, "payrollSummaryWeekSelect");
+  if(!drivers.filter(d=>d.active).length){ html += `<div class="banner"><b>No active drivers</b>Go to Manage Fleet (hamburger menu) to add or reactivate a driver.</div>`; }
   html += `<div class="section-label">By Driver</div><div class="cards summary-cards">`;
   byDriver.totals.forEach(t=>{ html += `<div class="card"><h3>${t.driver}</h3><div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(t.total)}</div></div></div>`; });
   html += `<div class="card company"><h3>PAYROLL YTD</h3><div class="metric"><div class="big">${moneyStr(byDriver.company)}</div></div></div></div>`;
 
   if(orphanEntries.length){
     html += `<div class="section-label">Entries For Removed Drivers</div>`;
-    html += `<div class="banner"><b>These drivers are no longer in your roster</b>Their past pay entries are kept for your records. Remove any you no longer need below.</div>`;
+    html += `<div class="banner"><b>These drivers are no longer active</b>Their past pay entries are kept for your records. Remove any you no longer need below, or reactivate the driver in Manage Fleet to edit normally.</div>`;
     html += `<table class="logtable"><thead><tr><th>Week</th><th>Driver</th><th>Truck</th><th>Amount</th><th></th></tr></thead><tbody>`;
     orphanEntries.forEach(e=>{
       const globalIdx = payrollEntries.indexOf(e);
@@ -957,39 +1619,41 @@ function renderPayrollSummary(){
   }
 
   mainArea.innerHTML = html;
+  wireWeekPicker("payrollSummaryWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
   mainArea.querySelectorAll("[data-remove-orphan]").forEach(b=>{
-    b.addEventListener("click", ()=>{
-      payrollEntries.splice(parseInt(b.dataset.removeOrphan),1);
-      markUnsaved(); renderMain();
-    });
+    b.addEventListener("click", ()=>{ payrollEntries.splice(parseInt(b.dataset.removeOrphan),1); markUnsaved(); renderMain(); });
   });
 }
 function renderPayrollWeek(week){
   const entries = payrollEntries.filter(e=>e.week===week);
-  const active = activeVehiclesForWeek(week);
-  let html = `<h1 class="page-title">Payroll - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat)</p>`;
-  html += `<button class="btn-ghost btn-sm" id="backToPayrollSummary" style="background:var(--charcoal); margin-bottom:16px;">&larr; Back to Payroll Summary</button>`;
-  if(!drivers.length){ html += `<div class="banner"><b>No drivers yet</b>Go to Manage Fleet (hamburger menu) to add a driver first.</div>`; mainArea.innerHTML=html; document.getElementById("backToPayrollSummary").addEventListener("click",()=>{currentView={type:"summary"};renderMain();}); return; }
+  const active = vehiclesForWeek(week, showInactive);
+  let html = `<h1 class="page-title"><span class="clickable-title" id="payrollHomeTitle">Payroll</span> - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat)</p>`;
+  html += weekPickerHTML(week, "payrollWeekSelect");
+  const availableDrivers = showInactive ? drivers : drivers.filter(d=>d.active);
+  if(!availableDrivers.length){ html += `<div class="banner"><b>No drivers available</b>Go to Manage Fleet (hamburger menu) to add or reactivate a driver first.</div>`; mainArea.innerHTML=html;
+    document.getElementById("payrollHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
+    wireWeekPicker("payrollWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); }); return; }
   html += `<table class="logtable"><thead><tr><th>Driver</th><th>Truck Used</th><th>Amount</th><th></th></tr></thead><tbody id="payrollTbody">`;
-  entries.forEach((e,idx)=>{ html += payrollRowHTML(e, idx, active); });
+  entries.forEach((e,idx)=>{ html += payrollRowHTML(e, idx, active, availableDrivers); });
   html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addPayrollRow">+ Add Entry</button></div>`;
   mainArea.innerHTML = html;
-  document.getElementById("backToPayrollSummary").addEventListener("click", ()=>{ currentView={type:"summary"}; renderMain(); });
-  wirePayrollTable(week, active);
+  document.getElementById("payrollHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
+  wireWeekPicker("payrollWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+  wirePayrollTable(week, active, availableDrivers);
 }
-function payrollRowHTML(e, idx, active){
-  const driverOptions = drivers.map(d=>`<option value="${d.name}" ${e.driver===d.name?'selected':''}>${d.name}</option>`).join("");
-  const orphanOption = (e.driver && !drivers.some(d=>d.name===e.driver))
-    ? `<option value="${e.driver}" selected>${e.driver} (removed)</option>` : "";
-  const truckOptions = active.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}</option>`).join("");
+function payrollRowHTML(e, idx, active, availableDrivers){
+  const driverOptions = availableDrivers.map(d=>`<option value="${d.name}" ${e.driver===d.name?'selected':''}>${d.name}${d.active?'':' (inactive)'}</option>`).join("");
+  const orphanDriverOption = (e.driver && !availableDrivers.some(d=>d.name===e.driver)) ? `<option value="${e.driver}" selected>${e.driver} (removed)</option>` : "";
+  const truckOptions = active.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
+  const orphanTruckOption = (e.truck && !active.some(v=>v.truckId===e.truck)) ? `<option value="${e.truck}" selected>${e.truck} (removed)</option>` : "";
   return `<tr data-idx="${idx}">
-    <td><select class="pr-driver"><option value="">-</option>${orphanOption}${driverOptions}</select></td>
-    <td><select class="pr-truck"><option value="">-</option>${truckOptions}</select></td>
+    <td><select class="pr-driver"><option value="">-</option>${orphanDriverOption}${driverOptions}</select></td>
+    <td><select class="pr-truck"><option value="">-</option>${orphanTruckOption}${truckOptions}</select></td>
     <td><input class="pr-amount" type="number" step="0.01" min="0" value="${e.amount||''}"></td>
     <td><button class="btn-danger pr-delete">Remove</button></td>
   </tr>`;
 }
-function wirePayrollTable(week, active){
+function wirePayrollTable(week, active, availableDrivers){
   const entries = payrollEntries.filter(e=>e.week===week);
   const tbody = document.getElementById("payrollTbody");
   tbody.querySelectorAll("tr").forEach(tr=>{
@@ -1016,9 +1680,9 @@ function renderLogPage(cfg){
   const summary = computeLogSummary(entries, cfg.summaryType);
   let html = `<h1 class="page-title">${cfg.title}</h1><p class="page-sub">${cfg.subtitle}</p>`;
   if(cfg.key==="parts"||cfg.key==="mechanic") html += subtabsHTML();
-  if(!vehicles.length) html += `<div class="banner"><b>No vehicles yet</b>Go to Manage Fleet (hamburger menu) to add one first.</div>`;
+  if(!vehicles.filter(v=>v.active).length) html += `<div class="banner"><b>No active vehicles</b>Go to Manage Fleet (hamburger menu) to add or reactivate one.</div>`;
   html += `<div class="cards summary-cards">`;
-  vehicles.forEach(v=>{
+  vehicles.filter(v=>v.active).forEach(v=>{
     const truck=v.truckId;
     const val = cfg.summaryType==="sum" ? summary.sums[truck] : summary.maxes[truck];
     const display = cfg.currency ? moneyStr(val) : val.toLocaleString();
@@ -1026,16 +1690,25 @@ function renderLogPage(cfg){
   });
   if(cfg.summaryType==="sum") html += `<div class="card company"><h3>${cfg.companyLabel}</h3><div class="metric"><div class="big">${moneyStr(summary.grand)}</div></div></div>`;
   html += `</div>`;
-  html += `<div class="section-label">Entry Log</div>`;
+  html += `<div class="section-label">Entry Log</div><p class="hint">Truck dropdown includes inactive vehicles too, so you can still log/edit entries for a truck no longer in active use.</p>`;
   html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th></th></tr></thead><tbody id="logTbody">`;
   entries.forEach((e,idx)=>{ html += logRowHTML(cfg, e, idx); });
-  html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add Entry</button></div>`;
+  html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add Entry</button>`;
+  if(cfg.key==="parts" || cfg.key==="mechanic"){
+    html += ` <button class="btn-ghost btn-sm" id="takePhotoBtn" style="background:var(--charcoal);">Take Photo</button>`;
+    html += ` <button class="btn-ghost btn-sm" id="uploadFileBtn" style="background:var(--charcoal);">Upload Image/PDF</button>`;
+  }
+  html += `</div>`;
   mainArea.innerHTML = html;
   if(cfg.key==="parts"||cfg.key==="mechanic") wireSubtabs();
   wireLogTable(cfg);
+  if(cfg.key==="parts" || cfg.key==="mechanic"){
+    document.getElementById("takePhotoBtn").addEventListener("click", ()=>scanReceiptForLog(cfg, "camera"));
+    document.getElementById("uploadFileBtn").addEventListener("click", ()=>scanReceiptForLog(cfg, "upload"));
+  }
 }
 function logRowHTML(cfg, e, idx){
-  const truckOptions = vehicles.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}</option>`).join("");
+  const truckOptions = vehicles.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
   const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
   const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="amount"?"number":(f2==="date"?"date":"text");
   return `<tr data-idx="${idx}">
@@ -1064,37 +1737,26 @@ function wireLogTable(cfg){
 }
 function refreshLogSummary(cfg){
   const entries = getLogArray(cfg.key); const summary = computeLogSummary(entries, cfg.summaryType);
+  const activeV = vehicles.filter(v=>v.active);
   const cards = mainArea.querySelectorAll(".summary-cards .card");
-  vehicles.forEach((v,i)=>{
+  activeV.forEach((v,i)=>{
     const val = cfg.summaryType==="sum" ? summary.sums[v.truckId] : summary.maxes[v.truckId];
     const display = cfg.currency ? moneyStr(val) : val.toLocaleString();
     const bigEl = cards[i] && cards[i].querySelector(".big"); if(bigEl) bigEl.textContent = display;
   });
-  if(cfg.summaryType==="sum" && cards[vehicles.length]){
-    const bigEl = cards[vehicles.length].querySelector(".big"); if(bigEl) bigEl.textContent = moneyStr(summary.grand);
+  if(cfg.summaryType==="sum" && cards[activeV.length]){
+    const bigEl = cards[activeV.length].querySelector(".big"); if(bigEl) bigEl.textContent = moneyStr(summary.grand);
   }
 }
 
-let autoSaveTimer = null;
-function scheduleAutoSave(){
-  if(autoSaveTimer) clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(()=>{ autoSaveTimer=null; saveAll(); }, 1500);
-}
-function flushIfNeeded(){
-  if(autoSaveTimer){ clearTimeout(autoSaveTimer); autoSaveTimer=null; saveAll(); }
-}
-function markUnsaved(){ unsaved=true; setStatus("Unsaved changes..."); scheduleAutoSave(); }
-function markSaved(){ unsaved=false; setStatus(""); }
-function setStatus(msg){ statusText.textContent = msg; }
-
+/* ============ FILE-LESS NAV EVENTS ============ */
 document.getElementById("brandHomeBtn").addEventListener("click", ()=>{
   flushIfNeeded();
   currentModule="contracts"; currentExpenseTab="overview"; currentView={type:"summary"};
   hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
   hamburgerMenu.querySelector('button[data-module="contracts"]').classList.add("active");
-  renderNav(); renderMain();
+  renderMain();
 });
-homeBtn.addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderNav(); renderMain(); });
 hamburgerBtn.addEventListener("click", e=>{ e.stopPropagation(); hamburgerMenu.classList.toggle("hidden"); });
 document.addEventListener("click", ()=>{ hamburgerMenu.classList.add("hidden"); });
 hamburgerMenu.querySelectorAll("button").forEach(b=>{
@@ -1108,7 +1770,7 @@ hamburgerMenu.querySelectorAll("button").forEach(b=>{
     currentView={type:"summary"};
     hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
     b.classList.add("active"); hamburgerMenu.classList.add("hidden");
-    renderNav(); renderMain();
+    renderMain();
   });
 });
 
@@ -1141,7 +1803,8 @@ authSubmitBtn.addEventListener("click", async ()=>{
 async function showApp(userId){
   currentUserId=userId; authScreen.style.display="none"; appRoot.style.display="flex";
   hamburgerMenu.querySelector('button[data-module="contracts"]').classList.add("active");
-  await loadAll(); renderNav(); renderMain();
+  registerServiceWorker();
+  await loadAll(); renderMain();
 }
 function showAuth(){ appRoot.style.display="none"; authScreen.style.display="flex"; }
 if(sb){ sb.auth.onAuthStateChange((event,session)=>{ if(session&&session.user) showApp(session.user.id); else showAuth(); }); }
