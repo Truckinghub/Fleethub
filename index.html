@@ -100,18 +100,48 @@
   .auth-error{color:var(--danger); font-size:12px; margin-top:10px; text-align:center;}
 
   #statusToast{position:fixed; left:14px; bottom:14px; background:var(--charcoal); color:#fff; padding:8px 14px; border-radius:6px; font-size:12px; box-shadow:0 2px 10px rgba(0,0,0,.2); z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;}
+
+  #appToastContainer{position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2000; display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:420px; padding:0 16px; pointer-events:none;}
+  .app-toast{background:var(--charcoal); color:#fff; padding:12px 16px; border-radius:8px; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.25); opacity:0; transform:translateY(-10px); transition:opacity .25s, transform .25s; pointer-events:auto; max-width:100%; word-break:break-word;}
+  .app-toast.visible{opacity:1; transform:translateY(0);}
+  .app-toast-success{background:#2A7A4E;}
+  .app-toast-error{background:var(--danger);}
+  .app-toast-warning{background:var(--copper);}
   #statusToast.visible{opacity:1;}
 
   @media (max-width: 760px){
     header{padding:10px 12px;} header .titles .sub{display:none;}
-    header .toolbar{gap:6px;} header button{padding:8px 10px; font-size:12px;}
+    header .toolbar{gap:6px;} header button{padding:10px 12px; font-size:13px; min-height:44px;}
     main{padding:16px;}
-    .cards{grid-template-columns:1fr;} .blockgrid{grid-template-columns:1fr 1fr;}
+    .cards{grid-template-columns:1fr; gap:14px;} .blockgrid{grid-template-columns:1fr 1fr;}
     .totalsrow{grid-template-columns:1fr; gap:8px;}
     .ytd-grid{grid-template-columns:repeat(3, 1fr); gap:8px 10px;}
     .summary-cards .card .big{font-size:16px;}
     table.logtable{display:block; overflow-x:auto; white-space:nowrap;}
     .week-picker-row select{min-width:0; width:100%;}
+
+    /* Prevent iOS Safari from zooming in on tap (triggers whenever a focused input's
+       font-size is under 16px) and give every tappable control more room to hit. */
+    .field input, .field select, table.logtable td input, table.logtable td select,
+    .week-picker-row select, input[type="text"], input[type="number"], input[type="date"], input[type="email"], input[type="password"], select {
+      font-size:16px !important;
+    }
+    button, .btn-sm{ min-height:44px; padding:11px 16px; }
+    table.logtable td button{ min-height:40px; padding:8px 14px; }
+    .hamburger-menu button{ min-height:48px; }
+    .subtabs button{ min-height:42px; padding:10px 16px; }
+
+    /* Checkboxes: native boxes are tiny touch targets by default - enlarge the box itself
+       and give the whole label generous padding so the tap area extends well past the box. */
+    .inactive-toggle{ padding:8px 4px; gap:10px; min-height:44px; }
+    .inactive-toggle input[type="checkbox"]{ width:22px; height:22px; flex-shrink:0; }
+
+    /* More breathing room between adjacent buttons (Take Photo / Upload File,
+       View / Remove, etc.) so a slightly-off tap doesn't hit the wrong one. */
+    .fleet-add-row{ gap:12px; }
+    .fleet-add-row button{ width:100%; }
+    table.logtable td{ padding:10px 12px; }
+    [style*="gap:6px"]{ gap:12px !important; }
   }
 </style>
 </head>
@@ -161,6 +191,7 @@
         <button data-module="expenses">Expenses</button>
         <button data-module="maintenance">Maintenance Records</button>
         <button data-module="fleet">Manage Fleet</button>
+        <button data-module="compliance">Compliance</button>
         <button data-action="export">Export Excel</button>
         <button data-action="signout">Sign Out</button>
       </div>
@@ -173,6 +204,7 @@
 </div>
 
 <div id="statusToast"></div>
+<div id="appToastContainer"></div>
 
 <script>
 const SUPABASE_URL = "https://fszqfhntaofgrompboap.supabase.co";
@@ -207,8 +239,13 @@ function groupWeeksByMonth(){
 }
 
 /* ============ APP STATE ============ */
-let vehicles = [];   // {truckId, addedWeek, active}
-let drivers = [];    // {name, active}
+let vehicles = [];   // {truckId, addedWeek, active, inspectionExpiration, inspectionCompleted, inspectionCost,
+                      //  registrationExpiration, registrationCompleted, registrationCost,
+                      //  hvut2290Expiration, hvut2290Completed, hvut2290Cost, hvut2290ReceiptPath,
+                      //  insuranceMonthlyCost, hasBobtailInsurance, bobtailInsuranceCost}
+let drivers = [];    // {name, active, licenseExpiration, licenseCompleted, licenseDocumentPath,
+                      //  medicalCardExpiration, medicalCardCompleted, medicalCardDocumentPath, w9DocumentPath}
+let iftaData = { year: 2026, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Completed:false, q2Completed:false, q3Completed:false, q4Completed:false };
 let contractsEntries = [];
 let fuelEntries = [];
 let payrollEntries = [];
@@ -312,6 +349,52 @@ function computeLogSummary(entries, summaryType){
   }
 }
 
+/* ============ COMPLIANCE: dates, urgency, costs ============ */
+function daysBetween(today, expDateStr){
+  const exp = new Date(expDateStr + "T00:00:00Z");
+  const t = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  return Math.round((exp - t) / 86400000);
+}
+function getComplianceUrgency(expDateStr, completed){
+  if(!expDateStr) return { level:"none", daysUntil:null };
+  const today = new Date();
+  if(completed) return { level:"completed", daysUntil: daysBetween(today, expDateStr) };
+  const d = daysBetween(today, expDateStr);
+  if(d < 0) return { level:"expired", daysUntil:d };
+  if(d <= 14) return { level:"due-soon", daysUntil:d };
+  if(d <= 30) return { level:"upcoming", daysUntil:d };
+  return { level:"ok", daysUntil:d };
+}
+function urgencyBadgeHTML(urgency){
+  const labels = { none:"", ok:"OK", upcoming:"Upcoming", "due-soon":"Due Soon", expired:"EXPIRED", completed:"Completed" };
+  const colors = { ok:"#2A7A4E", upcoming:"#B8860B", "due-soon":"#C1703D", expired:"#C0392B", completed:"#5B8DBE" };
+  if(urgency.level==="none") return "";
+  const dayTxt = urgency.daysUntil===null ? "" : (urgency.daysUntil>=0 ? ` (${urgency.daysUntil}d)` : ` (${Math.abs(urgency.daysUntil)}d overdue)`);
+  return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:bold; color:#fff; background:${colors[urgency.level]||'#888'};">${labels[urgency.level]}${urgency.level!=='completed'?dayTxt:''}</span>`;
+}
+
+function computeOperationsCostTotal(){
+  let total = 0;
+  vehicles.forEach(v=>{
+    total += parseFloat(v.inspectionCost)||0;
+    total += parseFloat(v.registrationCost)||0;
+    total += parseFloat(v.hvut2290Cost)||0;
+    total += (parseFloat(v.insuranceMonthlyCost)||0) * 12;
+    if(v.hasBobtailInsurance) total += (parseFloat(v.bobtailInsuranceCost)||0) * 12;
+  });
+  total += (parseFloat(iftaData.q1Cost)||0) + (parseFloat(iftaData.q2Cost)||0) + (parseFloat(iftaData.q3Cost)||0) + (parseFloat(iftaData.q4Cost)||0);
+  return total;
+}
+
+function computeVehicleOperationsCost(v){
+  let total = parseFloat(v.inspectionCost)||0;
+  total += parseFloat(v.registrationCost)||0;
+  total += parseFloat(v.hvut2290Cost)||0;
+  total += (parseFloat(v.insuranceMonthlyCost)||0) * 12;
+  if(v.hasBobtailInsurance) total += (parseFloat(v.bobtailInsuranceCost)||0) * 12;
+  return total;
+}
+
 function computeDashboardYTD(){
   const contracts = computeAllTimeTotals();
   const fuel = computeFuelTotals();
@@ -323,7 +406,7 @@ function computeDashboardYTD(){
     const truck = v.truckId;
     const ytdContracts = contracts.totals[i].grossContracts;
     const ytdAccessories = contracts.totals[i].grossAcc;
-    const ytdExpenses = (fuel.totals[i].total||0) + (parts.sums[truck]||0) + (mechanic.sums[truck]||0);
+    const ytdExpenses = (fuel.totals[i].total||0) + (parts.sums[truck]||0) + (mechanic.sums[truck]||0) + computeVehicleOperationsCost(v);
     const ytdPayroll = payroll.totals[i].total;
     const grossYTD = ytdContracts + ytdAccessories;
     const netYTD = grossYTD - ytdExpenses - ytdPayroll;
@@ -332,7 +415,7 @@ function computeDashboardYTD(){
 
   const companyYtdContracts = contracts.company.grossContracts;
   const companyYtdAccessories = contracts.company.grossAcc;
-  const companyYtdExpenses = fuel.company + parts.grand + mechanic.grand;
+  const companyYtdExpenses = fuel.company + parts.grand + mechanic.grand + computeOperationsCostTotal();
   const companyYtdPayroll = payroll.company;
   const companyGrossYTD = companyYtdContracts + companyYtdAccessories;
   const companyNetYTD = companyGrossYTD - companyYtdExpenses - companyYtdPayroll;
@@ -442,22 +525,49 @@ function buildSummarySheetXML(perVehicleRows, companyRow){
 
 function buildVehiclesSheetXML(){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
-  xml += `<row r="1">${inlineStrCell("A1","FleetHub - Vehicle Roster",3)}</row>`;
-  xml += `<row r="3">${inlineStrCell("A3","Truck ID",2)}${inlineStrCell("B3","Added From Week",2)}${inlineStrCell("C3","Active",2)}</row>`;
+  xml += `<row r="1">${inlineStrCell("A1","FleetHub - Vehicle Roster & Compliance",3)}</row>`;
+  const headers = ["Truck ID","Added From Week","Active","Inspection Exp.","Inspection Cost","Registration Exp.","Registration Cost","2290 Due","2290 Cost","Insurance/Mo","Bobtail?","Bobtail/Mo"];
+  const cols = ["A","B","C","D","E","F","G","H","I","J","K","L"];
+  xml += `<row r="3">` + headers.map((h,i)=>inlineStrCell(cols[i]+"3",h,2)).join("") + `</row>`;
   vehicles.forEach((v,idx)=>{
     const rr=4+idx;
-    xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,v.truckId,0)}${numCell(`B${rr}`,v.addedWeek,0)}${inlineStrCell(`C${rr}`,v.active?"Yes":"No",0)}</row>`;
+    xml += `<row r="${rr}">`;
+    xml += inlineStrCell(`A${rr}`,v.truckId,0);
+    xml += numCell(`B${rr}`,v.addedWeek,0);
+    xml += inlineStrCell(`C${rr}`,v.active?"Yes":"No",0);
+    xml += inlineStrCell(`D${rr}`,v.inspectionExpiration||"",0);
+    xml += numCell(`E${rr}`,v.inspectionCost,1);
+    xml += inlineStrCell(`F${rr}`,v.registrationExpiration||"",0);
+    xml += numCell(`G${rr}`,v.registrationCost,1);
+    xml += inlineStrCell(`H${rr}`,v.hvut2290Expiration||"",0);
+    xml += numCell(`I${rr}`,v.hvut2290Cost,1);
+    xml += numCell(`J${rr}`,v.insuranceMonthlyCost,1);
+    xml += inlineStrCell(`K${rr}`,v.hasBobtailInsurance?"Yes":"No",0);
+    xml += numCell(`L${rr}`,v.bobtailInsuranceCost,1);
+    xml += `</row>`;
   });
+  const iftaRow = 5+vehicles.length;
+  xml += `<row r="${iftaRow}">${inlineStrCell(`A${iftaRow}`,"IFTA (company-wide)",2)}</row>`;
+  xml += `<row r="${iftaRow+1}">${inlineStrCell(`A${iftaRow+1}`,"Q1",0)}${numCell(`B${iftaRow+1}`,iftaData.q1Cost,1)}${inlineStrCell(`C${iftaRow+1}`,"Q2",0)}${numCell(`D${iftaRow+1}`,iftaData.q2Cost,1)}${inlineStrCell(`E${iftaRow+1}`,"Q3",0)}${numCell(`F${iftaRow+1}`,iftaData.q3Cost,1)}${inlineStrCell(`G${iftaRow+1}`,"Q4",0)}${numCell(`H${iftaRow+1}`,iftaData.q4Cost,1)}</row>`;
+  xml += `<row r="${iftaRow+2}">${inlineStrCell(`A${iftaRow+2}`,"Paid?",2)}${inlineStrCell(`B${iftaRow+2}`,iftaData.q1Completed?"Yes":"No",0)}${inlineStrCell(`C${iftaRow+2}`,"",0)}${inlineStrCell(`D${iftaRow+2}`,iftaData.q2Completed?"Yes":"No",0)}${inlineStrCell(`E${iftaRow+2}`,"",0)}${inlineStrCell(`F${iftaRow+2}`,iftaData.q3Completed?"Yes":"No",0)}${inlineStrCell(`G${iftaRow+2}`,"",0)}${inlineStrCell(`H${iftaRow+2}`,iftaData.q4Completed?"Yes":"No",0)}</row>`;
   xml += `</sheetData></worksheet>`;
   return xml;
 }
 function buildDriversSheetXML(){
   let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`;
-  xml += `<row r="1">${inlineStrCell("A1","FleetHub - Driver Roster",3)}</row>`;
-  xml += `<row r="3">${inlineStrCell("A3","Driver Name",2)}${inlineStrCell("B3","Active",2)}</row>`;
+  xml += `<row r="1">${inlineStrCell("A1","FleetHub - Driver Roster & Compliance",3)}</row>`;
+  const headers = ["Driver Name","Active","License Exp.","Medical Card Exp.","W9 On File?"];
+  const cols = ["A","B","C","D","E"];
+  xml += `<row r="3">` + headers.map((h,i)=>inlineStrCell(cols[i]+"3",h,2)).join("") + `</row>`;
   drivers.forEach((d,idx)=>{
     const rr=4+idx;
-    xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,d.name,0)}${inlineStrCell(`B${rr}`,d.active?"Yes":"No",0)}</row>`;
+    xml += `<row r="${rr}">`;
+    xml += inlineStrCell(`A${rr}`,d.name,0);
+    xml += inlineStrCell(`B${rr}`,d.active?"Yes":"No",0);
+    xml += inlineStrCell(`C${rr}`,d.licenseExpiration||"",0);
+    xml += inlineStrCell(`D${rr}`,d.medicalCardExpiration||"",0);
+    xml += inlineStrCell(`E${rr}`,d.w9DocumentPath?"Yes":"No",0);
+    xml += `</row>`;
   });
   xml += `</sheetData></worksheet>`;
   return xml;
@@ -638,12 +748,41 @@ function setStatus(msg){
   el.classList.toggle("visible", !!msg);
 }
 
+/* In-app toast notifications - replaces native browser alert() popups so messages
+   show up inside the site itself instead of a separate browser dialog. */
+function showAppToast(message, type){
+  const container = document.getElementById("appToastContainer");
+  if(!container){ console.log(`[${type}]`, message); return; }
+  const toast = document.createElement("div");
+  toast.className = `app-toast app-toast-${type||'info'}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(()=> toast.classList.add("visible"));
+  const duration = type==="error" ? 6000 : 4500;
+  setTimeout(()=>{
+    toast.classList.remove("visible");
+    setTimeout(()=>{ if(toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }, duration);
+}
+
 async function saveAll(){
-  if(!sb){ alert("Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"); return; }
+  if(!sb){ showAppToast("Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md", "error"); return; }
   setStatus("Saving...");
   try{
-    const vehicleRows = vehicles.map(v=>({ user_id:currentUserId, truck_id:v.truckId, added_week:v.addedWeek, active:v.active }));
-    const driverRows = drivers.map(d=>({ user_id:currentUserId, name:d.name, active:d.active }));
+    const vehicleRows = vehicles.map(v=>({
+      user_id:currentUserId, truck_id:v.truckId, added_week:v.addedWeek, active:v.active,
+      inspection_expiration: v.inspectionExpiration || null, inspection_cost: v.inspectionCost!==""&&v.inspectionCost!=null?parseFloat(v.inspectionCost):null, inspection_completed: !!v.inspectionCompleted,
+      registration_expiration: v.registrationExpiration || null, registration_cost: v.registrationCost!==""&&v.registrationCost!=null?parseFloat(v.registrationCost):null, registration_completed: !!v.registrationCompleted,
+      form2290_expiration: v.hvut2290Expiration || null, form2290_cost: v.hvut2290Cost!==""&&v.hvut2290Cost!=null?parseFloat(v.hvut2290Cost):null, form2290_completed: !!v.hvut2290Completed, form2290_receipt_path: v.hvut2290ReceiptPath || null,
+      insurance_monthly_cost: v.insuranceMonthlyCost!==""&&v.insuranceMonthlyCost!=null?parseFloat(v.insuranceMonthlyCost):null,
+      has_bobtail_insurance: !!v.hasBobtailInsurance, bobtail_insurance_cost: v.bobtailInsuranceCost!==""&&v.bobtailInsuranceCost!=null?parseFloat(v.bobtailInsuranceCost):null
+    }));
+    const driverRows = drivers.map(d=>({
+      user_id:currentUserId, name:d.name, active:d.active,
+      license_expiration: d.licenseExpiration || null, license_completed: !!d.licenseCompleted, license_document_path: d.licenseDocumentPath || null,
+      medical_card_expiration: d.medicalCardExpiration || null, medical_card_completed: !!d.medicalCardCompleted, medical_card_document_path: d.medicalCardDocumentPath || null,
+      w9_document_path: d.w9DocumentPath || null
+    }));
     const contractRows = contractsEntries.map(e=>({
       user_id:currentUserId, week:e.week, truck:e.truck, contract_id:e.contractId||null,
       block_rate:e.blockRate!==""?parseFloat(e.blockRate):null, num_blocks:e.numBlocks!==""?parseFloat(e.numBlocks):null,
@@ -654,10 +793,12 @@ async function saveAll(){
     const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
     const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
     const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null }));
+    const iftaRows = [1,2,3,4].map(q=>({ user_id:currentUserId, quarter:q, amount: iftaData[`q${q}Cost`]!==""&&iftaData[`q${q}Cost`]!=null?parseFloat(iftaData[`q${q}Cost`]):null, completed: !!iftaData[`q${q}Completed`] }));
 
     const tasks = [
       ["vehicles", vehicleRows], ["drivers", driverRows], ["contracts", contractRows],
-      ["fuel", fuelRows], ["payroll", payrollRows], ["parts", partsRows], ["mechanic", mechRows], ["maintenance", maintRows]
+      ["fuel", fuelRows], ["payroll", payrollRows], ["parts", partsRows], ["mechanic", mechRows], ["maintenance", maintRows],
+      ["ifta", iftaRows]
     ];
     for(const [table, rows] of tasks){
       const { error: delErr } = await sb.from(table).delete().eq("user_id", currentUserId);
@@ -668,7 +809,7 @@ async function saveAll(){
   } catch(e){
     console.error(e);
     setStatus("Save failed");
-    alert("Save failed: " + (e.message||e));
+    showAppToast("Save failed: " + (e.message||e), "error");
   }
 }
 
@@ -676,21 +817,37 @@ async function loadAll(){
   if(!sb) return;
   setStatus("Loading...");
   try{
-    const [veh, drv, c, f, p, parts, mech, maint] = await Promise.all([
+    const [veh, drv, c, f, p, parts, mech, maint, iftaRes] = await Promise.all([
       sb.from("vehicles").select("*"), sb.from("drivers").select("*"),
       sb.from("contracts").select("*"), sb.from("fuel").select("*"), sb.from("payroll").select("*"),
       sb.from("parts").select("*"), sb.from("mechanic").select("*"), sb.from("maintenance").select("*"),
+      sb.from("ifta").select("*"),
     ]);
-    [veh,drv,c,f,p,parts,mech,maint].forEach(r=>{ if(r.error) throw r.error; });
+    [veh,drv,c,f,p,parts,mech,maint,iftaRes].forEach(r=>{ if(r.error) throw r.error; });
 
-    vehicles = (veh.data||[]).map(r=>({ truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false }));
-    drivers = (drv.data||[]).map(r=>({ name:r.name, active:r.active!==false }));
+    vehicles = (veh.data||[]).map(r=>({
+      truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false,
+      inspectionExpiration:r.inspection_expiration||"", inspectionCost:r.inspection_cost??"", inspectionCompleted:!!r.inspection_completed,
+      registrationExpiration:r.registration_expiration||"", registrationCost:r.registration_cost??"", registrationCompleted:!!r.registration_completed,
+      hvut2290Expiration:r.form2290_expiration||"", hvut2290Cost:r.form2290_cost??"", hvut2290Completed:!!r.form2290_completed, hvut2290ReceiptPath:r.form2290_receipt_path||"",
+      insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??""
+    }));
+    drivers = (drv.data||[]).map(r=>({
+      name:r.name, active:r.active!==false,
+      licenseExpiration:r.license_expiration||"", licenseCompleted:!!r.license_completed, licenseDocumentPath:r.license_document_path||"",
+      medicalCardExpiration:r.medical_card_expiration||"", medicalCardCompleted:!!r.medical_card_completed, medicalCardDocumentPath:r.medical_card_document_path||"",
+      w9DocumentPath:r.w9_document_path||""
+    }));
     contractsEntries = (c.data||[]).map(r=>({ week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"" }));
     fuelEntries = (f.data||[]).map(r=>({ week:r.week, truck:r.truck, amount:r.amount??"" }));
     payrollEntries = (p.data||[]).map(r=>({ week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"" }));
     partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
     mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
     maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"" }));
+
+    const iftaRows = iftaRes.data||[];
+    iftaData = { year: 2026, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Completed:false, q2Completed:false, q3Completed:false, q4Completed:false };
+    iftaRows.forEach(r=>{ if(r.quarter>=1 && r.quarter<=4){ iftaData[`q${r.quarter}Cost`] = r.amount??""; iftaData[`q${r.quarter}Completed`] = !!r.completed; } });
 
     if(vehicles.length===0){
       const seen = {};
@@ -790,6 +947,11 @@ function detectInitialCorners(img){
   }
 }
 
+/* Description auto-extraction (guessing the vendor, or later the line items) was tried
+   and tested well on synthetic and even several real invoices, but proved unreliable
+   across the fuller range of real-world receipts/invoices in practice. Dialing scanning
+   back to just date + total, which are both consistently accurate, and leaving the
+   description for the person to type themselves. */
 function parseReceiptText(text){
   const lines = text.split("\n").map(l=>l.trim()).filter(l=>l.length>0);
 
@@ -808,23 +970,25 @@ function parseReceiptText(text){
   if(totalLineAmount !== null) bestAmount = totalLineAmount.toFixed(2);
   else if(allAmounts.length) bestAmount = Math.max(...allAmounts).toFixed(2);
 
+  const MONTH_ABBR = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
   let foundDate = "";
   const datePatterns = [
     { re:/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/, fmt:m=>`${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}` },
     { re:/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/, fmt:m=>`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}` },
+    { re:/(\d{1,2})[\-\/\s]([a-zA-Z]{3})[\-\/\s](\d{2,4})/, fmt:m=>{
+        const mon = MONTH_ABBR[m[2].toLowerCase()];
+        if(!mon) return null;
+        let yr = m[3];
+        if(yr.length===2) yr = (parseInt(yr)<70?"20":"19")+yr;
+        return `${yr}-${String(mon).padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+      } },
   ];
   for(const line of lines){
-    for(const p of datePatterns){ const m=line.match(p.re); if(m){ foundDate=p.fmt(m); break; } }
+    for(const p of datePatterns){ const m=line.match(p.re); if(m){ const f=p.fmt(m); if(f){ foundDate=f; break; } } }
     if(foundDate) break;
   }
 
-  let description = "";
-  for(const line of lines){
-    if(/^[\d\s\$.,#-]+$/.test(line)) continue;
-    description = line.slice(0,60);
-    break;
-  }
-  return { amount:bestAmount, date:foundDate, description };
+  return { amount:bestAmount, date:foundDate, description:"" };
 }
 
 function warpPerspectiveCrop(img, corners){
@@ -856,119 +1020,125 @@ function warpPerspectiveCrop(img, corners){
   return dstCanvas;
 }
 
-function openCornerAdjustOverlay(img, cfg, scanBtn, originalText, selectedTruck){
-  let corners = detectInitialCorners(img);
-  if(!corners){
-    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-    corners = {
-      topLeftCorner: {x:w*0.08, y:h*0.08}, topRightCorner: {x:w*0.92, y:h*0.08},
-      bottomLeftCorner: {x:w*0.08, y:h*0.92}, bottomRightCorner: {x:w*0.92, y:h*0.92}
-    };
-  }
-
-  const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px;";
-
-  const imgW = img.naturalWidth || img.width, imgH = img.naturalHeight || img.height;
-  const maxW = Math.min(window.innerWidth - 32, 700);
-  const maxHAvail = window.innerHeight - 140;
-  const scale = Math.min(1, maxW / imgW, maxHAvail / imgH);
-  const dispW = imgW * scale, dispH = imgH * scale;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = dispW; canvas.height = dispH;
-  canvas.style.cssText = "touch-action:none; border-radius:8px; max-width:100%;";
-  overlay.appendChild(canvas);
-
-  const hint = document.createElement("div");
-  hint.textContent = "Drag the corners to match the receipt's edges, then confirm.";
-  hint.style.cssText = "color:#fff; font-size:13px; margin-top:12px; text-align:center;";
-  overlay.appendChild(hint);
-
-  const btnRow = document.createElement("div");
-  btnRow.style.cssText = "margin-top:14px; display:flex; gap:10px;";
-  const confirmBtn = document.createElement("button"); confirmBtn.textContent = "Confirm Crop"; confirmBtn.className = "btn-blue";
-  const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Cancel"; cancelBtn.className = "btn-danger";
-  btnRow.appendChild(confirmBtn); btnRow.appendChild(cancelBtn);
-  overlay.appendChild(btnRow);
-  document.body.appendChild(overlay);
-
-  let pts = {
-    tl: { x: corners.topLeftCorner.x*scale, y: corners.topLeftCorner.y*scale },
-    tr: { x: corners.topRightCorner.x*scale, y: corners.topRightCorner.y*scale },
-    bl: { x: corners.bottomLeftCorner.x*scale, y: corners.bottomLeftCorner.y*scale },
-    br: { x: corners.bottomRightCorner.x*scale, y: corners.bottomRightCorner.y*scale },
-  };
-
-  const ctx = canvas.getContext("2d");
-  function draw(){
-    ctx.clearRect(0,0,dispW,dispH);
-    ctx.drawImage(img, 0,0,dispW,dispH);
-    ctx.strokeStyle = "#C1703D"; ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(pts.tl.x,pts.tl.y); ctx.lineTo(pts.tr.x,pts.tr.y);
-    ctx.lineTo(pts.br.x,pts.br.y); ctx.lineTo(pts.bl.x,pts.bl.y); ctx.closePath();
-    ctx.stroke();
-    Object.values(pts).forEach(p=>{
-      ctx.beginPath(); ctx.arc(p.x,p.y,10,0,2*Math.PI);
-      ctx.fillStyle = "#5B8DBE"; ctx.fill();
-      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
-    });
-  }
-  draw();
-
-  let activeKey = null;
-  function getPos(e){
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: (clientX-rect.left) * (dispW/rect.width), y: (clientY-rect.top) * (dispH/rect.height) };
-  }
-  function findNearest(pos){
-    let nearest=null, minDist=Infinity;
-    Object.keys(pts).forEach(k=>{
-      const d = Math.hypot(pts[k].x-pos.x, pts[k].y-pos.y);
-      if(d<minDist){ minDist=d; nearest=k; }
-    });
-    return minDist < 40 ? nearest : null;
-  }
-  function startDrag(e){ activeKey = findNearest(getPos(e)); }
-  function moveDrag(e){
-    if(!activeKey) return;
-    e.preventDefault();
-    const pos = getPos(e);
-    pts[activeKey] = { x: Math.max(0,Math.min(dispW,pos.x)), y: Math.max(0,Math.min(dispH,pos.y)) };
-    draw();
-  }
-  function endDrag(){ activeKey = null; }
-  canvas.addEventListener("mousedown", startDrag);
-  canvas.addEventListener("mousemove", moveDrag);
-  window.addEventListener("mouseup", endDrag);
-  canvas.addEventListener("touchstart", startDrag, {passive:false});
-  canvas.addEventListener("touchmove", moveDrag, {passive:false});
-  canvas.addEventListener("touchend", endDrag);
-
-  cancelBtn.addEventListener("click", ()=>{
-    document.body.removeChild(overlay);
-    if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
-  });
-
-  confirmBtn.addEventListener("click", async ()=>{
-    confirmBtn.disabled = true; confirmBtn.textContent = "Processing...";
-    try{
-      const orig = {
-        tl: { x: pts.tl.x/scale, y: pts.tl.y/scale }, tr: { x: pts.tr.x/scale, y: pts.tr.y/scale },
-        bl: { x: pts.bl.x/scale, y: pts.bl.y/scale }, br: { x: pts.br.x/scale, y: pts.br.y/scale },
+/* Shows the drag-to-adjust corner overlay for ANY page source (photo or PDF-rendered page).
+   Returns a Promise resolving to the cropped canvas, or null if the user cancelled.
+   Decoupled from OCR/upload entirely - the caller decides what to do with the result,
+   which is what makes the multi-page capture loop below possible. */
+function openCornerAdjustOverlay(img){
+  return new Promise((resolve)=>{
+    let corners = detectInitialCorners(img);
+    if(!corners){
+      const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      corners = {
+        topLeftCorner: {x:w*0.08, y:h*0.08}, topRightCorner: {x:w*0.92, y:h*0.08},
+        bottomLeftCorner: {x:w*0.08, y:h*0.92}, bottomRightCorner: {x:w*0.92, y:h*0.92}
       };
-      const croppedCanvas = warpPerspectiveCrop(img, orig);
-      document.body.removeChild(overlay);
-      await runOcrOnCanvas(croppedCanvas, cfg, scanBtn, originalText, selectedTruck);
-    } catch(e){
-      console.error(e);
-      alert("Couldn't process the crop: " + (e.message||e));
-      document.body.removeChild(overlay);
-      if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
     }
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px;";
+
+    const imgW = img.naturalWidth || img.width, imgH = img.naturalHeight || img.height;
+    const maxW = Math.min(window.innerWidth - 32, 700);
+    const maxHAvail = window.innerHeight - 140;
+    const scale = Math.min(1, maxW / imgW, maxHAvail / imgH);
+    const dispW = imgW * scale, dispH = imgH * scale;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = dispW; canvas.height = dispH;
+    canvas.style.cssText = "touch-action:none; border-radius:8px; max-width:100%;";
+    overlay.appendChild(canvas);
+
+    const hint = document.createElement("div");
+    hint.textContent = "Drag the corners to match the page's edges, then confirm.";
+    hint.style.cssText = "color:#fff; font-size:13px; margin-top:12px; text-align:center;";
+    overlay.appendChild(hint);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "margin-top:14px; display:flex; gap:10px;";
+    const confirmBtn = document.createElement("button"); confirmBtn.textContent = "Confirm Crop"; confirmBtn.className = "btn-blue";
+    const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Cancel"; cancelBtn.className = "btn-danger";
+    btnRow.appendChild(confirmBtn); btnRow.appendChild(cancelBtn);
+    overlay.appendChild(btnRow);
+    document.body.appendChild(overlay);
+
+    let pts = {
+      tl: { x: corners.topLeftCorner.x*scale, y: corners.topLeftCorner.y*scale },
+      tr: { x: corners.topRightCorner.x*scale, y: corners.topRightCorner.y*scale },
+      bl: { x: corners.bottomLeftCorner.x*scale, y: corners.bottomLeftCorner.y*scale },
+      br: { x: corners.bottomRightCorner.x*scale, y: corners.bottomRightCorner.y*scale },
+    };
+
+    const ctx = canvas.getContext("2d");
+    function draw(){
+      ctx.clearRect(0,0,dispW,dispH);
+      ctx.drawImage(img, 0,0,dispW,dispH);
+      ctx.strokeStyle = "#C1703D"; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(pts.tl.x,pts.tl.y); ctx.lineTo(pts.tr.x,pts.tr.y);
+      ctx.lineTo(pts.br.x,pts.br.y); ctx.lineTo(pts.bl.x,pts.bl.y); ctx.closePath();
+      ctx.stroke();
+      Object.values(pts).forEach(p=>{
+        ctx.beginPath(); ctx.arc(p.x,p.y,16,0,2*Math.PI);
+        ctx.fillStyle = "#5B8DBE"; ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+      });
+    }
+    draw();
+
+    let activeKey = null;
+    function getPos(e){
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: (clientX-rect.left) * (dispW/rect.width), y: (clientY-rect.top) * (dispH/rect.height) };
+    }
+    function findNearest(pos){
+      let nearest=null, minDist=Infinity;
+      Object.keys(pts).forEach(k=>{
+        const d = Math.hypot(pts[k].x-pos.x, pts[k].y-pos.y);
+        if(d<minDist){ minDist=d; nearest=k; }
+      });
+      return minDist < 56 ? nearest : null;
+    }
+    function startDrag(e){ activeKey = findNearest(getPos(e)); }
+    function moveDrag(e){
+      if(!activeKey) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      pts[activeKey] = { x: Math.max(0,Math.min(dispW,pos.x)), y: Math.max(0,Math.min(dispH,pos.y)) };
+      draw();
+    }
+    function endDrag(){ activeKey = null; }
+    canvas.addEventListener("mousedown", startDrag);
+    canvas.addEventListener("mousemove", moveDrag);
+    window.addEventListener("mouseup", endDrag);
+    canvas.addEventListener("touchstart", startDrag, {passive:false});
+    canvas.addEventListener("touchmove", moveDrag, {passive:false});
+    canvas.addEventListener("touchend", endDrag);
+
+    cancelBtn.addEventListener("click", ()=>{
+      document.body.removeChild(overlay);
+      resolve(null);
+    });
+
+    confirmBtn.addEventListener("click", ()=>{
+      confirmBtn.disabled = true; confirmBtn.textContent = "Processing...";
+      try{
+        const orig = {
+          tl: { x: pts.tl.x/scale, y: pts.tl.y/scale }, tr: { x: pts.tr.x/scale, y: pts.tr.y/scale },
+          bl: { x: pts.bl.x/scale, y: pts.bl.y/scale }, br: { x: pts.br.x/scale, y: pts.br.y/scale },
+        };
+        const croppedCanvas = warpPerspectiveCrop(img, orig);
+        document.body.removeChild(overlay);
+        resolve(croppedCanvas);
+      } catch(e){
+        console.error(e);
+        showAppToast("Couldn't process the crop: " + (e.message||e), "error");
+        document.body.removeChild(overlay);
+        resolve(null);
+      }
+    });
   });
 }
 
@@ -999,6 +1169,33 @@ async function renderPdfFirstPageToCanvas(file){
   canvas.width = viewport.width; canvas.height = viewport.height;
   await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
   return canvas;
+}
+
+/* Reads the PDF's actual embedded text layer directly, when it has one (i.e. it's a real
+   digital PDF, not a scanned photo saved as a PDF). This is far more accurate than
+   rendering to an image and running OCR on it, since there's zero recognition error -
+   every character is exactly what the PDF says. Reconstructs reading order from each
+   text item's x/y position, since getTextContent() doesn't guarantee line order.
+   Returns "" if the PDF has no meaningful text layer (a scanned/image-only PDF), so the
+   caller knows to fall back to the OCR pipeline instead. */
+async function extractPdfTextLayer(file){
+  await ensurePdfJsLoaded();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(1);
+  const content = await page.getTextContent();
+  if(!content.items.length) return "";
+
+  const rows = [];
+  const tolerance = 3;
+  content.items.forEach(item => {
+    const x = item.transform[4], y = item.transform[5];
+    let row = rows.find(r => Math.abs(r.y - y) < tolerance);
+    if(!row){ row = { y, items: [] }; rows.push(row); }
+    row.items.push({ x, str: item.str });
+  });
+  rows.sort((a,b) => b.y - a.y);
+  return rows.map(r => r.items.sort((a,b)=>a.x-b.x).map(i=>i.str).join(" ").trim()).filter(l=>l.length>0).join("\n");
 }
 
 function isPdfFile(file){
@@ -1033,9 +1230,22 @@ async function getReceiptSignedUrl(path){
   } catch(e){ console.error(e); return null; }
 }
 
+/* receiptPath can hold multiple pages, comma-separated. Helpers to work with that list. */
+function receiptPathList(receiptPath){
+  return (receiptPath||"").split(",").map(p=>p.trim()).filter(p=>p);
+}
+async function viewReceiptEntry(receiptPath){
+  const paths = receiptPathList(receiptPath);
+  if(!paths.length){ showAppToast("No receipt image found for this entry.", "warning"); return; }
+  for(const path of paths){
+    const url = await getReceiptSignedUrl(path);
+    if(url) window.open(url, "_blank", "noopener");
+  }
+}
+
 function promptVehicleSelection(){
   return new Promise((resolve)=>{
-    if(!vehicles.length){ alert("Add a vehicle first under Manage Fleet."); resolve(null); return; }
+    if(!vehicles.length){ showAppToast("Add a vehicle first under Manage Fleet.", "warning"); resolve(null); return; }
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;";
     const box = document.createElement("div");
@@ -1064,25 +1274,71 @@ function promptVehicleSelection(){
   });
 }
 
-async function runOcrOnCanvas(canvas, cfg, scanBtn, originalText, selectedTruck){
+/* Asks "Add another page?" after a page is captured/cropped. Resolves true (add another) or false (finish). */
+function promptAddAnotherPage(pageCount){
+  return new Promise((resolve)=>{
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#fff; border-radius:12px; padding:24px; max-width:340px; width:100%; text-align:center;";
+    box.innerHTML = `
+      <h3 style="margin:0 0 4px 0; font-size:16px; color:#1E2A38;">Page ${pageCount} captured</h3>
+      <p style="font-size:12px; color:#6B7280; margin:0 0 16px 0;">Add another page for this receipt, or finish scanning?</p>
+      <div style="display:flex; gap:8px;">
+        <button id="addAnotherBtn" class="btn-blue" style="flex:1;">+ Add Another Page</button>
+        <button id="finishScanBtn" class="btn-ghost" style="flex:1; background:var(--charcoal); color:#fff;">Finish</button>
+      </div>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.getElementById("addAnotherBtn").addEventListener("click", ()=>{ document.body.removeChild(overlay); resolve(true); });
+    document.getElementById("finishScanBtn").addEventListener("click", ()=>{ document.body.removeChild(overlay); resolve(false); });
+  });
+}
+
+/* Opens the file/camera picker once and resolves with the chosen file, or null if cancelled. */
+function pickReceiptFile(mode){
+  return new Promise((resolve)=>{
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*,application/pdf";
+    if(mode === "camera") input.capture = "environment";
+    input.addEventListener("change", ()=>{ resolve(input.files[0] || null); });
+    input.addEventListener("cancel", ()=>resolve(null));
+    input.click();
+  });
+}
+
+async function runOcrOnPages(pages, cfg, scanBtn, originalText, selectedTruck){
   if(scanBtn) scanBtn.textContent = "Scanning...";
   try{
     await ensureTesseractLoaded();
-    const result = await window.Tesseract.recognize(canvas, "eng");
-    const parsed = parseReceiptText(result.data.text);
-    const receiptPath = await uploadReceiptImage(canvas);
+    let combinedText = "";
+    const receiptPaths = [];
+    for(const page of pages){
+      if(page.knownText){
+        // Real PDF text layer already extracted - skip OCR entirely for this page (faster and more accurate).
+        combinedText += page.knownText + "\n";
+      } else {
+        const result = await window.Tesseract.recognize(page.canvas, "eng");
+        combinedText += result.data.text + "\n";
+      }
+      const path = await uploadReceiptImage(page.canvas);
+      if(path) receiptPaths.push(path);
+    }
+    const parsed = parseReceiptText(combinedText);
     const entries = getLogArray(cfg.key);
-    const blank = { truck: selectedTruck || "", receiptPath: receiptPath || "" };
+    const blank = { truck: selectedTruck || "", receiptPath: receiptPaths.join(",") };
     blank[cfg.fieldOrder[0]] = cfg.fieldOrder[0]==="date" ? parsed.date : parsed.description;
     blank[cfg.fieldOrder[1]] = cfg.fieldOrder[1]==="description" ? parsed.description : (cfg.fieldOrder[1]==="date" ? parsed.date : "");
     blank[cfg.fieldOrder[2]] = parsed.amount;
     entries.push(blank);
     markUnsaved();
     renderMain();
-    setTimeout(()=>{ alert("Receipt scanned. Please double-check the date, description, and amount below - scanning isn't always perfect."); }, 100);
+    setTimeout(()=>{ showAppToast("Receipt scanned - date and total filled in. Add a description and pick the truck below.", "success"); }, 100);
   } catch(e){
     console.error(e);
-    alert("Couldn't read that receipt: " + (e.message||e));
+    showAppToast("Couldn't read that receipt: " + (e.message||e), "error");
   } finally {
     if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
   }
@@ -1092,41 +1348,56 @@ async function scanReceiptForLog(cfg, mode){
   const selectedTruck = await promptVehicleSelection();
   if(!selectedTruck) return;
 
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/*,application/pdf";
-  if(mode === "camera") input.capture = "environment";
-  input.addEventListener("change", async ()=>{
-    const file = input.files[0];
-    if(!file) return;
-    const btnId = mode === "camera" ? "takePhotoBtn" : "uploadFileBtn";
-    const scanBtn = document.getElementById(btnId);
-    const originalText = scanBtn ? scanBtn.textContent : "";
-    if(scanBtn){ scanBtn.disabled=true; scanBtn.textContent="Loading..."; }
-    try{
-      let img;
+  const btnId = mode === "camera" ? "takePhotoBtn" : "uploadFileBtn";
+  const scanBtn = document.getElementById(btnId);
+  const originalText = scanBtn ? scanBtn.textContent : "";
+  if(scanBtn){ scanBtn.disabled=true; }
+
+  const capturedPages = []; // {canvas, knownText}
+  try{
+    let keepGoing = true;
+    while(keepGoing){
+      if(scanBtn) scanBtn.textContent = "Loading...";
+      const file = await pickReceiptFile(mode);
+      if(!file){
+        if(capturedPages.length === 0){ if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; } return; }
+        break; // user cancelled the picker on a later page - proceed with what we have
+      }
+
       if(isPdfFile(file)){
-        scanBtn && (scanBtn.textContent = "Reading PDF...");
-        img = await renderPdfFirstPageToCanvas(file);
+        if(scanBtn) scanBtn.textContent = "Reading PDF...";
+        const textLayer = await extractPdfTextLayer(file);
+        const pageImg = await renderPdfFirstPageToCanvas(file); // still needed as the viewable/stored receipt image
+        if(textLayer && textLayer.replace(/\s/g,"").length > 20){
+          // Real digital PDF with an actual text layer - use it directly, no OCR, no corner-adjust needed
+          // (a rendered PDF page is already a clean rectangle, unlike a photo of a physical receipt).
+          capturedPages.push({ canvas: pageImg, knownText: textLayer });
+        } else {
+          // Scanned/image-only PDF (no usable text layer) - treat like a photo: adjust corners, then OCR.
+          const cropped = await openCornerAdjustOverlay(pageImg);
+          if(cropped) capturedPages.push({ canvas: cropped, knownText: null });
+        }
       } else {
         await ensureOpenCvLoaded();
         await ensureJscanifyLoaded();
-        img = await loadImageFromFile(file);
+        const pageImg = await loadImageFromFile(file);
+        const cropped = await openCornerAdjustOverlay(pageImg);
+        if(cropped) capturedPages.push({ canvas: cropped, knownText: null });
       }
-      if(isPdfFile(file)){
-        // PDF pages are already flat/rectangular - skip corner adjustment, go straight to OCR.
-        await runOcrOnCanvas(img, cfg, scanBtn, originalText, selectedTruck);
-      } else {
-        openCornerAdjustOverlay(img, cfg, scanBtn, originalText, selectedTruck);
-      }
-    } catch(e){
-      console.error(e);
-      alert("Couldn't start the scanner: " + (e.message||e));
-      if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
+
+      if(capturedPages.length === 0){ if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; } return; }
+
+      keepGoing = await promptAddAnotherPage(capturedPages.length);
     }
-  });
-  input.click();
+    await runOcrOnPages(capturedPages, cfg, scanBtn, originalText, selectedTruck);
+  } catch(e){
+    console.error(e);
+    showAppToast("Couldn't start the scanner: " + (e.message||e), "error");
+    if(scanBtn){ scanBtn.disabled=false; scanBtn.textContent=originalText; }
+  }
 }
+
+
 
 
 
@@ -1160,12 +1431,12 @@ async function getPushSubscriptionStatus(){
 
 async function enablePushNotifications(){
   if(!("serviceWorker" in navigator) || !("PushManager" in window)){
-    alert("Push notifications aren't supported in this browser/app.");
+    showAppToast("Push notifications aren't supported in this browser/app.", "error");
     return false;
   }
   try{
     const permission = await Notification.requestPermission();
-    if(permission !== "granted"){ alert("Notification permission was not granted."); return false; }
+    if(permission !== "granted"){ showAppToast("Notification permission was not granted.", "warning"); return false; }
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if(!sub){
@@ -1185,7 +1456,7 @@ async function enablePushNotifications(){
     return true;
   } catch(e){
     console.error(e);
-    alert("Could not enable notifications: " + (e.message||e));
+    showAppToast("Could not enable notifications: " + (e.message||e), "error");
     return false;
   }
 }
@@ -1245,6 +1516,7 @@ function wireWeekPicker(selectId, onWeekChange){
 /* ============ MAIN DISPATCH ============ */
 function renderMain(){
   if(currentModule==="fleet"){ renderFleetPage(); return; }
+  if(currentModule==="compliance"){ renderCompliancePage(); return; }
   if(currentModule==="maintenance"){ renderLogPage({ key:"maintenance", title:"Maintenance Records", subtitle:"Service history by truck.",
     colHeaders:["Description","Date","Mileage"], fieldOrder:["description","date","amount"], currency:false, summaryType:"max", summaryLabel:"Latest Recorded Mileage" }); return; }
   if(currentModule==="expenses"){
@@ -1255,12 +1527,195 @@ function renderMain(){
     if(currentExpenseTab==="mechanic"){ renderLogPage({ key:"mechanic", title:"Mechanic / Repair Log", subtitle:"Repairs paid per truck.",
       colHeaders:["Date Paid","Description of Repair","Amount Paid"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Mechanic", companyLabel:"MECHANIC YTD" }); return; }
     if(currentExpenseTab==="receipts"){ renderReceiptsPage(); return; }
+    if(currentExpenseTab==="operations"){ renderOperationsCostPage(); return; }
   }
   if(currentModule==="payroll"){ renderPayrollPage(); return; }
   renderContractsPage();
 }
 
 /* ============ FLEET MANAGEMENT ============ */
+/* ============ COMPLIANCE PAGE ============ */
+async function uploadComplianceDocument(pathPrefix, mode){
+  return new Promise((resolve)=>{
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*,application/pdf";
+    if(mode === "camera") input.capture = "environment";
+    input.addEventListener("change", async ()=>{
+      const file = input.files[0];
+      if(!file){ resolve(null); return; }
+      if(!sb || !currentUserId){ showAppToast("Not connected.", "error"); resolve(null); return; }
+      try{
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `${currentUserId}/${pathPrefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const { error } = await sb.storage.from("receipts").upload(path, file, { contentType: file.type || "application/octet-stream" });
+        if(error){ console.error(error); showAppToast("Upload failed: " + error.message, "error"); resolve(null); return; }
+        resolve(path);
+      } catch(e){ console.error(e); showAppToast("Upload failed: " + (e.message||e), "error"); resolve(null); }
+    });
+    input.click();
+  });
+}
+
+function docUploadButtonsHTML(idBase){
+  return `<button class="btn-ghost btn-sm" data-doc-camera="${idBase}" style="background:var(--charcoal);">Take Photo</button>
+    <button class="btn-ghost btn-sm" data-doc-upload="${idBase}" style="background:var(--charcoal);">Upload File</button>`;
+}
+
+function renderCompliancePage(){
+  let html = `<h1 class="page-title">Compliance</h1><p class="page-sub">Driver and vehicle compliance tracking, with automatic reminders as dates approach.</p>`;
+
+  html += `<div class="section-label">Drivers</div>`;
+  const activeD = drivers.filter(d=>d.active);
+  if(!activeD.length){ html += `<div class="banner"><b>No active drivers</b>Add one under Manage Fleet first.</div>`; }
+  html += `<div class="cards">`;
+  activeD.forEach(d=>{
+    const idx = drivers.indexOf(d);
+    const licenseUrg = getComplianceUrgency(d.licenseExpiration, d.licenseCompleted);
+    const medUrg = getComplianceUrgency(d.medicalCardExpiration, d.medicalCardCompleted);
+    html += `<div class="card">
+      <h3>${d.name}</h3>
+      <div class="field"><label>License Expiration ${urgencyBadgeHTML(licenseUrg)}</label>
+        <input type="date" data-driver-idx="${idx}" data-field="licenseExpiration" value="${d.licenseExpiration||''}"></div>
+      <label class="inactive-toggle" style="margin-bottom:10px;"><input type="checkbox" data-driver-idx="${idx}" data-field="licenseCompleted" ${d.licenseCompleted?'checked':''}> Mark renewed / completed</label>
+      <div style="margin-bottom:14px; display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("license-"+idx)}
+        ${d.licenseDocumentPath?`<button class="btn-ghost btn-sm" data-view-doc="${d.licenseDocumentPath}" style="background:var(--blue);">View</button>`:''}</div>
+
+      <div class="field"><label>Medical Card Expiration ${urgencyBadgeHTML(medUrg)}</label>
+        <input type="date" data-driver-idx="${idx}" data-field="medicalCardExpiration" value="${d.medicalCardExpiration||''}"></div>
+      <label class="inactive-toggle" style="margin-bottom:10px;"><input type="checkbox" data-driver-idx="${idx}" data-field="medicalCardCompleted" ${d.medicalCardCompleted?'checked':''}> Mark renewed / completed</label>
+      <div style="margin-bottom:14px; display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("medical-"+idx)}
+        ${d.medicalCardDocumentPath?`<button class="btn-ghost btn-sm" data-view-doc="${d.medicalCardDocumentPath}" style="background:var(--blue);">View</button>`:''}</div>
+
+      <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">W9 (on file)</label>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("w9-"+idx)}
+        ${d.w9DocumentPath?`<button class="btn-ghost btn-sm" data-view-doc="${d.w9DocumentPath}" style="background:var(--blue);">View</button>`:''}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="section-label">Vehicles</div>`;
+  const activeV = vehicles.filter(v=>v.active);
+  if(!activeV.length){ html += `<div class="banner"><b>No active vehicles</b>Add one under Manage Fleet first.</div>`; }
+  html += `<div class="cards">`;
+  activeV.forEach(v=>{
+    const idx = vehicles.indexOf(v);
+    const inspUrg = getComplianceUrgency(v.inspectionExpiration, v.inspectionCompleted);
+    const regUrg = getComplianceUrgency(v.registrationExpiration, v.registrationCompleted);
+    const hvutUrg = getComplianceUrgency(v.hvut2290Expiration, v.hvut2290Completed);
+    const yearly = ((parseFloat(v.insuranceMonthlyCost)||0)*12).toFixed(2);
+    html += `<div class="card">
+      <h3>Truck <span class="tag">${v.truckId}</span></h3>
+
+      <div class="field"><label>Inspection Expiration ${urgencyBadgeHTML(inspUrg)}</label>
+        <input type="date" data-vehicle-idx="${idx}" data-field="inspectionExpiration" value="${v.inspectionExpiration||''}"></div>
+      <div class="blockgrid" style="margin-bottom:6px;">
+        <div class="field"><label>Inspection Cost</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="inspectionCost" value="${v.inspectionCost||''}"></div>
+        <div class="field" style="display:flex; align-items:flex-end;"><label class="inactive-toggle"><input type="checkbox" data-vehicle-idx="${idx}" data-field="inspectionCompleted" ${v.inspectionCompleted?'checked':''}> Completed</label></div>
+      </div>
+
+      <div class="field"><label>Registration Expiration ${urgencyBadgeHTML(regUrg)}</label>
+        <input type="date" data-vehicle-idx="${idx}" data-field="registrationExpiration" value="${v.registrationExpiration||''}"></div>
+      <div class="blockgrid" style="margin-bottom:6px;">
+        <div class="field"><label>Registration Cost</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="registrationCost" value="${v.registrationCost||''}"></div>
+        <div class="field" style="display:flex; align-items:flex-end;"><label class="inactive-toggle"><input type="checkbox" data-vehicle-idx="${idx}" data-field="registrationCompleted" ${v.registrationCompleted?'checked':''}> Completed</label></div>
+      </div>
+
+      <div class="field"><label>2290 (HVUT) Due Date ${urgencyBadgeHTML(hvutUrg)}</label>
+        <input type="date" data-vehicle-idx="${idx}" data-field="hvut2290Expiration" value="${v.hvut2290Expiration||''}"></div>
+      <div class="blockgrid" style="margin-bottom:6px;">
+        <div class="field"><label>2290 Cost</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="hvut2290Cost" value="${v.hvut2290Cost||''}"></div>
+        <div class="field" style="display:flex; align-items:flex-end;"><label class="inactive-toggle"><input type="checkbox" data-vehicle-idx="${idx}" data-field="hvut2290Completed" ${v.hvut2290Completed?'checked':''}> Completed</label></div>
+      </div>
+      <div style="margin-bottom:14px; display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("hvut-"+idx)}
+        ${v.hvut2290ReceiptPath?`<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" style="background:var(--blue);">View Receipt</button>`:''}</div>
+
+      <div class="blockgrid">
+        <div class="field"><label>Insurance / Month</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="insuranceMonthlyCost" value="${v.insuranceMonthlyCost||''}"></div>
+        <div class="field readonly"><label>Insurance / Year</label><input readonly value="$${yearly}"></div>
+      </div>
+      <label class="inactive-toggle" style="margin-bottom:6px;"><input type="checkbox" data-vehicle-idx="${idx}" data-field="hasBobtailInsurance" ${v.hasBobtailInsurance?'checked':''}> Has bobtail insurance</label>
+      ${v.hasBobtailInsurance ? `<div class="field"><label>Bobtail Insurance / Month</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="bobtailInsuranceCost" value="${v.bobtailInsuranceCost||''}"></div>` : ''}
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="section-label">IFTA (Company-Wide, ${iftaData.year})</div>`;
+  const quarterEndDates = { 1:`${iftaData.year}-03-31`, 2:`${iftaData.year}-06-30`, 3:`${iftaData.year}-09-30`, 4:`${iftaData.year}-12-31` };
+  html += `<div class="cards">`;
+  [1,2,3,4].forEach(q=>{
+    const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
+    html += `<div class="card">
+      <h3>Q${q} <span class="tag">Due ${quarterEndDates[q]}</span> ${urgencyBadgeHTML(urg)}</h3>
+      <div class="field"><label>Amount</label><input type="number" step="0.01" min="0" data-ifta="q${q}Cost" value="${iftaData[`q${q}Cost`]||''}"></div>
+      <label class="inactive-toggle"><input type="checkbox" data-ifta-completed="q${q}Completed" ${iftaData[`q${q}Completed`]?'checked':''}> Paid</label>
+    </div>`;
+  });
+  html += `<div class="card company"><h3>Year Total</h3><div class="metric"><div class="big">${moneyStr((parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0))}</div></div></div>
+  </div>`;
+
+  mainArea.innerHTML = html;
+  wireCompliancePage();
+}
+
+function wireCompliancePage(){
+  mainArea.querySelectorAll("[data-driver-idx]").forEach(el=>{
+    const idx = parseInt(el.dataset.driverIdx), field = el.dataset.field;
+    el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
+      const val = el.type==="checkbox" ? el.checked : el.value;
+      drivers[idx][field] = val;
+      // Changing the expiration date starts a fresh cycle - un-check completed.
+      if(field==="licenseExpiration") drivers[idx].licenseCompleted = false;
+      if(field==="medicalCardExpiration") drivers[idx].medicalCardCompleted = false;
+      markUnsaved();
+      if(field.endsWith("Expiration") || field.endsWith("Completed")) renderCompliancePage();
+    });
+  });
+  mainArea.querySelectorAll("[data-vehicle-idx]").forEach(el=>{
+    const idx = parseInt(el.dataset.vehicleIdx), field = el.dataset.field;
+    el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
+      const val = el.type==="checkbox" ? el.checked : el.value;
+      vehicles[idx][field] = val;
+      if(field==="inspectionExpiration") vehicles[idx].inspectionCompleted = false;
+      if(field==="registrationExpiration") vehicles[idx].registrationCompleted = false;
+      if(field==="hvut2290Expiration") vehicles[idx].hvut2290Completed = false;
+      markUnsaved();
+      if(field.endsWith("Expiration") || field.endsWith("Completed") || field==="hasBobtailInsurance" || field==="insuranceMonthlyCost") renderCompliancePage();
+    });
+  });
+  mainArea.querySelectorAll("[data-ifta]").forEach(el=>{
+    el.addEventListener("input", ()=>{ iftaData[el.dataset.ifta] = el.value; markUnsaved(); renderCompliancePage(); });
+  });
+  mainArea.querySelectorAll("[data-ifta-completed]").forEach(el=>{
+    el.addEventListener("change", ()=>{ iftaData[el.dataset.iftaCompleted] = el.checked; markUnsaved(); renderCompliancePage(); });
+  });
+  mainArea.querySelectorAll("[data-view-doc]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const url = await getReceiptSignedUrl(btn.dataset.viewDoc);
+      if(url) window.open(url, "_blank", "noopener"); else showAppToast("Could not load that document.", "error");
+    });
+  });
+  mainArea.querySelectorAll("[data-doc-camera]").forEach(btn=>{
+    btn.addEventListener("click", ()=>handleComplianceDocUpload(btn.dataset.docCamera, "camera"));
+  });
+  mainArea.querySelectorAll("[data-doc-upload]").forEach(btn=>{
+    btn.addEventListener("click", ()=>handleComplianceDocUpload(btn.dataset.docUpload, "upload"));
+  });
+}
+
+async function handleComplianceDocUpload(idBase, mode){
+  const [kind, idxStr] = idBase.split("-");
+  const idx = parseInt(idxStr);
+  const path = await uploadComplianceDocument(kind, mode);
+  if(!path) return;
+  if(kind==="license") drivers[idx].licenseDocumentPath = path;
+  else if(kind==="medical") drivers[idx].medicalCardDocumentPath = path;
+  else if(kind==="w9") drivers[idx].w9DocumentPath = path;
+  else if(kind==="hvut") vehicles[idx].hvut2290ReceiptPath = path;
+  markUnsaved();
+  renderCompliancePage();
+}
+
 function renderFleetPage(){
   let html = `<h1 class="page-title">Manage Fleet</h1><p class="page-sub">Deactivate a vehicle or driver to hide them from active use - their past records stay exactly as they are for tax purposes, and you can reactivate anytime.</p>`;
 
@@ -1328,15 +1783,15 @@ function renderFleetPage(){
   document.getElementById("addVehicleBtn").addEventListener("click", ()=>{
     const id = document.getElementById("newTruckId").value.trim();
     const wk = parseInt(document.getElementById("newTruckWeek").value);
-    if(!id){ alert("Enter a Truck ID."); return; }
-    if(vehicleExists(id)){ alert("That Truck ID already exists."); return; }
+    if(!id){ showAppToast("Enter a Truck ID.", "warning"); return; }
+    if(vehicleExists(id)){ showAppToast("That Truck ID already exists.", "warning"); return; }
     vehicles.push({ truckId:id, addedWeek:wk, active:true });
     markUnsaved(); renderMain();
   });
   document.getElementById("addDriverBtn").addEventListener("click", ()=>{
     const name = document.getElementById("newDriverName").value.trim();
-    if(!name){ alert("Enter a driver name."); return; }
-    if(drivers.some(d=>d.name===name)){ alert("That driver already exists."); return; }
+    if(!name){ showAppToast("Enter a driver name.", "warning"); return; }
+    if(drivers.some(d=>d.name===name)){ showAppToast("That driver already exists.", "warning"); return; }
     drivers.push({ name, active:true });
     markUnsaved(); renderMain();
   });
@@ -1460,18 +1915,36 @@ function renderDashboard(){
 /* ============ EXPENSES / FUEL ============ */
 function renderExpensesOverview(){
   const fuelTotals = computeFuelTotals(), partsSum = computeLogSummary(partsLog,"sum"), mechSum = computeLogSummary(mechanicLog,"sum");
-  let html = `<h1 class="page-title">Expenses</h1><p class="page-sub">Fuel, Parts, and Mechanic costs at a glance.</p>`;
+  const opsTotal = computeOperationsCostTotal();
+  let html = `<h1 class="page-title">Expenses</h1><p class="page-sub">Fuel, Parts, Mechanic, and Operations costs at a glance.</p>`;
   html += subtabsHTML();
   html += `<div class="cards">
     <div class="card clickable" data-tab="fuel"><h3>Fuel</h3><div class="metric"><div class="label">FUEL YTD</div><div class="big">${moneyStr(fuelTotals.company)}</div></div><div class="hint">Click to view weekly entries</div></div>
     <div class="card clickable" data-tab="parts"><h3>Parts</h3><div class="metric"><div class="label">PARTS YTD</div><div class="big">${moneyStr(partsSum.grand)}</div></div><div class="hint">Click to view/edit log</div></div>
     <div class="card clickable" data-tab="mechanic"><h3>Mechanic</h3><div class="metric"><div class="label">MECHANIC YTD</div><div class="big">${moneyStr(mechSum.grand)}</div></div><div class="hint">Click to view/edit log</div></div>
+    <div class="card clickable" data-tab="operations"><h3>Operations Cost</h3><div class="metric"><div class="label">YTD</div><div class="big">${moneyStr(opsTotal)}</div></div><div class="hint">Inspection, registration, 2290, insurance, IFTA</div></div>
   </div>`;
   mainArea.innerHTML = html; wireSubtabs();
   mainArea.querySelectorAll(".card.clickable").forEach(c=>{ c.addEventListener("click", ()=>{ currentExpenseTab=c.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
 }
+
+function renderOperationsCostPage(){
+  let html = `<h1 class="page-title">Operations Cost</h1><p class="page-sub">Inspection, registration, 2290, insurance (annualized), and IFTA - manage the underlying dates and costs under Compliance.</p>`;
+  html += subtabsHTML();
+  html += `<div class="cards summary-cards">`;
+  activeVehicles().forEach(v=>{
+    html += `<div class="card"><h3>Truck <span class="tag">${v.truckId}</span></h3><div class="metric"><div class="big">${moneyStr(computeVehicleOperationsCost(v))}</div></div></div>`;
+  });
+  const iftaTotal = (parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0);
+  html += `<div class="card"><h3>IFTA <span class="tag">Company-Wide</span></h3><div class="metric"><div class="big">${moneyStr(iftaTotal)}</div></div></div>`;
+  html += `<div class="card company"><h3>OPERATIONS COST YTD</h3><div class="metric"><div class="big">${moneyStr(computeOperationsCostTotal())}</div></div></div>`;
+  html += `</div>`;
+  html += `<div class="banner soon" style="margin-top:20px;"><b>Edit dates and costs under Compliance</b>This page is a read-only rollup - go to the Compliance page (hamburger menu) to update inspection/registration/2290 dates and costs, insurance, or IFTA quarterly payments.</div>`;
+  mainArea.innerHTML = html; wireSubtabs();
+}
+
 function subtabsHTML(){
-  const tabs=[["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"],["receipts","Receipts"]];
+  const tabs=[["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"],["operations","Operations Cost"],["receipts","Receipts"]];
   return `<div class="subtabs">` + tabs.map(([k,label])=>`<button data-tab="${k}" class="${currentExpenseTab===k?'active':''}">${label}</button>`).join("") + `</div>`;
 }
 function wireSubtabs(){
@@ -1582,13 +2055,13 @@ async function downloadAllReceiptsAsPdf(){
     }
 
     if(first){
-      alert("No receipt images could be loaded.");
+      showAppToast("No receipt images could be loaded.", "warning");
     } else {
       doc.save("FleetHub_Receipts.pdf");
     }
   } catch(e){
     console.error(e);
-    alert("Could not build the PDF: " + (e.message||e));
+    showAppToast("Could not build the PDF: " + (e.message||e), "error");
   } finally {
     btn.disabled = false; btn.textContent = original;
   }
@@ -1725,7 +2198,7 @@ function renderLogPage(cfg){
   if(cfg.summaryType==="sum") html += `<div class="card company"><h3>${cfg.companyLabel}</h3><div class="metric"><div class="big">${moneyStr(summary.grand)}</div></div></div>`;
   html += `</div>`;
   html += `<div class="section-label">Entry Log</div><p class="hint">Truck dropdown includes inactive vehicles too, so you can still log/edit entries for a truck no longer in active use.</p>`;
-  html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th></th></tr></thead><tbody id="logTbody">`;
+  html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th>Receipt</th><th></th></tr></thead><tbody id="logTbody">`;
   entries.forEach((e,idx)=>{ html += logRowHTML(cfg, e, idx); });
   html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add Entry</button>`;
   if(cfg.key==="parts" || cfg.key==="mechanic"){
@@ -1745,11 +2218,14 @@ function logRowHTML(cfg, e, idx){
   const truckOptions = vehicles.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
   const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
   const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="amount"?"number":(f2==="date"?"date":"text");
+  const hasReceipt = e.receiptPath && receiptPathList(e.receiptPath).length > 0;
+  const viewBtn = hasReceipt ? `<button class="btn-ghost btn-sm log-view-receipt" style="background:var(--charcoal); white-space:nowrap;">View Receipt</button>` : "";
   return `<tr data-idx="${idx}">
     <td><select class="log-truck"><option value="">-</option>${truckOptions}</select></td>
     <td><input class="log-f0" type="${type0}" value="${e[f0]||''}"></td>
     <td><input class="log-f1" type="${type1}" value="${e[f1]||''}"></td>
     <td><input class="log-f2" type="${type2}" ${type2==='number'?'step="0.01" min="0"':''} value="${e[f2]||''}"></td>
+    <td>${viewBtn}</td>
     <td><button class="btn-danger log-delete">Remove</button></td>
   </tr>`;
 }
@@ -1763,6 +2239,8 @@ function wireLogTable(cfg){
     tr.querySelector(".log-f1").addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[1]]=e.target.value; markUnsaved(); });
     tr.querySelector(".log-f2").addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[2]]=e.target.value; markUnsaved(); refreshLogSummary(cfg); });
     tr.querySelector(".log-delete").addEventListener("click", ()=>{ entries.splice(idx,1); markUnsaved(); renderMain(); });
+    const viewBtn = tr.querySelector(".log-view-receipt");
+    if(viewBtn) viewBtn.addEventListener("click", ()=>viewReceiptEntry(entries[idx].receiptPath));
   });
   document.getElementById("addLogRow").addEventListener("click", ()=>{
     const blank={truck:""}; blank[cfg.fieldOrder[0]]=""; blank[cfg.fieldOrder[1]]=""; blank[cfg.fieldOrder[2]]="";
