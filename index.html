@@ -84,6 +84,7 @@
   table.logtable th{background:var(--charcoal); color:#fff; text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.4px;}
   table.logtable td{padding:6px 10px; border-top:1px solid var(--border); vertical-align:middle;}
   table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:13px; font-family:inherit;}
+  table.logtable td textarea.auto-expand{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:13px; font-family:inherit; resize:none; overflow:hidden; min-height:32px; line-height:1.4;}
   table.logtable td input:focus, table.logtable td select:focus{outline:none; border-color:var(--blue);}
   .addrow-wrap{margin-top:14px;}
   .fleet-section{margin-bottom:28px;}
@@ -844,7 +845,7 @@ async function loadAll(){
     payrollEntries = (p.data||[]).map(r=>({ week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"" }));
     partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
     mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
-    maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"" }));
+    maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", submitted: !!(r.truck && r.description && r.entry_date && r.mileage!=null) }));
 
     const iftaRows = iftaRes.data||[];
     iftaData = { year: 2026, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Completed:false, q2Completed:false, q3Completed:false, q4Completed:false };
@@ -933,18 +934,62 @@ function imgToCanvas(img){
   return c;
 }
 
+/* Corner detection using OpenCV.js's own documented, stable primitives directly
+   (grayscale -> blur -> edge detection -> find the largest 4-sided contour), rather
+   than relying on a third-party wrapper's internal methods that turned out to not be
+   part of its public/documented API and were silently failing every time. */
 function detectInitialCorners(img){
+  let src, gray, blurred, edged, dilated, kernel, contours, hierarchy;
   try{
-    const scanner = new window.jscanify();
-    const contour = scanner.findPaperContour(imgToCanvas(img));
-    if(!contour) return null;
-    const corners = scanner.getCornerPoints(contour);
-    contour.delete && contour.delete();
-    if(!corners || !corners.topLeftCorner) return null;
-    return corners;
+    src = window.cv.imread(imgToCanvas(img));
+    gray = new window.cv.Mat();
+    window.cv.cvtColor(src, gray, window.cv.COLOR_RGBA2GRAY);
+    blurred = new window.cv.Mat();
+    window.cv.GaussianBlur(gray, blurred, new window.cv.Size(5,5), 0);
+    edged = new window.cv.Mat();
+    window.cv.Canny(blurred, edged, 75, 200);
+    dilated = new window.cv.Mat();
+    kernel = window.cv.Mat.ones(3, 3, window.cv.CV_8U);
+    window.cv.dilate(edged, dilated, kernel);
+
+    contours = new window.cv.MatVector();
+    hierarchy = new window.cv.Mat();
+    window.cv.findContours(dilated, contours, hierarchy, window.cv.RETR_LIST, window.cv.CHAIN_APPROX_SIMPLE);
+
+    const minArea = src.rows * src.cols * 0.1; // ignore small contours - the document should fill a meaningful part of the frame
+    let bestQuad = null, bestArea = 0;
+    for(let i=0; i<contours.size(); i++){
+      const cnt = contours.get(i);
+      const peri = window.cv.arcLength(cnt, true);
+      const approx = new window.cv.Mat();
+      window.cv.approxPolyDP(cnt, approx, 0.02*peri, true);
+      if(approx.rows === 4){
+        const area = window.cv.contourArea(approx);
+        if(area > bestArea && area > minArea){
+          bestArea = area;
+          if(bestQuad) bestQuad.delete();
+          bestQuad = approx.clone();
+        }
+      }
+      approx.delete(); cnt.delete();
+    }
+
+    let result = null;
+    if(bestQuad){
+      const pts = [];
+      for(let i=0; i<4; i++) pts.push({ x: bestQuad.data32S[i*2], y: bestQuad.data32S[i*2+1] });
+      pts.sort((a,b)=>a.y-b.y);
+      const top = pts.slice(0,2).sort((a,b)=>a.x-b.x);
+      const bottom = pts.slice(2,4).sort((a,b)=>a.x-b.x);
+      result = { topLeftCorner: top[0], topRightCorner: top[1], bottomLeftCorner: bottom[0], bottomRightCorner: bottom[1] };
+      bestQuad.delete();
+    }
+    return result;
   } catch(e){
     console.warn("Auto edge-detection failed, falling back to default corners:", e);
     return null;
+  } finally {
+    [src, gray, blurred, edged, dilated, kernel, contours, hierarchy].forEach(m=>{ try{ m && m.delete(); }catch(e){} });
   }
 }
 
@@ -1038,17 +1083,29 @@ function applyScanFilter(sourceCanvas, mode, contrast){
 
   const imgData = ctx.getImageData(0, 0, w, h);
   const data = imgData.data;
-  const c = Math.max(-255, Math.min(255, contrast));
-  const contrastFactor = (259*(c+255)) / (255*(259-c));
-  for(let i=0; i<data.length; i+=4){
-    let gray = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
-    gray = contrastFactor*(gray-128) + 128;
-    if(mode === "bw"){
-      gray = gray > 128 ? 255 : 0;
-    } else {
-      gray = Math.max(0, Math.min(255, gray));
+
+  if(mode === "bw"){
+    // B&W thresholds every pixel to pure black or white, so "contrast" can't work by
+    // scaling values around a FIXED cutoff - scaling never flips which side of a fixed
+    // midpoint a value lands on. Instead, the slider directly moves the threshold
+    // itself, which actually changes the result (useful for compensating for shadows
+    // or uneven lighting - move it one way to keep more detail as white, the other way
+    // to push more toward black).
+    const threshold = 128 - contrast*0.7;
+    for(let i=0; i<data.length; i+=4){
+      const gray = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+      const bw = gray > threshold ? 255 : 0;
+      data[i] = data[i+1] = data[i+2] = bw;
     }
-    data[i] = data[i+1] = data[i+2] = gray;
+  } else {
+    const c = Math.max(-255, Math.min(255, contrast));
+    const contrastFactor = (259*(c+255)) / (255*(259-c));
+    for(let i=0; i<data.length; i+=4){
+      let gray = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+      gray = contrastFactor*(gray-128) + 128;
+      gray = Math.max(0, Math.min(255, gray));
+      data[i] = data[i+1] = data[i+2] = gray;
+    }
   }
   ctx.putImageData(imgData, 0, 0);
   return out;
@@ -1543,7 +1600,6 @@ async function scanReceiptForLog(cfg, mode){
         }
       } else {
         await ensureOpenCvLoaded();
-        await ensureJscanifyLoaded();
         const pageImg = await loadImageFromFile(file);
         const cropped = await openCornerAdjustOverlay(pageImg);
         if(cropped){
@@ -1652,6 +1708,34 @@ function fieldHTML(id,label,value,opts){
 }
 function moneyStr(v){ return v<0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`; }
 
+/* Shared date validation for every <input type="date"> in the app. Catches two
+   real problems: a malformed year from manual typing (e.g. "0026" instead of "2026",
+   easy to fumble since browsers let you type digit-by-digit), and - only where
+   requested (event logs like Maintenance/Parts/Mechanic, never Compliance expiration
+   dates, which are supposed to be in the future) - a date that hasn't happened yet. */
+function todayDateStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function validateDateInput(el, allowFuture){
+  const val = el.value;
+  if(!val) return true;
+  const yearMatch = val.match(/^(\d{4})-/);
+  const year = yearMatch ? parseInt(yearMatch[1]) : 0;
+  const nowYear = new Date().getFullYear();
+  if(year < 1990 || year > nowYear + 10){
+    showAppToast(`That year (${year}) doesn't look right - please re-check the date.`, "warning");
+    el.value = "";
+    return false;
+  }
+  if(!allowFuture && val > todayDateStr()){
+    showAppToast("That date is in the future - this field logs when something already happened.", "warning");
+    el.value = "";
+    return false;
+  }
+  return true;
+}
+
 /* Reusable inline week picker (replaces the old sidebar) */
 function weekPickerHTML(selectedWeek, selectId){
   const groups = groupWeeksByMonth();
@@ -1686,7 +1770,7 @@ function renderMain(){
   if(currentModule==="fleet"){ renderFleetPage(); return; }
   if(currentModule==="compliance"){ renderCompliancePage(); return; }
   if(currentModule==="maintenance"){ renderLogPage({ key:"maintenance", title:"Maintenance Records", subtitle:"Service history by truck.",
-    colHeaders:["Description","Date","Mileage"], fieldOrder:["description","date","amount"], currency:false, summaryType:"max", summaryLabel:"Latest Recorded Mileage" }); return; }
+    colHeaders:["Description","Date","Mileage"], fieldOrder:["description","date","amount"], currency:false, summaryType:"max", summaryLabel:"Latest Recorded Mileage", submitMode:true, allowDocs:true }); return; }
   if(currentModule==="expenses"){
     if(currentExpenseTab==="overview"){ renderExpensesOverview(); return; }
     if(currentExpenseTab==="fuel"){ renderFuelPage(); return; }
@@ -1719,7 +1803,6 @@ async function uploadComplianceDocument(pathPrefix, mode){
 
     // Photo or image upload: same corner-adjust + B&W/contrast pipeline as receipt scanning.
     await ensureOpenCvLoaded();
-    await ensureJscanifyLoaded();
     const img = await loadImageFromFile(file);
     const cropped = await openCornerAdjustOverlay(img);
     if(!cropped) return null; // user cancelled the crop step
@@ -1831,7 +1914,7 @@ function renderCompliancePage(){
       <label class="inactive-toggle"><input type="checkbox" data-ifta-completed="q${q}Completed" ${iftaData[`q${q}Completed`]?'checked':''}> Paid</label>
     </div>`;
   });
-  html += `<div class="card company"><h3>Year Total</h3><div class="metric"><div class="big">${moneyStr((parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0))}</div></div></div>
+  html += `<div class="card company"><h3>Year Total</h3><div class="metric"><div class="big" id="iftaYearTotal">${moneyStr((parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0))}</div></div></div>
   </div>`;
 
   mainArea.innerHTML = html;
@@ -1859,6 +1942,9 @@ function wireCompliancePage(){
       markUnsaved();
       if(field.endsWith("Expiration") || field.endsWith("Completed")) rerenderPreservingScroll(renderCompliancePage);
     });
+    if(el.type==="date"){
+      el.addEventListener("change", ()=>{ if(!validateDateInput(el, true)){ drivers[idx][field]=""; markUnsaved(); } });
+    }
   });
   mainArea.querySelectorAll("[data-vehicle-idx]").forEach(el=>{
     const idx = parseInt(el.dataset.vehicleIdx), field = el.dataset.field;
@@ -1871,9 +1957,19 @@ function wireCompliancePage(){
       markUnsaved();
       if(field.endsWith("Expiration") || field.endsWith("Completed") || field==="hasBobtailInsurance" || field==="insuranceMonthlyCost") rerenderPreservingScroll(renderCompliancePage);
     });
+    if(el.type==="date"){
+      el.addEventListener("change", ()=>{ if(!validateDateInput(el, true)){ vehicles[idx][field]=""; markUnsaved(); } });
+    }
   });
   mainArea.querySelectorAll("[data-ifta]").forEach(el=>{
-    el.addEventListener("input", ()=>{ iftaData[el.dataset.ifta] = el.value; markUnsaved(); rerenderPreservingScroll(renderCompliancePage); });
+    el.addEventListener("input", ()=>{
+      iftaData[el.dataset.ifta] = el.value;
+      markUnsaved();
+      // Update just the total, not the whole page - a full re-render on every keystroke
+      // would destroy and recreate this very input, kicking focus out after each digit.
+      const totalEl = document.getElementById("iftaYearTotal");
+      if(totalEl) totalEl.textContent = moneyStr((parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0));
+    });
   });
   mainArea.querySelectorAll("[data-ifta-completed]").forEach(el=>{
     el.addEventListener("change", ()=>{ iftaData[el.dataset.iftaCompleted] = el.checked; markUnsaved(); rerenderPreservingScroll(renderCompliancePage); });
@@ -2403,6 +2499,41 @@ function wirePayrollTable(week, active, availableDrivers){
   });
 }
 
+/* Small camera-icon button that opens a 2-option menu (Take Photo / Upload Picture or
+   PDF) instead of two separate always-visible text buttons - used everywhere a document
+   or photo can be attached for compliance/recordkeeping purposes. */
+const CAMERA_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+const PAGE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
+function scanIconButtonsHTML(idBase, hasDoc){
+  let html = `<span style="display:inline-flex; gap:6px; align-items:center;">`;
+  html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="background:var(--charcoal); padding:8px 10px;">${CAMERA_ICON_SVG}</button>`;
+  if(hasDoc) html += `<button type="button" class="btn-ghost btn-sm" data-doc-preview="${idBase}" title="Preview document" style="background:var(--blue); padding:8px 10px;">${PAGE_ICON_SVG}</button>`;
+  html += `</span>`;
+  return html;
+}
+
+function showDocOptionsMenu(anchorEl, onCamera, onUpload){
+  document.querySelectorAll(".doc-options-menu").forEach(m=>m.remove());
+  const rect = anchorEl.getBoundingClientRect();
+  const menu = document.createElement("div");
+  menu.className = "doc-options-menu";
+  menu.style.cssText = `position:fixed; top:${rect.bottom+6}px; left:${rect.left}px; background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.2); z-index:1700; overflow:hidden; min-width:180px;`;
+  menu.innerHTML = `
+    <button type="button" style="display:block; width:100%; text-align:left; padding:12px 14px; background:#fff; border:none; border-bottom:1px solid var(--border); font-size:13px; color:var(--charcoal); font-weight:normal;">Take Photo</button>
+    <button type="button" style="display:block; width:100%; text-align:left; padding:12px 14px; background:#fff; border:none; font-size:13px; color:var(--charcoal); font-weight:normal;">Upload Picture or PDF</button>
+  `;
+  document.body.appendChild(menu);
+  const [camBtn, upBtn] = menu.querySelectorAll("button");
+  camBtn.addEventListener("click", (e)=>{ e.stopPropagation(); menu.remove(); onCamera(); });
+  upBtn.addEventListener("click", (e)=>{ e.stopPropagation(); menu.remove(); onUpload(); });
+  setTimeout(()=>{
+    document.addEventListener("click", function closeMenu(e){
+      if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener("click", closeMenu); }
+    });
+  }, 0);
+}
+
 /* ============ LOG PAGES (Parts / Mechanic / Maintenance) ============ */
 function getLogArray(key){ if(key==="parts") return partsLog; if(key==="mechanic") return mechanicLog; return maintenanceLog; }
 function renderLogPage(cfg){
@@ -2421,52 +2552,121 @@ function renderLogPage(cfg){
   if(cfg.summaryType==="sum") html += `<div class="card company"><h3>${cfg.companyLabel}</h3><div class="metric"><div class="big">${moneyStr(summary.grand)}</div></div></div>`;
   html += `</div>`;
   html += `<div class="section-label">Entry Log</div><p class="hint">Truck dropdown includes inactive vehicles too, so you can still log/edit entries for a truck no longer in active use.</p>`;
-  html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th>Receipt</th><th></th></tr></thead><tbody id="logTbody">`;
+  html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th>Doc</th><th></th></tr></thead><tbody id="logTbody">`;
   entries.forEach((e,idx)=>{ html += logRowHTML(cfg, e, idx); });
   html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add Entry</button>`;
-  if(cfg.key==="parts" || cfg.key==="mechanic"){
-    html += ` <button class="btn-ghost btn-sm" id="takePhotoBtn" style="background:var(--charcoal);">Take Photo</button>`;
-    html += ` <button class="btn-ghost btn-sm" id="uploadFileBtn" style="background:var(--charcoal);">Upload Image/PDF</button>`;
+  if(cfg.key==="parts" || cfg.key==="mechanic" || cfg.allowDocs){
+    html += ` ${scanIconButtonsHTML("pagelevel-"+cfg.key, false)}`;
   }
   html += `</div>`;
   mainArea.innerHTML = html;
   if(cfg.key==="parts"||cfg.key==="mechanic") wireSubtabs();
   wireLogTable(cfg);
-  if(cfg.key==="parts" || cfg.key==="mechanic"){
-    document.getElementById("takePhotoBtn").addEventListener("click", ()=>scanReceiptForLog(cfg, "camera"));
-    document.getElementById("uploadFileBtn").addEventListener("click", ()=>scanReceiptForLog(cfg, "upload"));
+  if(cfg.key==="parts" || cfg.key==="mechanic" || cfg.allowDocs){
+    const menuBtn = mainArea.querySelector(`[data-doc-menu="pagelevel-${cfg.key}"]`);
+    if(menuBtn) menuBtn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      showDocOptionsMenu(menuBtn, ()=>scanReceiptForLog(cfg,"camera"), ()=>scanReceiptForLog(cfg,"upload"));
+    });
   }
 }
+const TRASH_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+
 function logRowHTML(cfg, e, idx){
   const truckOptions = vehicles.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
   const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
   const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="amount"?"number":(f2==="date"?"date":"text");
-  const hasReceipt = e.receiptPath && receiptPathList(e.receiptPath).length > 0;
-  const viewBtn = hasReceipt ? `<button class="btn-ghost btn-sm log-view-receipt" style="background:var(--charcoal); white-space:nowrap;">View Receipt</button>` : "";
+  const hasDoc = e.receiptPath && receiptPathList(e.receiptPath).length > 0;
+  const docBtn = hasDoc ? `<button type="button" class="btn-ghost btn-sm log-view-receipt" title="Preview document" style="background:var(--blue); padding:8px 10px;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
+
+  if(cfg.submitMode && e.submitted){
+    return `<tr data-idx="${idx}">
+      <td>${e.truck||'-'}</td>
+      <td style="white-space:normal; max-width:260px;">${esc(e[f0]||'')}</td>
+      <td style="white-space:normal; max-width:180px;">${esc(e[f1]||'')}</td>
+      <td>${e[f2]!==""&&e[f2]!=null?e[f2]:'-'}</td>
+      <td>${docBtn}</td>
+      <td style="white-space:nowrap;">
+        <button type="button" class="btn-ghost btn-sm log-edit" style="background:var(--charcoal);">Edit</button>
+        <button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button>
+      </td>
+    </tr>`;
+  }
+
+  // Description fields grow with their content instead of a single-line box that
+  // truncates, so the full text is readable at a glance when reviewing the log.
+  const field0Html = f0==="description"
+    ? `<textarea class="log-f0 auto-expand" rows="1">${esc(e[f0]||'')}</textarea>`
+    : `<input class="log-f0" type="${type0}" value="${e[f0]||''}">`;
+  const field1Html = f1==="description"
+    ? `<textarea class="log-f1 auto-expand" rows="1">${esc(e[f1]||'')}</textarea>`
+    : `<input class="log-f1" type="${type1}" value="${e[f1]||''}">`;
+  const actionCell = cfg.submitMode
+    ? `<div style="display:flex; gap:6px; white-space:nowrap;"><button type="button" class="btn-blue btn-sm log-submit">Submit</button><button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div>`
+    : `<button class="btn-danger log-delete">Remove</button>`;
   return `<tr data-idx="${idx}">
     <td><select class="log-truck"><option value="">-</option>${truckOptions}</select></td>
-    <td><input class="log-f0" type="${type0}" value="${e[f0]||''}"></td>
-    <td><input class="log-f1" type="${type1}" value="${e[f1]||''}"></td>
+    <td>${field0Html.replace('type="date"', `type="date" max="${todayDateStr()}"`)}</td>
+    <td>${field1Html.replace('type="date"', `type="date" max="${todayDateStr()}"`)}</td>
     <td><input class="log-f2" type="${type2}" ${type2==='number'?'step="0.01" min="0"':''} value="${e[f2]||''}"></td>
-    <td>${viewBtn}</td>
-    <td><button class="btn-danger log-delete">Remove</button></td>
+    <td>${docBtn}</td>
+    <td>${actionCell}</td>
   </tr>`;
 }
+function autoResizeTextarea(el){
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+function requiredFieldsFilled(cfg, entry){
+  const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
+  return !!(entry.truck && String(entry[f0]||"").trim() && String(entry[f1]||"").trim() && String(entry[f2]||"").toString().trim());
+}
+
 function wireLogTable(cfg){
   const entries = getLogArray(cfg.key);
   const tbody = document.getElementById("logTbody");
   tbody.querySelectorAll("tr").forEach(tr=>{
     const idx=parseInt(tr.dataset.idx);
-    tr.querySelector(".log-truck").addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); refreshLogSummary(cfg); });
-    tr.querySelector(".log-f0").addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[0]]=e.target.value; markUnsaved(); });
-    tr.querySelector(".log-f1").addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[1]]=e.target.value; markUnsaved(); });
-    tr.querySelector(".log-f2").addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[2]]=e.target.value; markUnsaved(); refreshLogSummary(cfg); });
-    tr.querySelector(".log-delete").addEventListener("click", ()=>{ entries.splice(idx,1); markUnsaved(); renderMain(); });
+
+    const truckEl = tr.querySelector(".log-truck");
+    if(truckEl) truckEl.addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); refreshLogSummary(cfg); });
+
+    const f0El = tr.querySelector(".log-f0"), f1El = tr.querySelector(".log-f1"), f2El = tr.querySelector(".log-f2");
+    if(f0El){
+      f0El.addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[0]]=e.target.value; markUnsaved(); if(f0El.tagName==="TEXTAREA") autoResizeTextarea(f0El); });
+      if(f0El.type==="date") f0El.addEventListener("change", ()=>{ if(!validateDateInput(f0El, false)) entries[idx][cfg.fieldOrder[0]]=""; });
+      if(f0El.tagName==="TEXTAREA") autoResizeTextarea(f0El);
+    }
+    if(f1El){
+      f1El.addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[1]]=e.target.value; markUnsaved(); if(f1El.tagName==="TEXTAREA") autoResizeTextarea(f1El); });
+      if(f1El.type==="date") f1El.addEventListener("change", ()=>{ if(!validateDateInput(f1El, false)) entries[idx][cfg.fieldOrder[1]]=""; });
+      if(f1El.tagName==="TEXTAREA") autoResizeTextarea(f1El);
+    }
+    if(f2El) f2El.addEventListener("input", e=>{ entries[idx][cfg.fieldOrder[2]]=e.target.value; markUnsaved(); refreshLogSummary(cfg); });
+
+    const deleteEl = tr.querySelector(".log-delete");
+    if(deleteEl) deleteEl.addEventListener("click", ()=>{ entries.splice(idx,1); markUnsaved(); renderMain(); });
+
     const viewBtn = tr.querySelector(".log-view-receipt");
     if(viewBtn) viewBtn.addEventListener("click", ()=>openDocumentPreviewModal(entries[idx].receiptPath, ()=>{ entries[idx].receiptPath=""; markUnsaved(); renderMain(); }));
+
+    const submitBtn = tr.querySelector(".log-submit");
+    if(submitBtn) submitBtn.addEventListener("click", ()=>{
+      if(!requiredFieldsFilled(cfg, entries[idx])){
+        showAppToast("Please fill in the truck and every field before submitting.", "warning");
+        return;
+      }
+      entries[idx].submitted = true;
+      markUnsaved();
+      renderMain();
+    });
+
+    const editBtn = tr.querySelector(".log-edit");
+    if(editBtn) editBtn.addEventListener("click", ()=>{ entries[idx].submitted = false; renderMain(); });
   });
   document.getElementById("addLogRow").addEventListener("click", ()=>{
     const blank={truck:""}; blank[cfg.fieldOrder[0]]=""; blank[cfg.fieldOrder[1]]=""; blank[cfg.fieldOrder[2]]="";
+    if(cfg.submitMode) blank.submitted = false;
     entries.push(blank); markUnsaved(); renderMain();
   });
 }
