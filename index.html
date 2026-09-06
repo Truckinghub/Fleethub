@@ -17,9 +17,18 @@
        single burnt-orange accent, zero rounded corners, hairline dividers. */
     --charcoal:#201e1d; --charcoal-light:#2d2b2b; --blue:#b3421f; --blue-light:#ff9783;
     --blue-pale:#f7ece7; --copper:#b3421f; --bg:#f4f3f1; --card:#ffffff; --border:#cfcbc6;
-    --text-muted:#6b6660; --danger:#ae1800; --blue-700:#8a3115;
+    --text-muted:#6b6660; --danger:#ae1800; --blue-700:#8a3115; --input-border:#c4bfb9; --neutral-500:#98938c;
   }
   *{box-sizing:border-box; border-radius:0 !important;}
+  input[type="checkbox"]{accent-color:var(--blue); width:18px; height:18px;}
+  input[type="date"]{color-scheme:light;}
+  select{appearance:none; background-image:none;}
+  ::placeholder{color:var(--neutral-500);}
+  *{scrollbar-width:thin; scrollbar-color:var(--neutral-500) transparent;}
+  ::-webkit-scrollbar{width:9px; height:9px;}
+  ::-webkit-scrollbar-track{background:color-mix(in srgb, var(--charcoal) 5%, transparent);}
+  ::-webkit-scrollbar-thumb{background:var(--neutral-500);}
+  ::-webkit-scrollbar-thumb:hover{background:var(--blue);}
   html,body{height:100%;}
   body{margin:0; font-family:'Archivo',system-ui,sans-serif; background:var(--bg); color:var(--charcoal); height:100vh; display:flex; flex-direction:column; overflow:hidden; font-variant-numeric:tabular-nums;}
   h1,h2,h3{font-family:'Archivo',system-ui,sans-serif;}
@@ -36,8 +45,8 @@
   button:hover{opacity:.88;} button:disabled{opacity:.4; cursor:not-allowed;}
   .btn-blue{background:var(--blue); color:#fff; border-color:var(--blue);}
   .btn-blue:hover{background:#8a3115; opacity:1;}
-  .btn-ghost{background:transparent; color:var(--charcoal); border:1px solid var(--border);}
-  .btn-ghost:hover{background:color-mix(in srgb, var(--charcoal) 6%, transparent); opacity:1;}
+  .btn-ghost{background:transparent; color:var(--charcoal); border:1px solid var(--input-border);}
+  .btn-ghost:hover{background:#e8e5e1; opacity:1;}
   .btn-sm{padding:7px 12px; font-size:12px;}
   .btn-danger{background:transparent; color:var(--danger); border:1px solid var(--danger); padding:6px 10px; font-size:12px;}
   .btn-success{background:transparent; color:#2A7A4E; border:1px solid #2A7A4E; padding:6px 10px; font-size:12px;}
@@ -73,7 +82,8 @@
   .card h3 .tag{background:var(--charcoal); color:#fff; font-size:10px; padding:3px 8px; letter-spacing:.06em; text-transform:uppercase;}
   .field{margin-bottom:10px;}
   .field label{display:block; font-size:10px; color:var(--text-muted); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:.08em;}
-  .field input, .field select{width:100%; padding:9px 10px; border:1px solid var(--border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal);}
+  .field input, .field select{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal); min-height:36px;}
+  .field input:hover, .field select:hover{border-color:var(--neutral-500);}
   .field input:focus, .field select:focus{outline:none; border-color:var(--blue);}
   .field.readonly input{background:var(--blue-pale); font-weight:600; color:var(--charcoal); border-color:var(--border);}
   .blockgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
@@ -98,7 +108,8 @@
   table.logtable th{background:transparent; color:var(--text-muted); text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--charcoal); font-weight:600;}
   table.logtable td{padding:8px 10px; border-top:1px solid var(--border); vertical-align:middle;}
   table.logtable tbody tr:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent);}
-  table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--border); font-size:13px; font-family:inherit;}
+  table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--input-border); font-size:13px; font-family:inherit; background:#fff;}
+  table.logtable td input:hover, table.logtable td select:hover{border-color:var(--neutral-500);}
   table.logtable td textarea.auto-expand{width:100%; padding:6px 8px; border:1px solid var(--border); font-size:13px; font-family:inherit; resize:none; overflow:hidden; min-height:32px; line-height:1.4;}
   table.logtable td input:focus, table.logtable td select:focus{outline:none; border-color:var(--blue);}
   .addrow-wrap{margin-top:14px;}
@@ -826,7 +837,7 @@ async function saveAll(){
     const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null }));
     const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
     const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
-    const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null }));
+    const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const iftaRows = [1,2,3,4].map(q=>({ user_id:currentUserId, quarter:q, amount: iftaData[`q${q}Cost`]!==""&&iftaData[`q${q}Cost`]!=null?parseFloat(iftaData[`q${q}Cost`]):null, completed: !!iftaData[`q${q}Completed`] }));
 
     const tasks = [
@@ -877,7 +888,7 @@ async function loadAll(){
     payrollEntries = (p.data||[]).map(r=>({ week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"" }));
     partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
     mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
-    maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", submitted: !!(r.truck && r.description && r.entry_date && r.mileage!=null) }));
+    maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", receiptPath:r.receipt_path||"", submitted: r.submitted!==false }));
 
     const iftaRows = iftaRes.data||[];
     iftaData = { year: 2026, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Completed:false, q2Completed:false, q3Completed:false, q4Completed:false };
