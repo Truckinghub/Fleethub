@@ -17,7 +17,7 @@
        single burnt-orange accent, zero rounded corners, hairline dividers. */
     --charcoal:#201e1d; --charcoal-light:#2d2b2b; --blue:#b3421f; --blue-light:#ff9783;
     --blue-pale:#f7ece7; --copper:#b3421f; --bg:#f4f3f1; --card:#ffffff; --border:#cfcbc6;
-    --text-muted:#6b6660; --danger:#ae1800;
+    --text-muted:#6b6660; --danger:#ae1800; --blue-700:#8a3115;
   }
   *{box-sizing:border-box; border-radius:0 !important;}
   html,body{height:100%;}
@@ -2312,67 +2312,129 @@ function renderDashboard(){
   const { perTruck, company } = computeDashboardYTD();
   const alerts = computeNeedsAttention();
   const overdueCount = alerts.filter(a=>a.overdue).length;
-  let html = `<div style="display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:4px;">
-    <h1 class="page-title">Ledger</h1>
-    <div style="font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap;">Year to date &middot; ${WEEKS.filter(w=>contractsEntries.some(e=>e.week===w)||fuelEntries.some(e=>e.week===w)).length} weeks entered</div>
+  const weekCount = WEEKS.filter(w=>contractsEntries.some(e=>e.week===w)||fuelEntries.some(e=>e.week===w)).length;
+
+  let html = `<div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 4px;">
+    <h1 style="font-size: 38px; margin: 0; letter-spacing: -0.005em;">Ledger</h1>
+    <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap;">Year to date &middot; ${weekCount} week${weekCount===1?'':'s'} entered</div>
   </div>`;
 
-  html += `<div class="stat-strip">
-    <div class="stat-cell"><div class="stat-label">Net YTD</div><div class="stat-value" style="color:${company.netYTD<0?'var(--danger)':'#8a3115'};">${moneyStr(company.netYTD)}</div></div>
-    <div class="stat-cell"><div class="stat-label">Gross</div><div class="stat-value">${moneyStr(company.grossYTD)}</div><div class="stat-note">Contracts ${moneyStr(company.ytdContracts)} &middot; Acc ${moneyStr(company.ytdAccessories)}</div></div>
-    <div class="stat-cell"><div class="stat-label">Expenses</div><div class="stat-value">${moneyStr(company.ytdExpenses)}</div><div class="stat-note">Fuel, parts, mechanic, operations</div></div>
-    <div class="stat-cell"><div class="stat-label">Payroll</div><div class="stat-value">${moneyStr(company.ytdPayroll)}</div><div class="stat-note">${activeDrivers().length} drivers paid</div></div>
+  html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); border-top: 1px solid var(--charcoal); border-bottom: 1px solid var(--charcoal); color: var(--charcoal);">
+    <div style="padding: 18px 20px; border-right: 1px solid var(--text-muted); min-width: 0;">
+      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Net YTD</div>
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(24px, 3.4vw, 40px); overflow-wrap: anywhere; letter-spacing: -0.01em; margin-top: 8px; color: var(--blue-700);">${moneyStr(company.netYTD)}</div>
+    </div>
+    <div style="padding: 18px 20px; border-right: 1px solid var(--text-muted);">
+      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Gross</div>
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(18px, 2.3vw, 24px); letter-spacing: 0; margin-top: 8px; overflow-wrap: anywhere;">${moneyStr(company.grossYTD)}</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Contracts ${moneyStr(company.ytdContracts)} &middot; Acc ${moneyStr(company.ytdAccessories)}</div>
+    </div>
+    <div style="padding: 18px 20px; border-right: 1px solid var(--text-muted);">
+      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Expenses</div>
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(18px, 2.3vw, 24px); letter-spacing: 0; margin-top: 8px; overflow-wrap: anywhere;">${moneyStr(company.ytdExpenses)}</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Fuel, parts, mechanic, operations</div>
+    </div>
+    <div style="padding: 18px 20px;">
+      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Payroll</div>
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(18px, 2.3vw, 24px); letter-spacing: 0; margin-top: 8px; overflow-wrap: anywhere;">${moneyStr(company.ytdPayroll)}</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">${activeDrivers().length} drivers paid</div>
+    </div>
   </div>`;
 
-  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin:0;">Needs Attention</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${alerts.length} item${alerts.length===1?'':'s'}</div></div>`;
+  html += `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
+    <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Needs attention</h2>
+    <div style="flex: 1; height: 1px; background: var(--border);"></div>
+    <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted);">${alerts.length} item${alerts.length===1?'':'s'}</div>
+  </div>`;
   if(overdueCount>0){
-    html += `<div style="border:1px solid var(--danger); padding:16px 20px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:2px;">
-      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:22px; color:var(--danger);">${overdueCount} item${overdueCount===1?'':'s'} ${overdueCount===1?'is':'are'} overdue</div>
-      <button class="btn" id="openDocketBtn" style="background:transparent; color:var(--danger); border:1px solid var(--danger); font-size:12px; letter-spacing:.08em; text-transform:uppercase; padding:8px 14px;">Open Docket</button>
+    html += `<div style="border: 1px solid var(--blue); color: var(--blue-700); padding: 16px 20px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 2px;">
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 22px; letter-spacing: 0;">${overdueCount} item${overdueCount===1?'':'s'} ${overdueCount===1?'is':'are'} overdue</div>
+      <button class="btn" id="openDocketBtn" style="background: transparent; color: var(--blue); border: 1px solid var(--blue); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 14px; white-space: nowrap;">Open docket</button>
     </div>`;
   }
   if(alerts.length){
-    html += `<div style="overflow-x:auto;"><table class="logtable" style="min-width:560px;"><thead><tr><th>Item</th><th>Subject</th><th>Due</th><th>Status</th></tr></thead><tbody>`;
+    html += `<div style="overflow-x: auto;">
+      <table class="logtable" style="min-width: 620px; border-top:0;">
+        <thead><tr><th style="width: 30%;">Item</th><th style="width: 26%;">Subject</th><th style="width: 18%;">Due</th><th>Status</th></tr></thead>
+        <tbody>`;
     alerts.forEach(a=>{
-      html += `<tr><td style="font-weight:600;">${a.item}</td><td><span class="link-nav" data-nav="${a.navModule}" style="color:var(--blue); cursor:pointer; text-decoration:underline;">${a.subject}</span></td><td>${a.due}</td><td><span class="tag ${a.cls}">${a.status}</span></td></tr>`;
+      html += `<tr>
+        <td style="font-weight: 600;">${a.item}</td>
+        <td><span class="link-nav" data-nav="${a.navModule}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline;">${a.subject}</span></td>
+        <td>${a.due}</td>
+        <td><span class="tag ${a.cls}">${a.status}</span></td>
+      </tr>`;
     });
     html += `</tbody></table></div>`;
   } else {
-    html += `<div class="banner soon">Nothing overdue and nothing due in the next 30 days. Fuel is logged for every truck this week.</div>`;
+    html += `<div style="border: 1px solid var(--border); border-top: 2px solid var(--blue); padding: 16px 18px; font-size: 13px; color: var(--text-muted);">Nothing overdue and nothing due in the next 30 days. Fuel is logged for every truck this week.</div>`;
   }
 
+  html += `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
+    <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">By truck</h2>
+    <div style="flex: 1; height: 1px; background: var(--border);"></div>
+  </div>`;
+
   if(!vehicles.length){
-    html += `<div class="section-label">By Truck</div><div class="banner"><b>No vehicles yet</b>Go to Roster to add your first vehicle.</div>`;
+    html += `<div style="border: 1px solid var(--border); border-top: 2px solid var(--blue); padding: 18px 20px;">
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 16px; margin-bottom: 4px;">No trucks on the roster yet</div>
+      <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 12px;">Add your first truck and driver and the ledger fills itself in as you log weeks.</p>
+      <button class="btn btn-blue" id="openRosterBtn">Open Roster</button>
+    </div>`;
   } else {
-    html += `<div class="section-label">By Truck</div><div class="cards" style="gap:18px;">`;
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 18px;">`;
     perTruck.forEach(t=>{
-      html += `<div class="truck-card">
-        <div style="display:flex; align-items:baseline; gap:10px;">
-          <span class="truck-num" data-nav="contracts" data-nav-truck="${t.truck}">${t.truck}</span>
-          <div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); margin-left:auto;">Net</div>
+      const chips = [
+        { label:"NET", value:t.netYTD },
+        { label:"GROSS", value:t.grossYTD },
+        { label:"CONTRACTS", value:t.ytdContracts },
+        { label:"ACC", value:t.ytdAccessories },
+        { label:"EXP", value:t.ytdExpenses },
+      ];
+      html += `<div style="border: 1px solid var(--border); border-top: 2px solid var(--charcoal); padding: 15px 17px 0; min-width: 0; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span class="truck-num-open" data-truck="${t.truck}" style="background: transparent; border: 0; padding: 0; cursor: pointer; font-family: 'Archivo',sans-serif; font-weight: 800; font-size: 19px; color: var(--charcoal); border-bottom: 2px solid var(--blue);">${t.truck}</span>
+          <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-left: auto;">Net</div>
         </div>
-        <div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(22px,3vw,30px); letter-spacing:-0.01em; margin:14px 0 5px; color:${t.netYTD<0?'var(--danger)':'inherit'};">${moneyStr(t.netYTD)}</div>
-        <div style="font-size:11px; color:var(--text-muted); margin-bottom:15px;">Gross less every truck expense</div>
-        <div class="truck-chip-grid">${ledgerChipsHTML(t)}</div>
+        <div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.01em; margin: 14px 0 5px; overflow-wrap: anywhere;">${moneyStr(t.netYTD)}</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">Gross less every truck expense</div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: auto -17px 0; border-top: 1px solid var(--border);">
+          ${chips.map(c=>`<button type="button" style="position: relative; background: transparent; border: 0; border-right: 1px solid var(--border); cursor: pointer; padding: 9px 8px; font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; border-bottom: 1px solid var(--border);">${c.label}</button>`).join("")}
+        </div>
       </div>`;
     });
     html += `</div>`;
-    html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin:0;">Entire Fleet</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Payroll counts once, company-wide</div></div>`;
-    html += `<div class="stat-strip" style="border-top:2px solid var(--charcoal);">
-      <div class="stat-cell"><div class="stat-label">Contracts</div><div class="stat-value">${moneyStr(company.ytdContracts)}</div></div>
-      <div class="stat-cell"><div class="stat-label">Accessories</div><div class="stat-value">${moneyStr(company.ytdAccessories)}</div></div>
-      <div class="stat-cell"><div class="stat-label">Gross</div><div class="stat-value">${moneyStr(company.grossYTD)}</div></div>
-      <div class="stat-cell"><div class="stat-label">Expenses</div><div class="stat-value">${moneyStr(company.ytdExpenses)}</div></div>
-      <div class="stat-cell"><div class="stat-label">Payroll</div><div class="stat-value">${moneyStr(company.ytdPayroll)}</div></div>
-      <div class="stat-cell"><div class="stat-label">Net</div><div class="stat-value" style="color:${company.netYTD<0?'var(--danger)':'inherit'};">${moneyStr(company.netYTD)}</div></div>
+
+    html += `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
+      <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Entire fleet</h2>
+      <div style="flex: 1; height: 1px; background: var(--border);"></div>
+      <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted);">Payroll counts once, company-wide</div>
     </div>`;
+    const fleetCells = [
+      { label:"Contracts", value:company.ytdContracts },
+      { label:"Accessories", value:company.ytdAccessories },
+      { label:"Gross", value:company.grossYTD },
+      { label:"Expenses", value:company.ytdExpenses },
+      { label:"Payroll", value:company.ytdPayroll },
+      { label:"Net", value:company.netYTD },
+    ];
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr)); border-top: 2px solid var(--charcoal); border-bottom: 1px solid var(--charcoal);">`;
+    fleetCells.forEach(c=>{
+      html += `<div style="padding: 14px 16px; border-right: 1px solid var(--border); min-width: 0;">
+        <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">${c.label}</div>
+        <div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(17px, 2.1vw, 21px); margin-top: 7px; overflow-wrap: anywhere;">${moneyStr(c.value)}</div>
+      </div>`;
+    });
+    html += `</div>`;
   }
 
-  html += `<div class="section-label">Jump to a Week</div>` + weekPickerHTML(null, "dashboardWeekSelect");
+  html += `<div class="section-label" style="margin-top:34px;">Jump to a Week</div>` + weekPickerHTML(null, "dashboardWeekSelect");
   mainArea.innerHTML = html;
   wireWeekPicker("dashboardWeekSelect", w=>{ currentModule="contracts"; currentView={type:"week", week:w}; renderMain(); });
   const docketBtn = document.getElementById("openDocketBtn");
   if(docketBtn) docketBtn.addEventListener("click", ()=>{ currentModule="compliance"; currentView={type:"summary"}; renderMain(); });
+  const rosterBtn = document.getElementById("openRosterBtn");
+  if(rosterBtn) rosterBtn.addEventListener("click", ()=>{ currentModule="fleet"; currentView={type:"summary"}; renderMain(); });
   mainArea.querySelectorAll(".link-nav").forEach(el=>{
     el.addEventListener("click", ()=>{
       const nav = el.dataset.nav;
@@ -2381,7 +2443,7 @@ function renderDashboard(){
       renderMain();
     });
   });
-  mainArea.querySelectorAll(".truck-num").forEach(el=>{
+  mainArea.querySelectorAll(".truck-num-open").forEach(el=>{
     el.addEventListener("click", ()=>{ currentModule="contracts"; currentView={type:"week", week:currentWeekNumber()}; renderMain(); });
   });
 }
