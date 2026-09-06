@@ -148,7 +148,11 @@
   .auth-toggle a{color:var(--blue); cursor:pointer; font-weight:600; text-decoration:underline;}
   .auth-error{color:var(--danger); font-size:12px; margin-top:10px; text-align:left;}
 
-  #statusToast{position:fixed; left:14px; bottom:14px; background:var(--charcoal); color:#fff; padding:8px 14px; font-size:12px; box-shadow:none; z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;}
+  /* Superseded by the persistent #autosaveWatermark below - kept in the DOM only so
+     the existing setStatus() calls have somewhere harmless to write to. */
+  #statusToast{display:none;}
+  #autosaveWatermark{position:fixed; right:12px; bottom:10px; display:flex; align-items:center; gap:6px; padding:5px 9px; background:var(--bg); border:1px solid var(--border); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--neutral-500); pointer-events:none; z-index:40;}
+  #autosaveWatermark .dot{width:4px; height:4px; background:var(--neutral-500);}
 
   #appToastContainer{position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2000; display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:420px; padding:0 16px; pointer-events:none;}
   .app-toast{background:var(--charcoal); color:#fff; padding:12px 16px; font-size:13px; box-shadow:none; opacity:0; transform:translateY(-10px); transition:opacity .25s, transform .25s; pointer-events:auto; max-width:100%; word-break:break-word;}
@@ -249,6 +253,7 @@
 </div>
 
 <div id="statusToast"></div>
+<div id="autosaveWatermark"><span class="dot"></span>Autosaved</div>
 <div id="appToastContainer"></div>
 
 <script>
@@ -1754,9 +1759,14 @@ const mainArea=document.getElementById("mainArea");
 const hamburgerMenu=document.getElementById("hamburgerMenu");
 const authScreen=document.getElementById("authScreen"), appRoot=document.getElementById("appRoot");
 
+/* Amount/quantity fields render as type="text" with a numeric keypad (inputmode)
+   instead of type="number" - keeps the numeric keyboard on mobile without the
+   scroll-wheel/spinner behavior that made it easy to mistype a value. */
 function fieldHTML(id,label,value,opts){
-  opts=opts||{}; const step=opts.step||"0.01";
-  return `<div class="field"><label>${label}</label><input type="${opts.type||'text'}" ${opts.type==='number'?`step="${step}" min="0"`:''} id="${id}" value="${value!==undefined?value:''}" ${opts.readonly?'readonly':''}></div>`;
+  opts=opts||{};
+  const isNumeric = opts.type==='number';
+  const inputmode = isNumeric ? (opts.step==='1' ? 'numeric' : 'decimal') : '';
+  return `<div class="field"><label>${label}</label><input type="${isNumeric?'text':(opts.type||'text')}" ${inputmode?`inputmode="${inputmode}"`:''} id="${id}" value="${value!==undefined?value:''}" ${opts.readonly?'readonly':''}></div>`;
 }
 function moneyStr(v){ return v<0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`; }
 
@@ -1816,6 +1826,43 @@ function wireWeekPicker(selectId, onWeekChange){
   });
 }
 
+/* Week rail - a ruled prev/next strip with a horizontally scrollable tick row
+   for every week (34-52), replacing the old plain <select> as the primary way
+   to move between weeks on Contracts, Fuel, Payroll and Roster. */
+function weekRailHTML(week, prefix, opts){
+  opts = opts || {};
+  const label = opts.label || "Week of record";
+  let html = `<div style="display:flex; align-items:stretch; flex-wrap:wrap; border:1px solid var(--border); border-top:2px solid var(--charcoal); max-width:700px; margin-bottom:4px;">`;
+  html += `<button type="button" class="week-rail-prev" data-rail="${prefix}" aria-label="Previous week" style="width:44px; flex:none; background:transparent; border:0; border-right:1px solid var(--border); cursor:pointer; color:var(--charcoal); display:grid; place-items:center; font-size:16px;">&larr;</button>`;
+  html += `<div style="flex:0 1 auto; min-width:0; padding:9px 16px;">
+    <div class="hint" style="text-transform:uppercase; letter-spacing:.16em; font-size:10px;">${label}</div>
+    <div style="display:flex; align-items:baseline; gap:10px; margin-top:3px; flex-wrap:wrap;">
+      <div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:22px; line-height:1;">${week}</div>
+      <div style="font-size:12px; color:var(--text-muted);">${weekDateRangeLabel(week)} &middot; Sun-Sat</div>
+    </div>
+  </div>`;
+  html += `<div class="week-rail-ticks" data-rail="${prefix}" style="display:flex; align-items:stretch; flex:1 1 120px; min-width:0; overflow-x:auto; overscroll-behavior-x:contain;">`;
+  html += WEEKS.map(t=>`<button type="button" class="week-rail-tick" data-rail="${prefix}" data-week="${t}" style="position:relative; min-width:46px; flex-shrink:0; background:transparent; border:0; border-left:1px solid var(--border); cursor:pointer; padding:0 10px; font-family:'Archivo',sans-serif; font-weight:600; font-size:12px; letter-spacing:.06em; color:${t===week?'var(--blue-700)':'var(--text-muted)'};">${t}${t===week?`<span style="position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--blue);"></span>`:''}</button>`).join("");
+  html += `</div>`;
+  html += `<button type="button" class="week-rail-next" data-rail="${prefix}" aria-label="Next week" style="width:44px; flex:none; background:transparent; border:0; border-left:1px solid var(--border); cursor:pointer; color:var(--charcoal); display:grid; place-items:center; font-size:16px;">&rarr;</button>`;
+  html += `</div>`;
+  return html;
+}
+function wireWeekRail(prefix, week, onChange){
+  const go = (w)=>{ flushIfNeeded(); onChange(w); };
+  const i = WEEKS.indexOf(week);
+  const prevBtn = mainArea.querySelector(`.week-rail-prev[data-rail="${prefix}"]`);
+  const nextBtn = mainArea.querySelector(`.week-rail-next[data-rail="${prefix}"]`);
+  if(prevBtn) prevBtn.addEventListener("click", ()=>{ if(i>0) go(WEEKS[i-1]); });
+  if(nextBtn) nextBtn.addEventListener("click", ()=>{ if(i<WEEKS.length-1) go(WEEKS[i+1]); });
+  mainArea.querySelectorAll(`.week-rail-tick[data-rail="${prefix}"]`).forEach(btn=>{
+    btn.addEventListener("click", ()=>go(parseInt(btn.dataset.week,10)));
+  });
+  const ticksWrap = mainArea.querySelector(`.week-rail-ticks[data-rail="${prefix}"]`);
+  const activeTick = ticksWrap && ticksWrap.querySelector(`.week-rail-tick[data-week="${week}"]`);
+  if(activeTick) activeTick.scrollIntoView({block:"nearest", inline:"center"});
+}
+
 /* ============ MAIN DISPATCH ============ */
 function renderMain(){
   try{ localStorage.setItem("fleethub_navstate", JSON.stringify({ currentModule, currentExpenseTab, currentView })); } catch(e){}
@@ -1830,14 +1877,14 @@ function renderMain(){
   }
   if(currentModule==="fleet"){ renderFleetPage(); return; }
   if(currentModule==="compliance"){ renderCompliancePage(); return; }
-  if(currentModule==="maintenance"){ renderLogPage({ key:"maintenance", title:"Maintenance Records", subtitle:"Service history by truck.",
+  if(currentModule==="maintenance"){ renderLogPage({ key:"maintenance", title:"Service", kicker:"Maintenance records", standalone:true,
     colHeaders:["Description","Date","Mileage"], fieldOrder:["description","date","amount"], currency:false, summaryType:"max", summaryLabel:"Latest Recorded Mileage", submitMode:true, allowDocs:true }); return; }
   if(currentModule==="expenses"){
     if(currentExpenseTab==="overview"){ renderExpensesOverview(); return; }
     if(currentExpenseTab==="fuel"){ renderFuelPage(); return; }
-    if(currentExpenseTab==="parts"){ renderLogPage({ key:"parts", title:"Parts", subtitle:"Parts purchased per truck.",
+    if(currentExpenseTab==="parts"){ renderLogPage({ key:"parts", title:"Parts",
       colHeaders:["Date","Description","Price"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Parts", companyLabel:"PARTS YTD", submitMode:true, allowDocs:true }); return; }
-    if(currentExpenseTab==="mechanic"){ renderLogPage({ key:"mechanic", title:"Mechanic / Repair Log", subtitle:"Repairs paid per truck.",
+    if(currentExpenseTab==="mechanic"){ renderLogPage({ key:"mechanic", title:"Mechanic / Repair Log",
       colHeaders:["Date Paid","Description of Repair","Amount Paid"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Mechanic", companyLabel:"MECHANIC YTD", submitMode:true, allowDocs:true }); return; }
     if(currentExpenseTab==="receipts"){ renderReceiptsPage(); return; }
     if(currentExpenseTab==="operations"){ renderOperationsCostPage(); return; }
@@ -1886,97 +1933,131 @@ function docUploadButtonsHTML(idBase){
     <button class="btn-ghost btn-sm" data-doc-upload="${idBase}" style="background:var(--charcoal);">Upload File</button>`;
 }
 
-function renderCompliancePage(){
-  let html = `<h1 class="page-title">Compliance</h1><p class="page-sub">Driver and vehicle compliance tracking, with automatic reminders as dates approach.</p>`;
-
-  html += `<div class="section-label">Drivers</div>`;
-  const activeD = drivers.filter(d=>d.active);
-  if(!activeD.length){ html += `<div class="banner"><b>No active drivers</b>Add one under Manage Fleet first.</div>`; }
-  html += `<div class="cards">`;
-  activeD.forEach(d=>{
+/* Every driver/vehicle expiration flattened into one row shape, so the Overdue /
+   Coming up / Clear tables below can be built by simply filtering and mapping -
+   instead of three near-identical hand-written card sections. */
+function buildComplianceRows(){
+  const rows = [];
+  drivers.filter(d=>d.active).forEach(d=>{
     const idx = drivers.indexOf(d);
-    const licenseUrg = getComplianceUrgency(d.licenseExpiration, d.licenseCompleted);
-    const medUrg = getComplianceUrgency(d.medicalCardExpiration, d.medicalCardCompleted);
-    html += `<div class="card">
-      <h3>${d.name}</h3>
-      <div class="field"><label>License Expiration ${urgencyBadgeHTML(licenseUrg)}</label>
-        <input type="date" data-driver-idx="${idx}" data-field="licenseExpiration" value="${d.licenseExpiration||''}"></div>
-      <label class="inactive-toggle" style="margin-bottom:10px;"><input type="checkbox" data-driver-idx="${idx}" data-field="licenseCompleted" ${d.licenseCompleted?'checked':''}> Mark renewed / completed</label>
-      <div style="margin-bottom:14px; display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("license-"+idx)}
-        ${d.licenseDocumentPath?`<button class="btn-ghost btn-sm" data-view-doc="${d.licenseDocumentPath}" data-doc-owner="driver-${idx}-licenseDocumentPath" style="background:var(--blue);">View</button>`:''}</div>
-
-      <div class="field"><label>Medical Card Expiration ${urgencyBadgeHTML(medUrg)}</label>
-        <input type="date" data-driver-idx="${idx}" data-field="medicalCardExpiration" value="${d.medicalCardExpiration||''}"></div>
-      <label class="inactive-toggle" style="margin-bottom:10px;"><input type="checkbox" data-driver-idx="${idx}" data-field="medicalCardCompleted" ${d.medicalCardCompleted?'checked':''}> Mark renewed / completed</label>
-      <div style="margin-bottom:14px; display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("medical-"+idx)}
-        ${d.medicalCardDocumentPath?`<button class="btn-ghost btn-sm" data-view-doc="${d.medicalCardDocumentPath}" data-doc-owner="driver-${idx}-medicalCardDocumentPath" style="background:var(--blue);">View</button>`:''}</div>
-
-      <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">W9 (on file)</label>
-      <div style="display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("w9-"+idx)}
-        ${d.w9DocumentPath?`<button class="btn-ghost btn-sm" data-view-doc="${d.w9DocumentPath}" data-doc-owner="driver-${idx}-w9DocumentPath" style="background:var(--blue);">View</button>`:''}</div>
-    </div>`;
+    rows.push({ type:"driver", idx, field:"licenseExpiration", doneField:"licenseCompleted", docField:"licenseDocumentPath", docKind:"license", item:"CDL licence", subject:d.name, date:d.licenseExpiration, done:d.licenseCompleted, hasCost:false });
+    rows.push({ type:"driver", idx, field:"medicalCardExpiration", doneField:"medicalCardCompleted", docField:"medicalCardDocumentPath", docKind:"medical", item:"Medical card", subject:d.name, date:d.medicalCardExpiration, done:d.medicalCardCompleted, hasCost:false });
   });
-  html += `</div>`;
-
-  html += `<div class="section-label">Vehicles</div>`;
-  const activeV = vehicles.filter(v=>v.active);
-  if(!activeV.length){ html += `<div class="banner"><b>No active vehicles</b>Add one under Manage Fleet first.</div>`; }
-  html += `<div class="cards">`;
-  activeV.forEach(v=>{
+  vehicles.filter(v=>v.active).forEach(v=>{
     const idx = vehicles.indexOf(v);
-    const inspUrg = getComplianceUrgency(v.inspectionExpiration, v.inspectionCompleted);
-    const regUrg = getComplianceUrgency(v.registrationExpiration, v.registrationCompleted);
-    const hvutUrg = getComplianceUrgency(v.hvut2290Expiration, v.hvut2290Completed);
-    const yearly = ((parseFloat(v.insuranceMonthlyCost)||0)*12).toFixed(2);
-    html += `<div class="card">
-      <h3>Truck <span class="tag">${v.truckId}</span></h3>
-
-      <div class="field"><label>Inspection Expiration ${urgencyBadgeHTML(inspUrg)}</label>
-        <input type="date" data-vehicle-idx="${idx}" data-field="inspectionExpiration" value="${v.inspectionExpiration||''}"></div>
-      <div class="blockgrid" style="margin-bottom:6px;">
-        <div class="field"><label>Inspection Cost</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="inspectionCost" value="${v.inspectionCost||''}"></div>
-        <div class="field" style="display:flex; align-items:flex-end;"><label class="inactive-toggle"><input type="checkbox" data-vehicle-idx="${idx}" data-field="inspectionCompleted" ${v.inspectionCompleted?'checked':''}> Completed</label></div>
-      </div>
-
-      <div class="field"><label>Registration Expiration ${urgencyBadgeHTML(regUrg)}</label>
-        <input type="date" data-vehicle-idx="${idx}" data-field="registrationExpiration" value="${v.registrationExpiration||''}"></div>
-      <div class="blockgrid" style="margin-bottom:6px;">
-        <div class="field"><label>Registration Cost</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="registrationCost" value="${v.registrationCost||''}"></div>
-        <div class="field" style="display:flex; align-items:flex-end;"><label class="inactive-toggle"><input type="checkbox" data-vehicle-idx="${idx}" data-field="registrationCompleted" ${v.registrationCompleted?'checked':''}> Completed</label></div>
-      </div>
-
-      <div class="field"><label>2290 (HVUT) Due Date ${urgencyBadgeHTML(hvutUrg)}</label>
-        <input type="date" data-vehicle-idx="${idx}" data-field="hvut2290Expiration" value="${v.hvut2290Expiration||''}"></div>
-      <div class="blockgrid" style="margin-bottom:6px;">
-        <div class="field"><label>2290 Cost</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="hvut2290Cost" value="${v.hvut2290Cost||''}"></div>
-        <div class="field" style="display:flex; align-items:flex-end;"><label class="inactive-toggle"><input type="checkbox" data-vehicle-idx="${idx}" data-field="hvut2290Completed" ${v.hvut2290Completed?'checked':''}> Completed</label></div>
-      </div>
-      <div style="margin-bottom:14px; display:flex; gap:6px; flex-wrap:wrap;">${docUploadButtonsHTML("hvut-"+idx)}
-        ${v.hvut2290ReceiptPath?`<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" data-doc-owner="vehicle-${idx}-hvut2290ReceiptPath" style="background:var(--blue);">View Receipt</button>`:''}</div>
-
-      <div class="blockgrid">
-        <div class="field"><label>Insurance / Month</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="insuranceMonthlyCost" value="${v.insuranceMonthlyCost||''}"></div>
-        <div class="field readonly"><label>Insurance / Year</label><input readonly value="$${yearly}"></div>
-      </div>
-      <label class="inactive-toggle" style="margin-bottom:6px;"><input type="checkbox" data-vehicle-idx="${idx}" data-field="hasBobtailInsurance" ${v.hasBobtailInsurance?'checked':''}> Has bobtail insurance</label>
-      ${v.hasBobtailInsurance ? `<div class="field"><label>Bobtail Insurance / Month</label><input type="number" step="0.01" min="0" data-vehicle-idx="${idx}" data-field="bobtailInsuranceCost" value="${v.bobtailInsuranceCost||''}"></div>` : ''}
-    </div>`;
+    rows.push({ type:"vehicle", idx, field:"inspectionExpiration", doneField:"inspectionCompleted", costField:"inspectionCost", item:"Annual inspection", subject:"Truck "+v.truckId, date:v.inspectionExpiration, done:v.inspectionCompleted, hasCost:true, cost:v.inspectionCost });
+    rows.push({ type:"vehicle", idx, field:"registrationExpiration", doneField:"registrationCompleted", costField:"registrationCost", item:"Registration", subject:"Truck "+v.truckId, date:v.registrationExpiration, done:v.registrationCompleted, hasCost:true, cost:v.registrationCost });
+    rows.push({ type:"vehicle", idx, field:"hvut2290Expiration", doneField:"hvut2290Completed", costField:"hvut2290Cost", docField:"hvut2290ReceiptPath", docKind:"hvut", item:"2290 (HVUT)", subject:"Truck "+v.truckId, date:v.hvut2290Expiration, done:v.hvut2290Completed, hasCost:true, cost:v.hvut2290Cost });
   });
-  html += `</div>`;
+  return rows.map(r=>{
+    const u = getComplianceUrgency(r.date, r.done);
+    const cls = (u.level==="expired"||u.level==="due-soon") ? "tag-accent" : (u.level==="upcoming" ? "tag-outline" : "tag-neutral");
+    const status = u.level==="expired" ? `Overdue ${Math.abs(u.daysUntil)}d` : u.level==="completed" ? "Completed" : u.level==="none" ? "No date" : `Due in ${u.daysUntil}d`;
+    return Object.assign({}, r, { urgency:u, cls, status });
+  });
+}
+function docButtonForRow(r){
+  if(!r.docField) return `<span class="hint">-</span>`;
+  const owner = (r.type==="driver" ? drivers : vehicles)[r.idx];
+  const has = !!owner[r.docField];
+  const idBase = r.docKind + "-" + r.idx;
+  return `<button type="button" class="btn-ghost btn-sm compliance-doc-btn" data-doc-menu="${idBase}" data-has-doc="${has}" data-doc-path="${has?owner[r.docField]:''}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:${has?'var(--blue)':'var(--charcoal)'}; padding:8px 10px;" title="${has?'View document':'Upload document'}">${PAGE_ICON_SVG}</button>`;
+}
+function complianceRowHTML(r){
+  const costCell = r.hasCost
+    ? `<input class="input compliance-cost" data-type="${r.type}" data-idx="${r.idx}" data-field="${r.costField}" type="text" inputmode="decimal" value="${r.cost||''}">`
+    : `<span class="hint">-</span>`;
+  return `<tr>
+    <td style="font-weight:600;">${r.item}</td>
+    <td>${r.subject}</td>
+    <td><input class="compliance-date" data-type="${r.type}" data-idx="${r.idx}" data-field="${r.field}" data-done-field="${r.doneField}" type="date" value="${r.date||''}"></td>
+    <td><span class="tag ${r.cls}">${r.status}</span></td>
+    <td>${costCell}</td>
+    <td style="text-align:center;"><input class="compliance-done" data-type="${r.type}" data-idx="${r.idx}" data-field="${r.doneField}" type="checkbox" ${r.done?'checked':''}></td>
+    <td>${docButtonForRow(r)}</td>
+  </tr>`;
+}
+function complianceTableHTML(list){
+  if(!list.length) return "";
+  return `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Item</th><th>Subject</th><th>Due</th><th>Status</th><th>Cost</th><th>Done</th><th>Doc</th></tr></thead><tbody>${list.map(complianceRowHTML).join("")}</tbody></table></div>`;
+}
 
-  html += `<div class="section-label">IFTA (Company-Wide, ${iftaData.year})</div>`;
+function renderCompliancePage(){
+  const rows = buildComplianceRows();
+  const overdue = rows.filter(r=>r.urgency.level==="expired");
+  const soon = rows.filter(r=>r.urgency.level==="due-soon"||r.urgency.level==="upcoming");
+  const clear = rows.filter(r=>r.urgency.level==="ok"||r.urgency.level==="completed"||r.urgency.level==="none");
+  const window = 30;
+  const today = new Date();
+  const todayLabel = `${MONTH_NAMES[today.getMonth()]} ${String(today.getDate()).padStart(2,"0")}, ${today.getFullYear()}`;
+
+  let html = `<h1 class="page-title">Docket</h1><p class="page-sub">Compliance &middot; ${todayLabel}</p>`;
+
+  if(overdue.length){
+    html += `<div class="banner" style="border-top-color:var(--blue); margin-bottom:2px;"><b style="font-size:22px;">${overdue.length} item${overdue.length===1?'':'s'} overdue</b></div>`;
+    html += complianceTableHTML(overdue);
+  }
+
+  html += `<div class="section-label" style="margin-top:34px;">Coming up</div>`;
+  html += `<p class="hint" style="margin:-6px 0 12px;">Next ${window} days</p>`;
+  html += soon.length ? complianceTableHTML(soon) : `<div class="banner soon">Nothing falls due in the next ${window} days.</div>`;
+
+  html += `<div class="section-label" style="margin-top:34px;">Clear</div>`;
+  html += clear.length ? complianceTableHTML(clear) : `<div class="hint">Nothing else on file.</div>`;
+
+  html += `<div class="section-label" style="margin-top:34px;">Insurance</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Liability / month</th><th>Liability / year</th><th>Bobtail</th><th>Bobtail / month</th><th>Yearly total</th></tr></thead><tbody>`;
+  activeVehicles().forEach(v=>{
+    const idx = vehicles.indexOf(v);
+    const yearly = (parseFloat(v.insuranceMonthlyCost)||0)*12;
+    const bobYearly = v.hasBobtailInsurance ? (parseFloat(v.bobtailInsuranceCost)||0)*12 : 0;
+    html += `<tr>
+      <td style="font-weight:600;">${v.truckId}</td>
+      <td><input class="input insurance-monthly" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.insuranceMonthlyCost||''}"></td>
+      <td>${moneyStr(yearly)}</td>
+      <td><label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;"><input type="checkbox" class="insurance-bobtail-toggle" data-vehicle-idx="${idx}" ${v.hasBobtailInsurance?'checked':''}> Carried</label></td>
+      <td>${v.hasBobtailInsurance ? `<input class="input insurance-bobtail-cost" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.bobtailInsuranceCost||''}">` : `<span class="hint">-</span>`}</td>
+      <td style="font-weight:600;">${moneyStr(yearly+bobYearly)}</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+
   const quarterEndDates = { 1:`${iftaData.year}-03-31`, 2:`${iftaData.year}-06-30`, 3:`${iftaData.year}-09-30`, 4:`${iftaData.year}-12-31` };
-  html += `<div class="cards">`;
+  html += `<div class="section-label" style="margin-top:34px;">IFTA ${iftaData.year}</div>`;
+  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:1px solid var(--charcoal); border-left:1px solid var(--border);">`;
   [1,2,3,4].forEach(q=>{
     const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
-    html += `<div class="card">
-      <h3>Q${q} <span class="tag">Due ${quarterEndDates[q]}</span> ${urgencyBadgeHTML(urg)}</h3>
-      <div class="field"><label>Amount</label><input type="number" step="0.01" min="0" data-ifta="q${q}Cost" value="${iftaData[`q${q}Cost`]||''}"></div>
-      <label class="inactive-toggle"><input type="checkbox" data-ifta-completed="q${q}Completed" ${iftaData[`q${q}Completed`]?'checked':''}> Paid</label>
+    const cls = (urg.level==="expired"||urg.level==="due-soon") ? "tag-accent" : (urg.level==="upcoming" ? "tag-outline" : "tag-neutral");
+    const status = urg.level==="expired" ? `Overdue ${Math.abs(urg.daysUntil)}d` : urg.level==="completed" ? "Filed" : urg.level==="none" ? "-" : `Due in ${urg.daysUntil}d`;
+    html += `<div style="padding:16px 18px; border-right:1px solid var(--border); border-bottom:1px solid var(--border);">
+      <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${cls}" style="margin-left:auto;">${status}</span></div>
+      <div class="hint" style="margin:6px 0 10px;">Due ${quarterEndDates[q]}</div>
+      <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}">
+      <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-top:10px; cursor:pointer;"><input type="checkbox" class="ifta-done" data-q="${q}" ${iftaData[`q${q}Completed`]?'checked':''}> Filed and paid</label>
     </div>`;
   });
-  html += `<div class="card company"><h3>Year Total</h3><div class="metric"><div class="big" id="iftaYearTotal">${moneyStr((parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0))}</div></div></div>
+  html += `</div>`;
+  const iftaTotal = (parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0);
+  html += `<div style="display:grid; grid-template-columns:1fr auto; border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
+    <div style="padding:14px 18px; font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">IFTA year total</div>
+    <div style="padding:14px 18px; font-family:'Archivo',sans-serif; font-weight:600; font-size:18px;" id="iftaYearTotal">${moneyStr(iftaTotal)}</div>
   </div>`;
+
+  html += `<div class="section-label" style="margin-top:34px;">Paperwork on file</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Subject</th><th>Document</th><th>Status</th><th></th></tr></thead><tbody>`;
+  drivers.filter(d=>d.active).forEach(d=>{
+    const idx = drivers.indexOf(d);
+    [["W-9","w9DocumentPath","w9"],["CDL scan","licenseDocumentPath","license"],["Medical card scan","medicalCardDocumentPath","medical"]].forEach(([label,field])=>{
+      const has = !!d[field];
+      html += `<tr><td style="font-weight:600;">${d.name}</td><td>${label}</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML((field==="w9DocumentPath"?"w9":field==="licenseDocumentPath"?"license":"medical")+"-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${d[field]}" data-doc-owner="driver-${idx}-${field}" style="background:var(--blue);">View</button>`:''}</td></tr>`;
+    });
+  });
+  activeVehicles().forEach(v=>{
+    const idx = vehicles.indexOf(v);
+    const has = !!v.hvut2290ReceiptPath;
+    html += `<tr><td style="font-weight:600;">Truck ${v.truckId}</td><td>2290 receipt</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML("hvut-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" data-doc-owner="vehicle-${idx}-hvut2290ReceiptPath" style="background:var(--blue);">View</button>`:''}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
 
   mainArea.innerHTML = html;
   wireCompliancePage();
@@ -1992,39 +2073,58 @@ function rerenderPreservingScroll(renderFn){
 }
 
 function wireCompliancePage(){
-  mainArea.querySelectorAll("[data-driver-idx]").forEach(el=>{
-    const idx = parseInt(el.dataset.driverIdx), field = el.dataset.field;
-    el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
-      const val = el.type==="checkbox" ? el.checked : el.value;
-      drivers[idx][field] = val;
-      // Changing the expiration date starts a fresh cycle - un-check completed.
-      if(field==="licenseExpiration") drivers[idx].licenseCompleted = false;
-      if(field==="medicalCardExpiration") drivers[idx].medicalCardCompleted = false;
+  mainArea.querySelectorAll(".compliance-date").forEach(el=>{
+    el.addEventListener("change", ()=>{
+      const arr = el.dataset.type==="driver" ? drivers : vehicles;
+      const idx = parseInt(el.dataset.idx);
+      if(!validateDateInput(el, true)){ arr[idx][el.dataset.field] = ""; }
+      else arr[idx][el.dataset.field] = el.value;
+      arr[idx][el.dataset.doneField] = false; // changing the date starts a fresh cycle
       markUnsaved();
-      if(field.endsWith("Expiration") || field.endsWith("Completed")) rerenderPreservingScroll(renderCompliancePage);
+      rerenderPreservingScroll(renderCompliancePage);
     });
-    if(el.type==="date"){
-      el.addEventListener("change", ()=>{ if(!validateDateInput(el, true)){ drivers[idx][field]=""; markUnsaved(); } });
-    }
   });
-  mainArea.querySelectorAll("[data-vehicle-idx]").forEach(el=>{
-    const idx = parseInt(el.dataset.vehicleIdx), field = el.dataset.field;
-    el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
-      const val = el.type==="checkbox" ? el.checked : el.value;
-      vehicles[idx][field] = val;
-      if(field==="inspectionExpiration") vehicles[idx].inspectionCompleted = false;
-      if(field==="registrationExpiration") vehicles[idx].registrationCompleted = false;
-      if(field==="hvut2290Expiration") vehicles[idx].hvut2290Completed = false;
-      markUnsaved();
-      if(field.endsWith("Expiration") || field.endsWith("Completed") || field==="hasBobtailInsurance" || field==="insuranceMonthlyCost") rerenderPreservingScroll(renderCompliancePage);
-    });
-    if(el.type==="date"){
-      el.addEventListener("change", ()=>{ if(!validateDateInput(el, true)){ vehicles[idx][field]=""; markUnsaved(); } });
-    }
-  });
-  mainArea.querySelectorAll("[data-ifta]").forEach(el=>{
+  mainArea.querySelectorAll(".compliance-cost").forEach(el=>{
     el.addEventListener("input", ()=>{
-      iftaData[el.dataset.ifta] = el.value;
+      const arr = el.dataset.type==="driver" ? drivers : vehicles;
+      arr[parseInt(el.dataset.idx)][el.dataset.field] = el.value;
+      markUnsaved();
+    });
+  });
+  mainArea.querySelectorAll(".compliance-done").forEach(el=>{
+    el.addEventListener("change", ()=>{
+      const arr = el.dataset.type==="driver" ? drivers : vehicles;
+      arr[parseInt(el.dataset.idx)][el.dataset.field] = el.checked;
+      markUnsaved();
+      rerenderPreservingScroll(renderCompliancePage);
+    });
+  });
+  mainArea.querySelectorAll(".insurance-monthly").forEach(el=>{
+    el.addEventListener("input", ()=>{
+      const idx = parseInt(el.dataset.vehicleIdx);
+      vehicles[idx].insuranceMonthlyCost = el.value;
+      markUnsaved();
+      updateInsuranceRowTotals(idx);
+    });
+  });
+  mainArea.querySelectorAll(".insurance-bobtail-cost").forEach(el=>{
+    el.addEventListener("input", ()=>{
+      const idx = parseInt(el.dataset.vehicleIdx);
+      vehicles[idx].bobtailInsuranceCost = el.value;
+      markUnsaved();
+      updateInsuranceRowTotals(idx);
+    });
+  });
+  mainArea.querySelectorAll(".insurance-bobtail-toggle").forEach(el=>{
+    el.addEventListener("change", ()=>{
+      vehicles[parseInt(el.dataset.vehicleIdx)].hasBobtailInsurance = el.checked;
+      markUnsaved();
+      rerenderPreservingScroll(renderCompliancePage);
+    });
+  });
+  mainArea.querySelectorAll(".ifta-cost").forEach(el=>{
+    el.addEventListener("input", ()=>{
+      iftaData[`q${el.dataset.q}Cost`] = el.value;
       markUnsaved();
       // Update just the total, not the whole page - a full re-render on every keystroke
       // would destroy and recreate this very input, kicking focus out after each digit.
@@ -2032,8 +2132,28 @@ function wireCompliancePage(){
       if(totalEl) totalEl.textContent = moneyStr((parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0));
     });
   });
-  mainArea.querySelectorAll("[data-ifta-completed]").forEach(el=>{
-    el.addEventListener("change", ()=>{ iftaData[el.dataset.iftaCompleted] = el.checked; markUnsaved(); rerenderPreservingScroll(renderCompliancePage); });
+  mainArea.querySelectorAll(".ifta-done").forEach(el=>{
+    el.addEventListener("change", ()=>{
+      iftaData[`q${el.dataset.q}Completed`] = el.checked;
+      markUnsaved();
+      rerenderPreservingScroll(renderCompliancePage);
+    });
+  });
+  mainArea.querySelectorAll(".compliance-doc-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      if(btn.dataset.hasDoc==="true"){
+        const owner = btn.dataset.docOwner;
+        openDocumentPreviewModal(btn.dataset.docPath, ()=>{
+          const [type, idxStr, field] = owner.split("-");
+          const idx = parseInt(idxStr);
+          (type==="driver"?drivers:vehicles)[idx][field] = "";
+          markUnsaved(); rerenderPreservingScroll(renderCompliancePage);
+        });
+      } else {
+        const idBase = btn.dataset.docMenu;
+        showDocOptionsMenu(btn, ()=>handleComplianceDocUpload(idBase,"camera"), ()=>handleComplianceDocUpload(idBase,"upload"));
+      }
+    });
   });
   mainArea.querySelectorAll("[data-view-doc]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -2054,6 +2174,17 @@ function wireCompliancePage(){
   mainArea.querySelectorAll("[data-doc-upload]").forEach(btn=>{
     btn.addEventListener("click", ()=>handleComplianceDocUpload(btn.dataset.docUpload, "upload"));
   });
+}
+function updateInsuranceRowTotals(idx){
+  const v = vehicles[idx];
+  const monthlyEl = mainArea.querySelector(`.insurance-monthly[data-vehicle-idx="${idx}"]`);
+  const row = monthlyEl && monthlyEl.closest("tr");
+  if(!row) return;
+  const yearly = (parseFloat(v.insuranceMonthlyCost)||0)*12;
+  const bobYearly = v.hasBobtailInsurance ? (parseFloat(v.bobtailInsuranceCost)||0)*12 : 0;
+  const cells = row.querySelectorAll("td");
+  cells[2].textContent = moneyStr(yearly);
+  cells[5].textContent = moneyStr(yearly+bobYearly);
 }
 
 /* Blocking modal that requires a click to dismiss - used for confirmations that
@@ -2100,6 +2231,7 @@ function paperworkStatus(d){
   return missing.length ? "Missing " + missing.join(", ") : "Complete";
 }
 
+let newTruckDraft = { id:"", vin:"", plate:"", week: WEEKS[0] };
 function renderFleetPage(){
   const activeV = vehicles.filter(v=>v.active), inactiveV = vehicles.filter(v=>!v.active);
   const activeD = drivers.filter(d=>d.active), inactiveD = drivers.filter(d=>!d.active);
@@ -2113,11 +2245,11 @@ function renderFleetPage(){
   });
   if(!activeV.length) html += `<tr><td colspan="3" class="hint">No active trucks yet - add one below.</td></tr>`;
   html += `</tbody></table></div>`;
-  html += `<div class="fleet-add-row">
-    <div class="field"><label>Truck ID</label><input type="text" id="newTruckId" placeholder="045"></div>
-    <div class="field"><label>VIN</label><input type="text" id="newTruckVin" placeholder="17 characters"></div>
-    <div class="field"><label>Licence plate</label><input type="text" id="newTruckPlate" placeholder="TX 0A-0000"></div>
-    <div class="field"><label>Running from week</label><select id="newTruckWeek">${WEEKS.map(w=>`<option value="${w}">Week ${w} (${weekDateRangeLabel(w)})</option>`).join("")}</select></div>
+  html += `<div class="fleet-add-row" style="align-items:flex-end;">
+    <div class="field" style="min-width:150px;"><label>Truck ID</label><input type="text" id="newTruckId" placeholder="045" value="${newTruckDraft.id}"></div>
+    <div class="field" style="min-width:210px;"><label>VIN</label><input type="text" id="newTruckVin" placeholder="17 characters" value="${newTruckDraft.vin}"></div>
+    <div class="field" style="min-width:150px;"><label>Licence plate</label><input type="text" id="newTruckPlate" placeholder="TX 0A-0000" value="${newTruckDraft.plate}"></div>
+    ${weekRailHTML(newTruckDraft.week, "newTruckWeek", {label:"Running from week"})}
     <button class="btn-blue" id="addVehicleBtn">+ Add Truck</button>
   </div>`;
 
@@ -2167,15 +2299,20 @@ function renderFleetPage(){
 
   mainArea.innerHTML = html;
 
+document.getElementById("newTruckId").addEventListener("input", e=>{ newTruckDraft.id = e.target.value; });
+  document.getElementById("newTruckVin").addEventListener("input", e=>{ newTruckDraft.vin = e.target.value; });
+  document.getElementById("newTruckPlate").addEventListener("input", e=>{ newTruckDraft.plate = e.target.value; });
+  wireWeekRail("newTruckWeek", newTruckDraft.week, w=>{ newTruckDraft.week = w; renderMain(); });
   document.getElementById("addVehicleBtn").addEventListener("click", ()=>{
-    const id = document.getElementById("newTruckId").value.trim();
-    const vin = document.getElementById("newTruckVin").value.trim();
-    const plate = document.getElementById("newTruckPlate").value.trim();
-    const wk = parseInt(document.getElementById("newTruckWeek").value);
+    const id = newTruckDraft.id.trim();
+    const vin = newTruckDraft.vin.trim();
+    const plate = newTruckDraft.plate.trim();
+    const wk = newTruckDraft.week;
     if(!id){ showAppToast("Enter a truck ID first.", "warning"); return; }
     if(vehicleExists(id)){ showAppToast("Truck " + id + " is already on the roster.", "warning"); return; }
     if(!vin || !plate){ showAppToast("Enter the VIN and the licence plate before adding the truck.", "warning"); return; }
     vehicles.push({ truckId:id, addedWeek:wk, active:true, vin, plate });
+    newTruckDraft = { id:"", vin:"", plate:"", week: WEEKS[0] };
     markUnsaved(); renderMain();
     showAppToast("Truck " + id + " added to the roster.", "success");
   });
@@ -2352,11 +2489,15 @@ function renderContractsPage(){
   const { week } = currentView;
   const active = vehiclesForWeek(week, showInactive);
   let html = `<h1 class="page-title"><span class="clickable-title" id="contractsHomeTitle">Contracts</span></h1><p class="page-sub">Week ${week} &middot; ${weekDateRangeLabel(week)} &middot; Sun-Sat</p>`;
-  html += weekPickerHTML(week, "contractsWeekSelect");
+  html += `<div style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:18px; border-bottom:1px solid var(--border); margin-bottom:4px;">`;
+  html += weekRailHTML(week, "contractsWeek");
+  html += `<label class="inactive-toggle" style="padding-bottom:8px;"><input type="checkbox" id="contractsWeek-inactive" ${showInactive?'checked':''}> Show inactive trucks too</label>`;
+  html += `</div>`;
   if(!active.length){
-    html += `<div class="banner"><b>No trucks running this week</b>Add a truck on the Roster with an earlier start week, or switch on inactive trucks above.</div>`;
+    html += `<div class="banner" style="margin-top:22px;"><b>No trucks running this week</b>Add a truck on the Roster with an earlier start week, or switch on inactive trucks above.</div>`;
     mainArea.innerHTML = html;
-    wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; contractsTruckIdx=0; renderMain(); });
+    wireWeekRail("contractsWeek", week, w=>{ currentView={type:"week", week:w}; contractsTruckIdx=0; renderMain(); });
+    document.getElementById("contractsWeek-inactive").addEventListener("change", e=>{ showInactive=e.target.checked; renderMain(); });
     document.getElementById("contractsHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
     return;
   }
@@ -2434,9 +2575,9 @@ function renderContractsPage(){
       } else {
         html += `<tr data-load-idx="${gi}">
           <td><input class="load-field" data-f="loadId" type="text" value="${l.loadId||''}" style="width:100px;"></td>
-          <td><input class="load-field" data-f="basePay" type="number" step="0.01" value="${l.basePay||''}" style="width:90px;"></td>
-          <td><input class="load-field" data-f="totalPay" type="number" step="0.01" value="${l.totalPay||''}" style="width:90px;"></td>
-          <td><input class="load-field" data-f="accessories" type="number" step="0.01" value="${l.accessories||''}" style="width:90px;"></td>
+          <td><input class="load-field" data-f="basePay" type="text" inputmode="decimal" value="${l.basePay||''}" style="width:90px;"></td>
+          <td><input class="load-field" data-f="totalPay" type="text" inputmode="decimal" value="${l.totalPay||''}" style="width:90px;"></td>
+          <td><input class="load-field" data-f="accessories" type="text" inputmode="decimal" value="${l.accessories||''}" style="width:90px;"></td>
           <td style="white-space:nowrap;"><button class="btn-blue btn-sm load-save">Save</button> <button class="load-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
         </tr>`;
       }
@@ -2447,8 +2588,19 @@ function renderContractsPage(){
   }
   html += `<div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLoadBtn">+ Add load</button></div>`;
 
+  // ---- Week at a glance: every truck running this week, side by side ----
+  html += `<div class="section-label">Week ${week} at a glance</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Contract ID</th><th>Rate</th><th>Blocks</th><th>Payout</th><th>Accessories</th></tr></thead><tbody>`;
+  active.forEach(cv=>{
+    const gd = getContractEntry(week, cv.truckId);
+    const gr = computeRow(cv.truckId, gd);
+    html += `<tr><td style="font-weight:600;">${cv.truckId}</td><td>${gd.contractId||'-'}</td><td>${gd.blockRate?moneyStr(parseFloat(gd.blockRate)):'-'}</td><td>${gd.numBlocks||'0'}</td><td>${moneyStr(gr.contractRate)}</td><td>${moneyStr(gr.totalAcc)}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
   mainArea.innerHTML = html;
-  wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; contractsTruckIdx=0; renderMain(); });
+  wireWeekRail("contractsWeek", week, w=>{ currentView={type:"week", week:w}; contractsTruckIdx=0; renderMain(); });
+  document.getElementById("contractsWeek-inactive").addEventListener("change", e=>{ showInactive=e.target.checked; renderMain(); });
   document.getElementById("contractsHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
   document.getElementById("contractPrevTruck").addEventListener("click", ()=>{ contractsTruckIdx = (tIdx-1+active.length)%active.length; renderMain(); });
   document.getElementById("contractNextTruck").addEventListener("click", ()=>{ contractsTruckIdx = (tIdx+1)%active.length; renderMain(); });
@@ -2725,31 +2877,70 @@ function renderDashboard(){
 function renderExpensesOverview(){
   const fuelTotals = computeFuelTotals(), partsSum = computeLogSummary(partsLog,"sum"), mechSum = computeLogSummary(mechanicLog,"sum");
   const opsTotal = computeOperationsCostTotal();
-  let html = `<h1 class="page-title">Expenses</h1><p class="page-sub">Fuel, Parts, Mechanic, and Operations costs at a glance.</p>`;
+  let html = `<h1 class="page-title">Expenses</h1>`;
   html += subtabsHTML();
-  html += `<div class="cards">
-    <div class="card clickable" data-tab="fuel"><h3>Fuel</h3><div class="metric"><div class="label">FUEL YTD</div><div class="big">${moneyStr(fuelTotals.company)}</div></div><div class="hint">Click to view weekly entries</div></div>
-    <div class="card clickable" data-tab="parts"><h3>Parts</h3><div class="metric"><div class="label">PARTS YTD</div><div class="big">${moneyStr(partsSum.grand)}</div></div><div class="hint">Click to view/edit log</div></div>
-    <div class="card clickable" data-tab="mechanic"><h3>Mechanic</h3><div class="metric"><div class="label">MECHANIC YTD</div><div class="big">${moneyStr(mechSum.grand)}</div></div><div class="hint">Click to view/edit log</div></div>
-    <div class="card clickable" data-tab="operations"><h3>Operations Cost</h3><div class="metric"><div class="label">YTD</div><div class="big">${moneyStr(opsTotal)}</div></div><div class="hint">Inspection, registration, 2290, insurance, IFTA</div></div>
+  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); border-top:1px solid var(--charcoal); border-left:1px solid var(--border);">
+    <button type="button" class="expense-cell" data-tab="fuel" style="text-align:left; background:transparent; border:0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); cursor:pointer; padding:18px 20px;">
+      <div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Fuel YTD</div>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(21px,2.7vw,30px); letter-spacing:-0.01em; margin:10px 0 8px;">${moneyStr(fuelTotals.company)}</div>
+      <div class="hint">Weekly entries per truck</div>
+    </button>
+    <button type="button" class="expense-cell" data-tab="parts" style="text-align:left; background:transparent; border:0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); cursor:pointer; padding:18px 20px;">
+      <div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Parts YTD</div>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(21px,2.7vw,30px); letter-spacing:-0.01em; margin:10px 0 8px;">${moneyStr(partsSum.grand)}</div>
+      <div class="hint">View or edit the log</div>
+    </button>
+    <button type="button" class="expense-cell" data-tab="mechanic" style="text-align:left; background:transparent; border:0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); cursor:pointer; padding:18px 20px;">
+      <div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Mechanic YTD</div>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(21px,2.7vw,30px); letter-spacing:-0.01em; margin:10px 0 8px;">${moneyStr(mechSum.grand)}</div>
+      <div class="hint">View or edit the log</div>
+    </button>
+    <button type="button" class="expense-cell" data-tab="operations" style="text-align:left; background:transparent; border:0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); cursor:pointer; padding:18px 20px;">
+      <div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Operations YTD</div>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(21px,2.7vw,30px); letter-spacing:-0.01em; margin:10px 0 8px;">${moneyStr(opsTotal)}</div>
+      <div class="hint">Inspection, registration, 2290, insurance, IFTA</div>
+    </button>
   </div>`;
+  html += `<div class="section-label" style="margin-top:34px;">Spend by truck</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Fuel</th><th>Parts</th><th>Mechanic</th><th>Operations</th><th>Total</th></tr></thead><tbody>`;
+  activeVehicles().forEach(v=>{
+    const truck=v.truckId;
+    const fuel = fuelEntries.filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const parts = partsSum.sums[truck]||0, mech = mechSum.sums[truck]||0, ops = computeVehicleOperationsCost(v);
+    html += `<tr><td style="font-weight:600;">${truck}</td><td>${moneyStr(fuel)}</td><td>${moneyStr(parts)}</td><td>${moneyStr(mech)}</td><td>${moneyStr(ops)}</td><td style="font-weight:600;">${moneyStr(fuel+parts+mech+ops)}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
   mainArea.innerHTML = html; wireSubtabs();
-  mainArea.querySelectorAll(".card.clickable").forEach(c=>{ c.addEventListener("click", ()=>{ currentExpenseTab=c.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
+  mainArea.querySelectorAll(".expense-cell").forEach(c=>{ c.addEventListener("click", ()=>{ currentExpenseTab=c.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
 }
 
 function renderOperationsCostPage(){
-  let html = `<h1 class="page-title">Operations Cost</h1><p class="page-sub">Inspection, registration, 2290, insurance (annualized), and IFTA - manage the underlying dates and costs under Compliance.</p>`;
+  let html = `<h1 class="page-title">Operations Cost</h1>`;
   html += subtabsHTML();
-  html += `<div class="cards summary-cards">`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Inspection</th><th>Registration</th><th>2290</th><th>Insurance / yr</th><th>Bobtail / yr</th><th>Total</th></tr></thead><tbody>`;
   activeVehicles().forEach(v=>{
-    html += `<div class="card"><h3>Truck <span class="tag">${v.truckId}</span></h3><div class="metric"><div class="big">${moneyStr(computeVehicleOperationsCost(v))}</div></div></div>`;
+    const insYr = (parseFloat(v.insuranceMonthlyCost)||0)*12;
+    const bobYr = v.hasBobtailInsurance ? (parseFloat(v.bobtailInsuranceCost)||0)*12 : 0;
+    html += `<tr>
+      <td style="font-weight:600;">${v.truckId}</td>
+      <td>${moneyStr(parseFloat(v.inspectionCost)||0)}</td>
+      <td>${moneyStr(parseFloat(v.registrationCost)||0)}</td>
+      <td>${moneyStr(parseFloat(v.hvut2290Cost)||0)}</td>
+      <td>${moneyStr(insYr)}</td>
+      <td>${v.hasBobtailInsurance?moneyStr(bobYr):'-'}</td>
+      <td style="font-weight:600;">${moneyStr(computeVehicleOperationsCost(v))}</td>
+    </tr>`;
   });
   const iftaTotal = (parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0);
-  html += `<div class="card"><h3>IFTA <span class="tag">Company-Wide</span></h3><div class="metric"><div class="big">${moneyStr(iftaTotal)}</div></div></div>`;
-  html += `<div class="card company"><h3>OPERATIONS COST YTD</h3><div class="metric"><div class="big">${moneyStr(computeOperationsCostTotal())}</div></div></div>`;
-  html += `</div>`;
-  html += `<div class="banner soon" style="margin-top:20px;"><b>Edit dates and costs under Compliance</b>This page is a read-only rollup - go to the Compliance page (hamburger menu) to update inspection/registration/2290 dates and costs, insurance, or IFTA quarterly payments.</div>`;
+  html += `<tr><td style="font-weight:600;">IFTA</td><td colspan="5" style="color:var(--text-muted);">Company-wide, all four quarters</td><td style="font-weight:600;">${moneyStr(iftaTotal)}</td></tr>`;
+  html += `</tbody></table></div>`;
+  html += `<div style="display:grid; grid-template-columns:1fr auto; border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
+    <div style="padding:14px 12px; font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">Operations cost YTD</div>
+    <div style="padding:14px 12px; font-family:'Archivo',sans-serif; font-weight:600; font-size:18px;">${moneyStr(computeOperationsCostTotal())}</div>
+  </div>`;
+  html += `<div class="banner soon" style="margin-top:22px;">Read-only rollup. Dates, costs, insurance and IFTA are edited on the <span class="link-nav" data-nav="compliance" style="color:var(--blue-700); cursor:pointer; text-decoration:underline;">Docket</span>.</div>`;
   mainArea.innerHTML = html; wireSubtabs();
+  mainArea.querySelectorAll(".link-nav").forEach(el=>{ el.addEventListener("click", ()=>{ currentModule=el.dataset.nav; currentView={type:"summary"}; renderMain(); }); });
 }
 
 function subtabsHTML(){
@@ -2769,7 +2960,7 @@ function allReceiptEntries(){
 
 async function renderReceiptsPage(){
   const receipts = allReceiptEntries();
-  let html = `<h1 class="page-title">Receipts</h1><p class="page-sub">Every receipt scanned from Parts and Mechanic entries, in one place.</p>`;
+  let html = `<h1 class="page-title">Receipts</h1>`;
   html += subtabsHTML();
   if(!receipts.length){
     html += `<div class="banner"><b>No receipts yet</b>Scan one from the Parts or Mechanic page and it'll show up here.</div>`;
@@ -2880,39 +3071,120 @@ async function downloadAllReceiptsAsPdf(){
   }
 }
 
+let fuelTruckIdx = 0;
 function renderFuelPage(){
-  if(currentView.type==="summary"){ renderFuelSummary(); return; }
-  const { week } = currentView;
+  const week = (currentView.type==="week") ? currentView.week : currentWeekNumber();
   const active = vehiclesForWeek(week, showInactive);
-  let html = `<h1 class="page-title">Fuel - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat)</p>`;
+  let html = `<h1 class="page-title">Fuel</h1>`;
   html += subtabsHTML();
-  html += weekPickerHTML(week, "fuelWeekSelect");
-  if(!active.length){ html += `<div class="banner"><b>No vehicles active this week yet.</b></div>`; mainArea.innerHTML=html; wireSubtabs(); wireWeekPicker("fuelWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); }); return; }
-  html += `<div class="cards">`;
-  active.forEach(v=>{
-    const e = getFuelEntry(week, v.truckId);
-    html += `<div class="card"><h3>Truck <span class="tag">${v.truckId}${v.active?'':' (inactive)'}</span></h3>${fieldHTML(`fuel-${week}-${v.truckId}`,"Fuel Cost", e.amount, {type:'number'})}</div>`;
+  html += `<div style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:18px; border-bottom:1px solid var(--border); margin-bottom:4px;">`;
+  html += weekRailHTML(week, "fuelWeek");
+  html += `<label class="inactive-toggle" style="padding-bottom:8px;"><input type="checkbox" id="fuelWeek-inactive" ${showInactive?'checked':''}> Show inactive trucks too</label>`;
+  html += `</div>`;
+
+  if(!active.length){
+    html += `<div class="banner" style="margin-top:22px;"><b>No trucks running this week</b>Add a truck on the Roster with an earlier start week, or switch on inactive trucks above.</div>`;
+    mainArea.innerHTML = html; wireSubtabs();
+    wireWeekRail("fuelWeek", week, w=>{ currentView={type:"week", week:w}; renderMain(); });
+    document.getElementById("fuelWeek-inactive").addEventListener("change", e=>{ showInactive=e.target.checked; renderMain(); });
+    return;
+  }
+
+  const tIdx = Math.min(fuelTruckIdx, active.length-1);
+  const v = active[tIdx];
+  const truck = v.truckId;
+  const e = getFuelEntry(week, truck);
+  const locked = !!e.submitted;
+
+  html += `<div style="display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; padding:22px 0 14px;">
+    <div><div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Truck</div>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:46px; line-height:1; letter-spacing:-0.01em; margin-top:6px;">${truck}</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+      <button class="btn-ghost btn-sm" id="fuelPrevTruck" style="width:40px; height:40px; padding:0;">&larr;</button>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:12px; letter-spacing:.1em; text-transform:uppercase; min-width:82px; text-align:center;">${tIdx+1} of ${active.length}</div>
+      <button class="btn-ghost btn-sm" id="fuelNextTruck" style="width:40px; height:40px; padding:0;">&rarr;</button>
+    </div>
+  </div>`;
+
+  html += `<div style="display:flex; flex-wrap:wrap; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:24px;">`;
+  active.forEach((cv,i)=>{
+    const filled = parseFloat(getFuelEntry(week, cv.truckId).amount) > 0;
+    html += `<button type="button" class="fuel-chip" data-chip-idx="${i}" style="position:relative; display:flex; align-items:center; gap:8px; background:transparent; border:0; border-right:1px solid var(--border); cursor:pointer; padding:11px 16px; font-family:'Archivo',sans-serif; font-weight:600; font-size:13px; color:var(--charcoal);">
+      ${cv.truckId}
+      <span style="width:7px; height:7px; ${filled?'background:var(--blue);':'border:1px solid var(--neutral-500);'}"></span>
+      ${i===tIdx ? `<span style="position:absolute; left:0; right:0; top:-1px; height:2px; background:var(--blue);"></span>` : ''}
+    </button>`;
   });
   html += `</div>`;
-  mainArea.innerHTML = html; wireSubtabs();
-  wireWeekPicker("fuelWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
-  active.forEach(v=>{
-    const el = document.getElementById(`fuel-${week}-${v.truckId}`);
-    el.addEventListener("input", ()=>{ getFuelEntry(week,v.truckId).amount = el.value; markUnsaved(); });
+
+  if(locked){
+    html += `<div style="display:flex; gap:18px; flex-wrap:wrap; align-items:center; border-top:1px solid var(--charcoal); border-bottom:1px solid var(--border); padding:14px 0; max-width:560px;">
+      <div><div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Fuel logged this week</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:24px; margin-top:6px;">${moneyStr(parseFloat(e.amount)||0)}</div></div>
+      <button class="btn-ghost btn-sm" id="fuelEditBtn" style="margin-left:auto;">Edit</button>
+    </div>`;
+  } else {
+    html += `<div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
+      <div class="field" style="max-width:300px; flex:1 1 220px;">${fieldHTML(`fuel-${week}-${truck}`,"Fuel cost this week", e.amount, {type:'number'})}</div>
+      <button class="btn-blue btn-sm" id="fuelSaveBtn">Save</button>
+    </div>`;
+  }
+
+  const { totals } = computeFuelTotals();
+  const company = fuelEntries.reduce((a,ent)=>a+(parseFloat(ent.amount)||0),0);
+  html += `<div class="section-label" style="margin-top:38px;">Fuel year to date</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Weeks logged</th><th>Fuel YTD</th></tr></thead><tbody>`;
+  activeVehicles().forEach(cv=>{
+    const weeksLogged = fuelEntries.filter(x=>x.truck===cv.truckId && parseFloat(x.amount)>0).length;
+    const t = totals.find(x=>x.truck===cv.truckId);
+    html += `<tr><td style="font-weight:600;">${cv.truckId}</td><td>${weeksLogged}</td><td>${moneyStr(t?t.total:0)}</td></tr>`;
   });
-}
-function renderFuelSummary(){
-  const { totals, company } = computeFuelTotals();
-  let html = `<h1 class="page-title">Fuel</h1>`; html += subtabsHTML();
-  html += weekPickerHTML(null, "fuelSummaryWeekSelect");
-  html += `<div class="cards summary-cards">`;
-  totals.forEach(t=>{ html += `<div class="card"><h3>Truck <span class="tag">${t.truck}</span></h3><div class="metric"><div class="big">${moneyStr(t.total)}</div></div></div>`; });
-  html += `<div class="card company"><h3>FUEL YTD</h3><div class="metric"><div class="big">${moneyStr(company)}</div></div></div></div>`;
+  html += `</tbody></table></div>`;
+  html += `<div style="display:grid; grid-template-columns:1fr auto; border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
+    <div style="padding:12px 8px; font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">Fuel YTD</div>
+    <div style="padding:12px 8px; font-weight:600;">${moneyStr(company)}</div>
+  </div>`;
+
   mainArea.innerHTML = html; wireSubtabs();
-  wireWeekPicker("fuelSummaryWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+  wireWeekRail("fuelWeek", week, w=>{ currentView={type:"week", week:w}; renderMain(); });
+  document.getElementById("fuelWeek-inactive").addEventListener("change", e2=>{ showInactive=e2.target.checked; renderMain(); });
+  document.getElementById("fuelPrevTruck").addEventListener("click", ()=>{ fuelTruckIdx = (tIdx-1+active.length)%active.length; renderMain(); });
+  document.getElementById("fuelNextTruck").addEventListener("click", ()=>{ fuelTruckIdx = (tIdx+1)%active.length; renderMain(); });
+  mainArea.querySelectorAll(".fuel-chip").forEach(btn=>{
+    btn.addEventListener("click", ()=>{ fuelTruckIdx = parseInt(btn.dataset.chipIdx); renderMain(); });
+  });
+  const editBtn = document.getElementById("fuelEditBtn");
+  if(editBtn) editBtn.addEventListener("click", ()=>{ e.submitted=false; markUnsaved(); renderMain(); });
+  const saveBtn = document.getElementById("fuelSaveBtn");
+  if(saveBtn){
+    const inputEl = document.getElementById(`fuel-${week}-${truck}`);
+    inputEl.addEventListener("input", ()=>{ e.amount = inputEl.value; markUnsaved(); });
+    saveBtn.addEventListener("click", ()=>{
+      if(!String(e.amount||"").trim()){ showAppToast("Enter a fuel cost before saving.", "warning"); return; }
+      e.submitted = true; markUnsaved(); renderMain();
+    });
+  }
 }
 
 /* ============ PAYROLL ============ */
+function payrollHeaderHTML(mode){
+  let html = `<h1 class="page-title">Payroll</h1>`;
+  html += `<div class="subtabs" style="max-width:320px; margin-bottom:20px;">
+    <button type="button" class="payroll-mode-btn ${mode==='week'?'active':''}" data-mode="week">This week</button>
+    <button type="button" class="payroll-mode-btn ${mode==='summary'?'active':''}" data-mode="summary">Year to date</button>
+  </div>`;
+  return html;
+}
+function wirePayrollModeButtons(weekForToggle){
+  mainArea.querySelectorAll(".payroll-mode-btn").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      flushIfNeeded();
+      if(b.dataset.mode==="week") currentView = {type:"week", week: weekForToggle || currentWeekNumber()};
+      else currentView = {type:"summary"};
+      renderMain();
+    });
+  });
+}
 function renderPayrollPage(){
   if(currentView.type!=="week"){ renderPayrollSummary(); return; }
   renderPayrollWeek(currentView.week);
@@ -2920,26 +3192,33 @@ function renderPayrollPage(){
 function renderPayrollSummary(){
   const byDriver = computePayrollTotalsByDriver();
   const orphanEntries = payrollEntries.filter(e=>e.driver && !drivers.some(d=>d.name===e.driver));
-  let html = `<h1 class="page-title">Payroll</h1><p class="page-sub">YTD pay per driver. Pick a week below to log pay entries.</p>`;
-  html += weekPickerHTML(null, "payrollSummaryWeekSelect");
-  if(!drivers.filter(d=>d.active).length){ html += `<div class="banner"><b>No active drivers</b>Go to Manage Fleet (hamburger menu) to add or reactivate a driver.</div>`; }
-  html += `<div class="section-label">By Driver</div><div class="cards summary-cards">`;
-  byDriver.totals.forEach(t=>{ html += `<div class="card"><h3>${t.driver}</h3><div class="metric"><div class="label">YTD Payroll</div><div class="big">${moneyStr(t.total)}</div></div></div>`; });
-  html += `<div class="card company"><h3>PAYROLL YTD</h3><div class="metric"><div class="big">${moneyStr(byDriver.company)}</div></div></div></div>`;
+  let html = payrollHeaderHTML("summary");
+  if(!drivers.filter(d=>d.active).length){ html += `<div class="banner"><b>No active drivers</b>Go to Roster to add or reactivate a driver.</div>`; }
+  html += `<div class="section-label">By driver</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Weeks paid</th><th>Payroll YTD</th></tr></thead><tbody>`;
+  byDriver.totals.forEach(t=>{
+    const weeksPaid = new Set(payrollEntries.filter(e=>e.driver===t.driver && parseFloat(e.amount)>0).map(e=>e.week)).size;
+    html += `<tr><td style="font-weight:600;">${t.driver}</td><td>${weeksPaid}</td><td>${moneyStr(t.total)}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  html += `<div style="display:grid; grid-template-columns:1fr auto; border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
+    <div style="padding:13px 16px; font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">Payroll YTD</div>
+    <div style="padding:13px 16px; font-family:'Archivo',sans-serif; font-weight:600; font-size:17px;">${moneyStr(byDriver.company)}</div>
+  </div>`;
 
   if(orphanEntries.length){
-    html += `<div class="section-label">Entries For Removed Drivers</div>`;
-    html += `<div class="banner"><b>These drivers are no longer active</b>Their past pay entries are kept for your records. Remove any you no longer need below, or reactivate the driver in Manage Fleet to edit normally.</div>`;
-    html += `<table class="logtable"><thead><tr><th>Week</th><th>Driver</th><th>Truck</th><th>Amount</th><th></th></tr></thead><tbody>`;
+    html += `<div class="section-label" style="margin-top:34px;">Removed drivers</div>`;
+    html += `<p class="hint" style="margin:-6px 0 12px;">Kept for your records. Reactivate the driver on the Roster to edit these normally.</p>`;
+    html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Week</th><th>Driver</th><th>Truck</th><th>Amount</th><th></th></tr></thead><tbody>`;
     orphanEntries.forEach(e=>{
       const globalIdx = payrollEntries.indexOf(e);
-      html += `<tr><td>Week ${e.week} (${weekDateRangeLabel(e.week)})</td><td>${e.driver}</td><td>${e.truck||'-'}</td><td>${moneyStr(parseFloat(e.amount)||0)}</td><td><button class="btn-danger" data-remove-orphan="${globalIdx}">Remove</button></td></tr>`;
+      html += `<tr><td>Week ${e.week}</td><td>${e.driver}</td><td>${e.truck||'-'}</td><td>${moneyStr(parseFloat(e.amount)||0)}</td><td><button class="btn-ghost btn-sm" data-remove-orphan="${globalIdx}">Remove</button></td></tr>`;
     });
-    html += `</tbody></table>`;
+    html += `</tbody></table></div>`;
   }
 
   mainArea.innerHTML = html;
-  wireWeekPicker("payrollSummaryWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+  wirePayrollModeButtons();
   mainArea.querySelectorAll("[data-remove-orphan]").forEach(b=>{
     b.addEventListener("click", ()=>{ payrollEntries.splice(parseInt(b.dataset.removeOrphan),1); markUnsaved(); renderMain(); });
   });
@@ -2947,21 +3226,33 @@ function renderPayrollSummary(){
 function renderPayrollWeek(week){
   const entries = payrollEntries.filter(e=>e.week===week);
   const active = vehiclesForWeek(week, showInactive);
-  let html = `<h1 class="page-title"><span class="clickable-title" id="payrollHomeTitle">Payroll</span> - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat)</p>`;
-  html += weekPickerHTML(week, "payrollWeekSelect");
   const availableDrivers = showInactive ? drivers : drivers.filter(d=>d.active);
-  if(!availableDrivers.length){ html += `<div class="banner"><b>No drivers available</b>Go to Manage Fleet (hamburger menu) to add or reactivate a driver first.</div>`; mainArea.innerHTML=html;
-    document.getElementById("payrollHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
-    wireWeekPicker("payrollWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); }); return; }
-  html += `<table class="logtable"><thead><tr><th>Driver</th><th>Truck Used</th><th>Amount</th><th></th></tr></thead><tbody id="payrollTbody">`;
+  let html = payrollHeaderHTML("week");
+  html += weekRailHTML(week, "payrollWeek");
+  if(!availableDrivers.length){
+    html += `<div class="banner" style="margin-top:20px;"><b>No drivers available</b>Go to Roster to add or reactivate a driver first.</div>`;
+    mainArea.innerHTML=html;
+    wirePayrollModeButtons(week);
+    wireWeekRail("payrollWeek", week, w=>{ currentView={type:"week", week:w}; renderMain(); });
+    return;
+  }
+  html += `<div style="overflow-x:auto; margin-top:22px;"><table class="logtable"><thead><tr><th>Driver</th><th>Truck run</th><th>Amount paid</th><th></th></tr></thead><tbody id="payrollTbody">`;
   entries.forEach((e,idx)=>{ html += payrollRowHTML(e, idx, active, availableDrivers); });
-  html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addPayrollRow">+ Add Entry</button></div>`;
+  html += `</tbody></table></div><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addPayrollRow">+ Add pay entry</button></div>`;
   mainArea.innerHTML = html;
-  document.getElementById("payrollHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
-  wireWeekPicker("payrollWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+  wirePayrollModeButtons(week);
+  wireWeekRail("payrollWeek", week, w=>{ currentView={type:"week", week:w}; renderMain(); });
   wirePayrollTable(week, active, availableDrivers);
 }
 function payrollRowHTML(e, idx, active, availableDrivers){
+  if(e.submitted){
+    return `<tr data-idx="${idx}">
+      <td style="font-weight:600;">${e.driver||'-'}</td>
+      <td>${e.truck?('Truck '+e.truck):'-'}</td>
+      <td>${moneyStr(parseFloat(e.amount)||0)}</td>
+      <td style="white-space:nowrap;"><button class="btn-ghost btn-sm pr-edit">Edit</button> <button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
+    </tr>`;
+  }
   const driverOptions = availableDrivers.map(d=>`<option value="${d.name}" ${e.driver===d.name?'selected':''}>${d.name}${d.active?'':' (inactive)'}</option>`).join("");
   const orphanDriverOption = (e.driver && !availableDrivers.some(d=>d.name===e.driver)) ? `<option value="${e.driver}" selected>${e.driver} (removed)</option>` : "";
   const truckOptions = active.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
@@ -2969,8 +3260,8 @@ function payrollRowHTML(e, idx, active, availableDrivers){
   return `<tr data-idx="${idx}">
     <td><select class="pr-driver"><option value="">-</option>${orphanDriverOption}${driverOptions}</select></td>
     <td><select class="pr-truck"><option value="">-</option>${orphanTruckOption}${truckOptions}</select></td>
-    <td><input class="pr-amount" type="number" step="0.01" min="0" value="${e.amount||''}"></td>
-    <td><button class="btn-danger pr-delete">Remove</button></td>
+    <td><input class="pr-amount" type="text" inputmode="decimal" value="${e.amount||''}"></td>
+    <td style="white-space:nowrap;"><button class="btn-blue btn-sm pr-save">Save</button> <button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
   </tr>`;
 }
 function wirePayrollTable(week, active, availableDrivers){
@@ -2978,9 +3269,17 @@ function wirePayrollTable(week, active, availableDrivers){
   const tbody = document.getElementById("payrollTbody");
   tbody.querySelectorAll("tr").forEach(tr=>{
     const idx = parseInt(tr.dataset.idx);
-    tr.querySelector(".pr-driver").addEventListener("change", e=>{ entries[idx].driver=e.target.value; markUnsaved(); });
-    tr.querySelector(".pr-truck").addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); });
-    tr.querySelector(".pr-amount").addEventListener("input", e=>{ entries[idx].amount=e.target.value; markUnsaved(); });
+    const driverEl = tr.querySelector(".pr-driver"), truckEl = tr.querySelector(".pr-truck"), amountEl = tr.querySelector(".pr-amount");
+    if(driverEl) driverEl.addEventListener("change", e=>{ entries[idx].driver=e.target.value; markUnsaved(); });
+    if(truckEl) truckEl.addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); });
+    if(amountEl) amountEl.addEventListener("input", e=>{ entries[idx].amount=e.target.value; markUnsaved(); });
+    const saveEl = tr.querySelector(".pr-save");
+    if(saveEl) saveEl.addEventListener("click", ()=>{
+      if(!entries[idx].driver || !String(entries[idx].amount||"").trim()){ showAppToast("Pick a driver and enter an amount before saving.", "warning"); return; }
+      entries[idx].submitted = true; markUnsaved(); renderMain();
+    });
+    const editEl = tr.querySelector(".pr-edit");
+    if(editEl) editEl.addEventListener("click", ()=>{ entries[idx].submitted=false; renderMain(); });
     tr.querySelector(".pr-delete").addEventListener("click", ()=>{
       const globalIdx = payrollEntries.indexOf(entries[idx]);
       if(globalIdx>=0) payrollEntries.splice(globalIdx,1);
@@ -2988,7 +3287,7 @@ function wirePayrollTable(week, active, availableDrivers){
     });
   });
   document.getElementById("addPayrollRow").addEventListener("click", ()=>{
-    payrollEntries.push({ week, driver:"", truck:"", amount:"" });
+    payrollEntries.push({ week, driver:"", truck:"", amount:"", submitted:false });
     markUnsaved(); renderMain();
   });
 }
@@ -3033,7 +3332,9 @@ function getLogArray(key){ if(key==="parts") return partsLog; if(key==="mechanic
 function renderLogPage(cfg){
   const entries = getLogArray(cfg.key);
   const summary = computeLogSummary(entries, cfg.summaryType);
-  let html = `<h1 class="page-title">${cfg.title}</h1><p class="page-sub">${cfg.subtitle}</p>`;
+  let html = cfg.standalone
+    ? `<h1 class="page-title">${cfg.title}</h1><p class="page-sub">${cfg.kicker||''}</p>`
+    : `<h1 class="page-title">${cfg.title}</h1>`;
   if(cfg.key==="parts"||cfg.key==="mechanic") html += subtabsHTML();
   if(!vehicles.filter(v=>v.active).length) html += `<div class="banner"><b>No active vehicles</b>Go to Manage Fleet (hamburger menu) to add or reactivate one.</div>`;
   html += `<div class="cards summary-cards">`;
@@ -3069,7 +3370,7 @@ const TRASH_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="no
 function logRowHTML(cfg, e, idx){
   const truckOptions = vehicles.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
   const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
-  const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="amount"?"number":(f2==="date"?"date":"text");
+  const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="date"?"date":"text";
   const hasDoc = e.receiptPath && receiptPathList(e.receiptPath).length > 0;
   const docBtn = hasDoc ? `<button type="button" class="btn-ghost btn-sm log-view-receipt" title="Preview document" style="background:var(--blue); padding:8px 10px;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
 
@@ -3102,7 +3403,7 @@ function logRowHTML(cfg, e, idx){
     <td><select class="log-truck"><option value="">-</option>${truckOptions}</select></td>
     <td>${field0Html.replace('type="date"', `type="date" max="${todayDateStr()}"`)}</td>
     <td>${field1Html.replace('type="date"', `type="date" max="${todayDateStr()}"`)}</td>
-    <td><input class="log-f2" type="${type2}" ${type2==='number'?'step="0.01" min="0"':''} value="${e[f2]||''}"></td>
+    <td><input class="log-f2" type="${type2}" ${type2==='text'?'inputmode="decimal"':''} value="${e[f2]||''}"></td>
     <td>${docBtn}</td>
     <td>${actionCell}</td>
   </tr>`;
