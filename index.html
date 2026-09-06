@@ -235,13 +235,13 @@
   </div>
 </header>
 <div class="tab-nav" id="hamburgerMenu">
-  <button data-module="contracts" data-view-mode="summary">Ledger</button>
-  <button data-module="contracts" data-view-mode="week">Contracts</button>
-  <button data-module="payroll">Payroll</button>
-  <button data-module="expenses">Expenses</button>
-  <button data-module="maintenance">Service</button>
-  <button data-module="compliance">Docket</button>
-  <button data-module="fleet">Roster</button>
+  <button data-module="contracts" data-view-mode="summary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 9v12"></path></svg>Ledger</button>
+  <button data-module="contracts" data-view-mode="week"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 3h9l5 5v13H5z"></path><path d="M14 3v5h5"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>Contracts</button>
+  <button data-module="payroll"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M2 6h20v12H2z"></path><path d="M2 10h20"></path><path d="M6 14h4"></path></svg>Payroll</button>
+  <button data-module="expenses"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 2h14v20l-3.5-2-3.5 2-3.5-2L5 22z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Expenses</button>
+  <button data-module="maintenance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 18a8 8 0 1 1 16 0"></path><path d="M12 18l4.5-6"></path><path d="M4 18h16"></path></svg>Service</button>
+  <button data-module="compliance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>Docket</button>
+  <button data-module="fleet"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 6h11v10H3z"></path><path d="M14 9h4l3 3v4h-7z"></path><path d="M7 16v2"></path><path d="M17 16v2"></path></svg>Roster</button>
 </div>
 <div class="app-body">
   <main id="mainArea"></main>
@@ -294,6 +294,8 @@ let iftaData = { year: 2026, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Compl
 let contractsEntries = [];
 let fuelEntries = [];
 let payrollEntries = [];
+let loadsEntries = [];
+let ledgerMetricSel = {};
 let partsLog = [], mechanicLog = [], maintenanceLog = [];
 
 let currentModule = "contracts";
@@ -312,13 +314,16 @@ function vehicleExists(truckId){ return vehicles.some(v=>v.truckId===truckId); }
 
 function getContractEntry(week, truck){
   let e = contractsEntries.find(x=>x.week===week && x.truck===truck);
-  if(!e){ e = { week, truck, contractId:"", blockRate:"", numBlocks:"", block1:"", block2:"", block3:"" }; contractsEntries.push(e); }
+  if(!e){ e = { week, truck, contractId:"", blockRate:"", numBlocks:"", block1:"", block2:"", block3:"", submitted:false }; contractsEntries.push(e); }
   return e;
 }
 function getFuelEntry(week, truck){
   let e = fuelEntries.find(x=>x.week===week && x.truck===truck);
-  if(!e){ e = { week, truck, amount:"" }; fuelEntries.push(e); }
+  if(!e){ e = { week, truck, amount:"", submitted:false }; fuelEntries.push(e); }
   return e;
+}
+function getLoadsForWeekTruck(week, truck){
+  return loadsEntries.filter(x=>x.week===week && x.truck===truck);
 }
 
 /* ============ COMPUTE HELPERS ============
@@ -816,6 +821,7 @@ async function saveAll(){
   try{
     const vehicleRows = vehicles.map(v=>({
       user_id:currentUserId, truck_id:v.truckId, added_week:v.addedWeek, active:v.active,
+      vin: v.vin || null, plate: v.plate || null,
       inspection_expiration: v.inspectionExpiration || null, inspection_cost: v.inspectionCost!==""&&v.inspectionCost!=null?parseFloat(v.inspectionCost):null, inspection_completed: !!v.inspectionCompleted,
       registration_expiration: v.registrationExpiration || null, registration_cost: v.registrationCost!==""&&v.registrationCost!=null?parseFloat(v.registrationCost):null, registration_completed: !!v.registrationCompleted,
       form2290_expiration: v.hvut2290Expiration || null, form2290_cost: v.hvut2290Cost!==""&&v.hvut2290Cost!=null?parseFloat(v.hvut2290Cost):null, form2290_completed: !!v.hvut2290Completed, form2290_receipt_path: v.hvut2290ReceiptPath || null,
@@ -823,7 +829,7 @@ async function saveAll(){
       has_bobtail_insurance: !!v.hasBobtailInsurance, bobtail_insurance_cost: v.bobtailInsuranceCost!==""&&v.bobtailInsuranceCost!=null?parseFloat(v.bobtailInsuranceCost):null
     }));
     const driverRows = drivers.map(d=>({
-      user_id:currentUserId, name:d.name, active:d.active,
+      user_id:currentUserId, name:d.name, active:d.active, license_number: d.licenseNumber || null,
       license_expiration: d.licenseExpiration || null, license_completed: !!d.licenseCompleted, license_document_path: d.licenseDocumentPath || null,
       medical_card_expiration: d.medicalCardExpiration || null, medical_card_completed: !!d.medicalCardCompleted, medical_card_document_path: d.medicalCardDocumentPath || null,
       w9_document_path: d.w9DocumentPath || null
@@ -831,19 +837,21 @@ async function saveAll(){
     const contractRows = contractsEntries.map(e=>({
       user_id:currentUserId, week:e.week, truck:e.truck, contract_id:e.contractId||null,
       block_rate:e.blockRate!==""?parseFloat(e.blockRate):null, num_blocks:e.numBlocks!==""?parseFloat(e.numBlocks):null,
-      block1:e.block1!==""?parseFloat(e.block1):null, block2:e.block2!==""?parseFloat(e.block2):null, block3:e.block3!==""?parseFloat(e.block3):null
+      block1:e.block1!==""?parseFloat(e.block1):null, block2:e.block2!==""?parseFloat(e.block2):null, block3:e.block3!==""?parseFloat(e.block3):null,
+      submitted: e.submitted!==false
     }));
-    const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null }));
-    const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null }));
-    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
-    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null }));
+    const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const loadsRows = loadsEntries.map(e=>({ user_id:currentUserId, week:e.week, truck:e.truck, load_id:e.loadId||null, base_pay:e.basePay!==""&&e.basePay!=null?parseFloat(e.basePay):null, total_pay:e.totalPay!==""&&e.totalPay!=null?parseFloat(e.totalPay):null, accessories:e.accessories!==""&&e.accessories!=null?parseFloat(e.accessories):null, submitted: e.submitted!==false }));
+    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
+    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const iftaRows = [1,2,3,4].map(q=>({ user_id:currentUserId, quarter:q, amount: iftaData[`q${q}Cost`]!==""&&iftaData[`q${q}Cost`]!=null?parseFloat(iftaData[`q${q}Cost`]):null, completed: !!iftaData[`q${q}Completed`] }));
 
     const tasks = [
       ["vehicles", vehicleRows], ["drivers", driverRows], ["contracts", contractRows],
       ["fuel", fuelRows], ["payroll", payrollRows], ["parts", partsRows], ["mechanic", mechRows], ["maintenance", maintRows],
-      ["ifta", iftaRows]
+      ["ifta", iftaRows], ["loads", loadsRows]
     ];
     for(const [table, rows] of tasks){
       const { error: delErr } = await sb.from(table).delete().eq("user_id", currentUserId);
@@ -862,32 +870,33 @@ async function loadAll(){
   if(!sb) return;
   setStatus("Loading...");
   try{
-    const [veh, drv, c, f, p, parts, mech, maint, iftaRes] = await Promise.all([
+    const [veh, drv, c, f, p, parts, mech, maint, iftaRes, loadsRes] = await Promise.all([
       sb.from("vehicles").select("*"), sb.from("drivers").select("*"),
       sb.from("contracts").select("*"), sb.from("fuel").select("*"), sb.from("payroll").select("*"),
       sb.from("parts").select("*"), sb.from("mechanic").select("*"), sb.from("maintenance").select("*"),
-      sb.from("ifta").select("*"),
+      sb.from("ifta").select("*"), sb.from("loads").select("*"),
     ]);
-    [veh,drv,c,f,p,parts,mech,maint,iftaRes].forEach(r=>{ if(r.error) throw r.error; });
+    [veh,drv,c,f,p,parts,mech,maint,iftaRes,loadsRes].forEach(r=>{ if(r.error) throw r.error; });
 
     vehicles = (veh.data||[]).map(r=>({
-      truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false,
+      truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false, vin:r.vin||"", plate:r.plate||"",
       inspectionExpiration:r.inspection_expiration||"", inspectionCost:r.inspection_cost??"", inspectionCompleted:!!r.inspection_completed,
       registrationExpiration:r.registration_expiration||"", registrationCost:r.registration_cost??"", registrationCompleted:!!r.registration_completed,
       hvut2290Expiration:r.form2290_expiration||"", hvut2290Cost:r.form2290_cost??"", hvut2290Completed:!!r.form2290_completed, hvut2290ReceiptPath:r.form2290_receipt_path||"",
       insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??""
     }));
     drivers = (drv.data||[]).map(r=>({
-      name:r.name, active:r.active!==false,
+      name:r.name, active:r.active!==false, licenseNumber:r.license_number||"",
       licenseExpiration:r.license_expiration||"", licenseCompleted:!!r.license_completed, licenseDocumentPath:r.license_document_path||"",
       medicalCardExpiration:r.medical_card_expiration||"", medicalCardCompleted:!!r.medical_card_completed, medicalCardDocumentPath:r.medical_card_document_path||"",
       w9DocumentPath:r.w9_document_path||""
     }));
-    contractsEntries = (c.data||[]).map(r=>({ week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"" }));
-    fuelEntries = (f.data||[]).map(r=>({ week:r.week, truck:r.truck, amount:r.amount??"" }));
-    payrollEntries = (p.data||[]).map(r=>({ week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"" }));
-    partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
-    mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"" }));
+    contractsEntries = (c.data||[]).map(r=>({ week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"", submitted:r.submitted!==false }));
+    fuelEntries = (f.data||[]).map(r=>({ week:r.week, truck:r.truck, amount:r.amount??"", submitted:r.submitted!==false }));
+    payrollEntries = (p.data||[]).map(r=>({ week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
+    loadsEntries = (loadsRes.data||[]).map(r=>({ week:r.week, truck:r.truck, loadId:r.load_id||"", basePay:r.base_pay??"", totalPay:r.total_pay??"", accessories:r.accessories??"", submitted:r.submitted!==false }));
+    partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
+    mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
     maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", receiptPath:r.receipt_path||"", submitted: r.submitted!==false }));
 
     const iftaRows = iftaRes.data||[];
@@ -1827,9 +1836,9 @@ function renderMain(){
     if(currentExpenseTab==="overview"){ renderExpensesOverview(); return; }
     if(currentExpenseTab==="fuel"){ renderFuelPage(); return; }
     if(currentExpenseTab==="parts"){ renderLogPage({ key:"parts", title:"Parts", subtitle:"Parts purchased per truck.",
-      colHeaders:["Date","Description","Price"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Parts", companyLabel:"PARTS YTD" }); return; }
+      colHeaders:["Date","Description","Price"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Parts", companyLabel:"PARTS YTD", submitMode:true, allowDocs:true }); return; }
     if(currentExpenseTab==="mechanic"){ renderLogPage({ key:"mechanic", title:"Mechanic / Repair Log", subtitle:"Repairs paid per truck.",
-      colHeaders:["Date Paid","Description of Repair","Amount Paid"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Mechanic", companyLabel:"MECHANIC YTD" }); return; }
+      colHeaders:["Date Paid","Description of Repair","Amount Paid"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Mechanic", companyLabel:"MECHANIC YTD", submitMode:true, allowDocs:true }); return; }
     if(currentExpenseTab==="receipts"){ renderReceiptsPage(); return; }
     if(currentExpenseTab==="operations"){ renderOperationsCostPage(); return; }
   }
@@ -2083,83 +2092,100 @@ async function handleComplianceDocUpload(idBase, mode){
   await showBlockingModal("Upload Successful", "The document was uploaded and saved.", "Done");
 }
 
+function paperworkStatus(d){
+  const missing = [];
+  if(!d.w9DocumentPath) missing.push("W-9");
+  if(!d.licenseDocumentPath) missing.push("CDL");
+  if(!d.medicalCardDocumentPath) missing.push("medical");
+  return missing.length ? "Missing " + missing.join(", ") : "Complete";
+}
+
 function renderFleetPage(){
-  let html = `<h1 class="page-title">Manage Fleet</h1><p class="page-sub">Deactivate a vehicle or driver to hide them from active use - their past records stay exactly as they are for tax purposes, and you can reactivate anytime.</p>`;
-
-  html += `<div class="fleet-section"><div class="section-label">Notifications</div>
-    <div class="card">
-      <h3>Push Reminders</h3>
-      <p class="hint" style="margin-bottom:12px;">Get a weekly reminder to log your data, plus an alert if a week is about to close with no fuel logged.</p>
-      <button class="btn-blue btn-sm" id="enableNotifBtn">Enable Notifications</button>
-      <button class="btn-danger btn-sm" id="disableNotifBtn" style="margin-left:8px;">Disable</button>
-      <div class="hint" id="notifStatus" style="margin-top:10px;"></div>
-    </div>
-  </div>`;
-
   const activeV = vehicles.filter(v=>v.active), inactiveV = vehicles.filter(v=>!v.active);
-  html += `<div class="fleet-section"><div class="section-label">Active Vehicles</div>`;
-  html += `<table class="logtable"><thead><tr><th>Truck ID</th><th>Added From Week</th><th></th></tr></thead><tbody>`;
+  const activeD = drivers.filter(d=>d.active), inactiveD = drivers.filter(d=>!d.active);
+  let html = `<h1 class="page-title">Roster</h1><p class="page-sub">${activeV.length} trucks &middot; ${activeD.length} drivers</p>`;
+
+  html += `<div class="section-label">Active trucks</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck ID</th><th>Running since</th><th></th></tr></thead><tbody>`;
   activeV.forEach(v=>{
     const idx = vehicles.indexOf(v);
-    html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek} (${weekDateRangeLabel(v.addedWeek)})</td><td><button class="btn-danger" data-deactivate-vehicle="${idx}">Deactivate</button></td></tr>`;
+    html += `<tr><td><span class="link-nav-truck" data-truck="${v.truckId}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline; font-weight:600;">${v.truckId}</span></td><td>Week ${v.addedWeek} &middot; ${weekDateRangeLabel(v.addedWeek)}</td><td><button class="btn-danger" data-deactivate-vehicle="${idx}">Deactivate</button></td></tr>`;
   });
-  if(!activeV.length) html += `<tr><td colspan="3" class="hint">No active vehicles yet - add one below.</td></tr>`;
-  html += `</tbody></table>`;
+  if(!activeV.length) html += `<tr><td colspan="3" class="hint">No active trucks yet - add one below.</td></tr>`;
+  html += `</tbody></table></div>`;
   html += `<div class="fleet-add-row">
-    <div class="field"><label>Truck ID</label><input type="text" id="newTruckId" placeholder="e.g. 045"></div>
-    <div class="field"><label>Added From Week</label><select id="newTruckWeek">${WEEKS.map(w=>`<option value="${w}">Week ${w} (${weekDateRangeLabel(w)})</option>`).join("")}</select></div>
-    <button class="btn-blue" id="addVehicleBtn">+ Add Vehicle</button>
-  </div></div>`;
+    <div class="field"><label>Truck ID</label><input type="text" id="newTruckId" placeholder="045"></div>
+    <div class="field"><label>VIN</label><input type="text" id="newTruckVin" placeholder="17 characters"></div>
+    <div class="field"><label>Licence plate</label><input type="text" id="newTruckPlate" placeholder="TX 0A-0000"></div>
+    <div class="field"><label>Running from week</label><select id="newTruckWeek">${WEEKS.map(w=>`<option value="${w}">Week ${w} (${weekDateRangeLabel(w)})</option>`).join("")}</select></div>
+    <button class="btn-blue" id="addVehicleBtn">+ Add Truck</button>
+  </div>`;
 
   if(inactiveV.length){
-    html += `<div class="fleet-section"><div class="section-label">Inactive Vehicles</div>`;
-    html += `<table class="logtable"><thead><tr><th>Truck ID</th><th>Added From Week</th><th></th></tr></thead><tbody>`;
+    html += `<div class="section-label">Inactive trucks</div>`;
+    html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck ID</th><th>Ran from</th><th></th></tr></thead><tbody>`;
     inactiveV.forEach(v=>{
       const idx = vehicles.indexOf(v);
-      html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek}</td><td><button class="btn-success" data-reactivate-vehicle="${idx}">Reactivate</button></td></tr>`;
+      html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek}</td><td><button class="btn-success" data-reactivate-vehicle="${idx}">Activate</button></td></tr>`;
     });
     html += `</tbody></table></div>`;
   }
 
-  const activeD = drivers.filter(d=>d.active), inactiveD = drivers.filter(d=>!d.active);
-  html += `<div class="fleet-section"><div class="section-label">Active Drivers</div>`;
-  html += `<table class="logtable"><thead><tr><th>Driver Name</th><th></th></tr></thead><tbody>`;
+  html += `<div class="section-label">Active drivers</div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Paperwork</th><th></th></tr></thead><tbody>`;
   activeD.forEach(d=>{
     const idx = drivers.indexOf(d);
-    html += `<tr><td>${d.name}</td><td><button class="btn-danger" data-deactivate-driver="${idx}">Deactivate</button></td></tr>`;
+    const pw = paperworkStatus(d);
+    html += `<tr><td><span class="link-nav-driver" data-driver="${d.name}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline; font-weight:600;">${d.name}</span></td><td><span class="tag ${pw==='Complete'?'tag-neutral':'tag-accent'}">${pw}</span></td><td><button class="btn-danger" data-deactivate-driver="${idx}">Deactivate</button></td></tr>`;
   });
-  if(!activeD.length) html += `<tr><td colspan="2" class="hint">No active drivers yet - add one below.</td></tr>`;
-  html += `</tbody></table>`;
+  if(!activeD.length) html += `<tr><td colspan="3" class="hint">No active drivers yet - add one below.</td></tr>`;
+  html += `</tbody></table></div>`;
   html += `<div class="fleet-add-row">
-    <div class="field"><label>Driver Name</label><input type="text" id="newDriverName" placeholder="e.g. John Smith"></div>
+    <div class="field"><label>Driver name</label><input type="text" id="newDriverName" placeholder="First and last name"></div>
+    <div class="field"><label>Driver licence no.</label><input type="text" id="newDriverLicense" placeholder="TX-D0000000"></div>
     <button class="btn-blue" id="addDriverBtn">+ Add Driver</button>
-  </div></div>`;
+  </div>`;
 
   if(inactiveD.length){
-    html += `<div class="fleet-section"><div class="section-label">Inactive Drivers</div>`;
-    html += `<table class="logtable"><thead><tr><th>Driver Name</th><th></th></tr></thead><tbody>`;
+    html += `<div class="section-label">Inactive drivers</div>`;
+    html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Paperwork</th><th></th></tr></thead><tbody>`;
     inactiveD.forEach(d=>{
       const idx = drivers.indexOf(d);
-      html += `<tr><td>${d.name}</td><td><button class="btn-success" data-reactivate-driver="${idx}">Reactivate</button></td></tr>`;
+      html += `<tr><td>${d.name}</td><td><span class="tag tag-neutral">${paperworkStatus(d)}</span></td><td><button class="btn-success" data-reactivate-driver="${idx}">Activate</button></td></tr>`;
     });
     html += `</tbody></table></div>`;
   }
+
+  html += `<div class="section-label">Reminders</div>
+    <div class="card">
+      <h3>Push Reminders</h3>
+      <p class="hint" style="margin-bottom:12px;">A weekly nudge to log the week, plus a warning when a week is about to close with fuel missing.</p>
+      <button class="btn-blue btn-sm" id="enableNotifBtn">Turn on reminders</button>
+      <button class="btn-danger btn-sm" id="disableNotifBtn" style="margin-left:8px;">Turn off</button>
+      <div class="hint" id="notifStatus" style="margin-top:10px;"></div>
+    </div>`;
 
   mainArea.innerHTML = html;
 
   document.getElementById("addVehicleBtn").addEventListener("click", ()=>{
     const id = document.getElementById("newTruckId").value.trim();
+    const vin = document.getElementById("newTruckVin").value.trim();
+    const plate = document.getElementById("newTruckPlate").value.trim();
     const wk = parseInt(document.getElementById("newTruckWeek").value);
-    if(!id){ showAppToast("Enter a Truck ID.", "warning"); return; }
-    if(vehicleExists(id)){ showAppToast("That Truck ID already exists.", "warning"); return; }
-    vehicles.push({ truckId:id, addedWeek:wk, active:true });
+    if(!id){ showAppToast("Enter a truck ID first.", "warning"); return; }
+    if(vehicleExists(id)){ showAppToast("Truck " + id + " is already on the roster.", "warning"); return; }
+    if(!vin || !plate){ showAppToast("Enter the VIN and the licence plate before adding the truck.", "warning"); return; }
+    vehicles.push({ truckId:id, addedWeek:wk, active:true, vin, plate });
     markUnsaved(); renderMain();
+    showAppToast("Truck " + id + " added to the roster.", "success");
   });
   document.getElementById("addDriverBtn").addEventListener("click", ()=>{
     const name = document.getElementById("newDriverName").value.trim();
-    if(!name){ showAppToast("Enter a driver name.", "warning"); return; }
-    if(drivers.some(d=>d.name===name)){ showAppToast("That driver already exists.", "warning"); return; }
-    drivers.push({ name, active:true });
+    const lic = document.getElementById("newDriverLicense").value.trim();
+    if(!name){ showAppToast("Enter a driver name first.", "warning"); return; }
+    if(drivers.some(d=>d.name===name)){ showAppToast(name + " is already on the roster.", "warning"); return; }
+    if(!lic){ showAppToast("Enter the driver licence number before adding the driver.", "warning"); return; }
+    drivers.push({ name, active:true, licenseNumber:lic });
     markUnsaved(); renderMain();
   });
   mainArea.querySelectorAll("[data-deactivate-vehicle]").forEach(b=>{
@@ -2173,6 +2199,12 @@ function renderFleetPage(){
   });
   mainArea.querySelectorAll("[data-reactivate-driver]").forEach(b=>{
     b.addEventListener("click", ()=>{ drivers[parseInt(b.dataset.reactivateDriver)].active=true; markUnsaved(); renderMain(); });
+  });
+  mainArea.querySelectorAll(".link-nav-truck").forEach(el=>{
+    el.addEventListener("click", ()=>{ openProfile("truck", el.dataset.truck); });
+  });
+  mainArea.querySelectorAll(".link-nav-driver").forEach(el=>{
+    el.addEventListener("click", ()=>{ openProfile("driver", el.dataset.driver); });
   });
 
   document.getElementById("enableNotifBtn").addEventListener("click", async ()=>{
@@ -2193,27 +2225,184 @@ async function refreshNotifStatus(){
   el.textContent = labels[status] || "";
 }
 
+/* ============ PROFILE (truck/driver detail overlay) ============ */
+function openProfile(kind, id){
+  const overlay = document.createElement("div");
+  overlay.id = "profileOverlay";
+  overlay.style.cssText = "position:fixed; inset:0; background:var(--bg); z-index:1000; overflow-y:auto;";
+  document.body.appendChild(overlay);
+  renderProfile(overlay, kind, id);
+}
+function closeProfile(){
+  const el = document.getElementById("profileOverlay");
+  if(el) el.remove();
+}
+function fileRowHTML(kind, desc, hasDoc, subject){
+  const status = hasDoc ? "On file" : "Missing";
+  const cls = hasDoc ? "tag-neutral" : "tag-accent";
+  const action = hasDoc ? "View" : "Upload";
+  return { kind, desc: desc||"-", status, cls, action, hasDoc, subject };
+}
+function dateRowHTML(item, date, done){
+  const u = getComplianceUrgency(date, done);
+  const label = date ? date : "-";
+  return { item, due: label, status: u.status || "No date", cls: u.level==="expired"||u.level==="due-soon" ? "tag-accent" : "tag-neutral" };
+}
+function renderProfile(overlay, kind, id){
+  const M = moneyStr;
+  let html = "";
+  if(kind==="truck"){
+    const v = vehicles.find(x=>x.truckId===id);
+    if(!v){ closeProfile(); return; }
+    const cs = contractsEntries.filter(e=>e.truck===id).map(e=>computeRow(id,e));
+    const contracts = cs.reduce((a,r)=>a+r.contractRate,0);
+    const acc = cs.reduce((a,r)=>a+r.totalAcc,0);
+    const fuel = fuelEntries.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const parts = partsLog.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const mech = mechanicLog.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const ops = computeVehicleOperationsCost(v);
+    const pay = payrollEntries.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const exp = fuel+parts+mech+ops;
+    const driverNames = [...new Set(payrollEntries.filter(e=>e.truck===id && e.driver).map(e=>e.driver))];
+    const files = [fileRowHTML("2290 receipt", "HVUT year ending " + (v.hvut2290Expiration||"-"), !!v.hvut2290ReceiptPath, "Truck "+id)]
+      .concat(partsLog.filter(e=>e.truck===id).map(e=>fileRowHTML("Parts receipt", e.description, !!e.receiptPath, "Truck "+id)))
+      .concat(mechanicLog.filter(e=>e.truck===id).map(e=>fileRowHTML("Mechanic invoice", e.description, !!e.receiptPath, "Truck "+id)))
+      .concat(maintenanceLog.filter(e=>e.truck===id).map(e=>fileRowHTML("Service sheet", e.description, !!e.receiptPath, "Truck "+id)));
+    const hist = WEEKS.filter(w=>w>=v.addedWeek).map(w=>{
+      const e = contractsEntries.find(x=>x.week===w && x.truck===id);
+      const m = e ? computeRow(id,e) : {contractRate:0, totalAcc:0};
+      const fu = getFuelEntry(w,id).amount;
+      return { a:"Week "+w, b:M(m.contractRate), c:M(m.totalAcc), d: fu ? M(parseFloat(fu)) : "Not logged" };
+    });
+    html = `<div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:14px clamp(16px,3vw,36px); border-bottom:2px solid var(--charcoal);">
+      <button class="btn-ghost btn-sm" id="profileBackBtn" style="gap:8px;">&larr; Back</button>
+      <div style="font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-muted);">Truck profile</div>
+    </div>
+    <div style="max-width:1080px; padding:26px clamp(16px,3vw,36px) 90px;">
+      <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+        <h1 style="font-size:clamp(28px,4vw,40px); margin:0; letter-spacing:-0.01em;">Truck ${id}</h1>
+        <span class="tag ${v.active?'tag-neutral':'tag-accent'}">${v.active?'Active':'Inactive'}</span>
+      </div>
+      <p style="max-width:62ch; font-size:13px; color:var(--text-muted); margin:8px 0 22px;">VIN ${v.vin||'not recorded'} &middot; plate ${v.plate||'not recorded'} &middot; running since week ${v.addedWeek}${driverNames.length?' &middot; driven by '+driverNames.join(', '):''}</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%,200px),1fr)); border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
+        <div style="padding:16px 18px; border-right:1px solid var(--border);"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Gross YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(contracts+acc)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Contracts ${M(contracts)} &middot; acc ${M(acc)}</div></div>
+        <div style="padding:16px 18px; border-right:1px solid var(--border);"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Expenses YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(exp)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Fuel ${M(fuel)} &middot; parts ${M(parts)}</div></div>
+        <div style="padding:16px 18px;"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Net YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(contracts+acc-exp-pay)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">After driver pay</div></div>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Files on record</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${files.filter(x=>x.status==='On file').length} of ${files.length} on file</div></div>
+      <div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Document</th><th>What it covers</th><th>Status</th><th></th></tr></thead><tbody>
+        ${files.map(f=>`<tr><td style="font-weight:600;">${f.kind}</td><td style="color:var(--text-muted);">${f.desc}</td><td><span class="tag ${f.cls}">${f.status}</span></td><td><button class="btn-ghost btn-sm profile-doc-action" data-doc-kind="${f.kind}">${f.action}</button></td></tr>`).join("")}
+      </tbody></table></div>
+      <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Dates that expire</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>
+      <div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Item</th><th>Due</th><th>Status</th></tr></thead><tbody>
+        ${[dateRowHTML("Annual inspection", v.inspectionExpiration, v.inspectionCompleted), dateRowHTML("Registration", v.registrationExpiration, v.registrationCompleted), dateRowHTML("2290 (HVUT)", v.hvut2290Expiration, v.hvut2290Completed)].map(x=>`<tr><td style="font-weight:600;">${x.item}</td><td>${x.due}</td><td><span class="tag ${x.cls}">${x.status}</span></td></tr>`).join("")}
+      </tbody></table></div>
+    </div>`;
+  } else {
+    const dr = drivers.find(x=>x.name===id);
+    if(!dr){ closeProfile(); return; }
+    const rows = payrollEntries.filter(e=>e.driver===dr.name);
+    const total = rows.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const wks = [...new Set(rows.map(e=>e.week))].sort((a,b)=>a-b);
+    const trucks = [...new Set(rows.map(e=>e.truck).filter(Boolean))];
+    const files = [
+      fileRowHTML("W-9", "Tax details on record", !!dr.w9DocumentPath, dr.name),
+      fileRowHTML("CDL scan", "Licence expiring " + (dr.licenseExpiration||"-"), !!dr.licenseDocumentPath, dr.name),
+      fileRowHTML("Medical card scan", "Card expiring " + (dr.medicalCardExpiration||"-"), !!dr.medicalCardDocumentPath, dr.name)
+    ];
+    const hist = rows.slice().sort((a,b)=>b.week-a.week).map(e=>({ a:"Week "+e.week, b:weekDateRangeLabel(e.week), c: e.truck?("Truck "+e.truck):"-", d:M(parseFloat(e.amount)||0) }));
+    html = `<div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:14px clamp(16px,3vw,36px); border-bottom:2px solid var(--charcoal);">
+      <button class="btn-ghost btn-sm" id="profileBackBtn" style="gap:8px;">&larr; Back</button>
+      <div style="font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-muted);">Driver profile</div>
+    </div>
+    <div style="max-width:1080px; padding:26px clamp(16px,3vw,36px) 90px;">
+      <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+        <h1 style="font-size:clamp(28px,4vw,40px); margin:0; letter-spacing:-0.01em;">${dr.name}</h1>
+        <span class="tag ${dr.active?'tag-neutral':'tag-accent'}">${dr.active?'Active':'Inactive'}</span>
+      </div>
+      <p style="max-width:62ch; font-size:13px; color:var(--text-muted); margin:8px 0 22px;">Licence ${dr.licenseNumber||'not recorded'} &middot; ${trucks.length?('runs '+trucks.map(t=>'truck '+t).join(', ')):'no truck logged yet'}.</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%,200px),1fr)); border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
+        <div style="padding:16px 18px; border-right:1px solid var(--border);"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Paid YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(total)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">${wks.length} week${wks.length===1?'':'s'} paid</div></div>
+        <div style="padding:16px 18px;"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Paperwork</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${files.every(x=>x.status==='On file')?'Complete':'Incomplete'}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">${files.filter(x=>x.status==='On file').length} of 3 on file</div></div>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Files on record</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${files.filter(x=>x.status==='On file').length} of 3 on file</div></div>
+      <div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Document</th><th>What it covers</th><th>Status</th><th></th></tr></thead><tbody>
+        ${files.map(f=>`<tr><td style="font-weight:600;">${f.kind}</td><td style="color:var(--text-muted);">${f.desc}</td><td><span class="tag ${f.cls}">${f.status}</span></td><td><button class="btn-ghost btn-sm profile-doc-action" data-doc-kind="${f.kind}">${f.action}</button></td></tr>`).join("")}
+      </tbody></table></div>
+      <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Dates that expire</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>
+      <div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Item</th><th>Due</th><th>Status</th></tr></thead><tbody>
+        ${[dateRowHTML("CDL licence", dr.licenseExpiration, dr.licenseCompleted), dateRowHTML("Medical card", dr.medicalCardExpiration, dr.medicalCardCompleted)].map(x=>`<tr><td style="font-weight:600;">${x.item}</td><td>${x.due}</td><td><span class="tag ${x.cls}">${x.status}</span></td></tr>`).join("")}
+      </tbody></table></div>
+      <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Payroll history</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Recalled from the ledger</div></div>
+      ${hist.length ? `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Week</th><th>Dates</th><th>Truck</th><th>Paid</th></tr></thead><tbody>${hist.map(h=>`<tr><td style="font-weight:600;">${h.a}</td><td>${h.b}</td><td>${h.c}</td><td>${h.d}</td></tr>`).join("")}</tbody></table></div>` : `<div class="banner soon">Nothing logged against this record yet.</div>`}
+    </div>`;
+  }
+  overlay.innerHTML = html;
+  document.getElementById("profileBackBtn").addEventListener("click", closeProfile);
+  overlay.querySelectorAll(".profile-doc-action").forEach(btn=>{
+    btn.addEventListener("click", ()=>showAppToast("Open Roster or Docket to upload/view the " + btn.dataset.docKind + ".", "warning"));
+  });
+}
+
 /* ============ CONTRACTS ============ */
+let contractsTruckIdx = 0;
+
 function renderContractsPage(){
   if(currentView.type==="summary"){ renderDashboard(); return; }
   const { week } = currentView;
   const active = vehiclesForWeek(week, showInactive);
-  let html = `<h1 class="page-title"><span class="clickable-title" id="contractsHomeTitle">Contracts</span> - Week ${week}</h1><p class="page-sub">${weekDateRangeLabel(week)} (Sun-Sat) &nbsp;|&nbsp; Acc = Accessories</p>`;
+  let html = `<h1 class="page-title"><span class="clickable-title" id="contractsHomeTitle">Contracts</span></h1><p class="page-sub">Week ${week} &middot; ${weekDateRangeLabel(week)} &middot; Sun-Sat</p>`;
   html += weekPickerHTML(week, "contractsWeekSelect");
   if(!active.length){
-    html += `<div class="banner"><b>No vehicles active this week yet</b>Add one under Manage Fleet (hamburger menu) with an earlier "Added From Week," or check "Show inactive too" above.</div>`;
+    html += `<div class="banner"><b>No trucks running this week</b>Add a truck on the Roster with an earlier start week, or switch on inactive trucks above.</div>`;
     mainArea.innerHTML = html;
-    wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+    wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; contractsTruckIdx=0; renderMain(); });
     document.getElementById("contractsHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
     return;
   }
-  html += `<div class="cards">`;
-  active.forEach(v=>{
-    const truck = v.truckId;
-    const d = getContractEntry(week, truck);
-    const row = computeRow(truck, d);
-    html += `<div class="card" data-truck="${truck}">
-      <h3>Truck <span class="tag">${truck}${v.active?'':' (inactive)'}</span></h3>
+  const tIdx = Math.min(contractsTruckIdx, active.length-1);
+  const v = active[tIdx];
+  const truck = v.truckId;
+  const d = getContractEntry(week, truck);
+  const row = computeRow(truck, d);
+  const locked = !!d.submitted;
+
+  html += `<div style="display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; padding:22px 0 14px;">
+    <div><div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Truck</div>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:46px; line-height:1; letter-spacing:-0.01em; margin-top:6px;">${truck}</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+      <button class="btn-ghost btn-sm" id="contractPrevTruck" style="width:40px; height:40px; padding:0;">&larr;</button>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:12px; letter-spacing:.1em; text-transform:uppercase; min-width:82px; text-align:center;">${tIdx+1} of ${active.length}</div>
+      <button class="btn-ghost btn-sm" id="contractNextTruck" style="width:40px; height:40px; padding:0;">&rarr;</button>
+    </div>
+  </div>`;
+
+  html += `<div style="display:flex; flex-wrap:wrap; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:24px;">`;
+  active.forEach((cv,i)=>{
+    const filled = !!getContractEntry(week, cv.truckId).contractId;
+    html += `<button type="button" class="contract-chip" data-chip-idx="${i}" style="position:relative; display:flex; align-items:center; gap:8px; background:transparent; border:0; border-right:1px solid var(--border); cursor:pointer; padding:11px 16px; font-family:'Archivo',sans-serif; font-weight:600; font-size:13px; color:var(--charcoal);">
+      ${cv.truckId}
+      <span style="width:7px; height:7px; ${filled?'background:var(--blue);':'border:1px solid var(--neutral-500);'}"></span>
+      ${i===tIdx ? `<span style="position:absolute; left:0; right:0; top:-1px; height:2px; background:var(--blue);"></span>` : ''}
+    </button>`;
+  });
+  html += `</div>`;
+
+  if(locked){
+    html += `<div class="banner soon" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:14px; flex:1;">
+        <div><div class="hint">Contract ID</div><div style="font-weight:600;">${d.contractId||'-'}</div></div>
+        <div><div class="hint">Block rate</div><div style="font-weight:600;">${d.blockRate?moneyStr(parseFloat(d.blockRate)):'-'}</div></div>
+        <div><div class="hint">Blocks</div><div style="font-weight:600;">${d.numBlocks||'0'}</div></div>
+        <div><div class="hint">1. Payout+acc</div><div style="font-weight:600;">${d.block1?moneyStr(parseFloat(d.block1)):'-'}</div></div>
+        <div><div class="hint">2. Payout+acc</div><div style="font-weight:600;">${d.block2?moneyStr(parseFloat(d.block2)):'-'}</div></div>
+        <div><div class="hint">3. Payout+acc</div><div style="font-weight:600;">${d.block3?moneyStr(parseFloat(d.block3)):'-'}</div></div>
+      </div>
+      <button class="btn-ghost btn-sm" id="contractEditBtn">Edit this entry</button>
+    </div>`;
+  } else {
+    html += `<div class="cards"><div class="card" data-truck="${truck}">
       ${fieldHTML(`ci-${week}-${truck}`,"Contract ID", d.contractId)}
       <div class="blockgrid">${fieldHTML(`br-${week}-${truck}`,"Block Rate", d.blockRate, {type:'number'})}${fieldHTML(`nb-${week}-${truck}`,"Blocks (QTY)", d.numBlocks, {type:'number', step:'1'})}</div>
       <div class="blockgrid" style="grid-template-columns:1fr 1fr 1fr;">
@@ -2226,14 +2415,58 @@ function renderContractsPage(){
         <div class="field readonly"><label>Contract Payout</label><input readonly value="$${row.contractAcc.toFixed(2)}"></div>
         <div class="field readonly"><label>Total Accessories</label><input readonly value="$${row.totalAcc.toFixed(2)}"></div>
       </div>
-    </div>`;
-  });
-  html += `</div>`;
+      <button class="btn-blue btn-sm" id="contractSaveBtn" style="margin-top:14px;">Save week ${week} for truck ${truck}</button>
+    </div></div>`;
+  }
+
+  // ---- Loads ----
+  const loadRows = getLoadsForWeekTruck(week, truck);
+  html += `<div class="section-label">Loads booked from the load board</div>`;
+  if(loadRows.length){
+    html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Load ID</th><th>Base pay</th><th>Total pay</th><th>Accessories</th><th></th></tr></thead><tbody>`;
+    loadRows.forEach((l)=>{
+      const gi = loadsEntries.indexOf(l);
+      if(l.submitted){
+        html += `<tr data-load-idx="${gi}">
+          <td style="font-weight:600;">${l.loadId||'-'}</td><td>${moneyStr(parseFloat(l.basePay)||0)}</td><td>${moneyStr(parseFloat(l.totalPay)||0)}</td><td>${moneyStr(parseFloat(l.accessories)||0)}</td>
+          <td style="white-space:nowrap;"><button class="btn-ghost btn-sm load-edit">Edit</button> <button class="load-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
+        </tr>`;
+      } else {
+        html += `<tr data-load-idx="${gi}">
+          <td><input class="load-field" data-f="loadId" type="text" value="${l.loadId||''}" style="width:100px;"></td>
+          <td><input class="load-field" data-f="basePay" type="number" step="0.01" value="${l.basePay||''}" style="width:90px;"></td>
+          <td><input class="load-field" data-f="totalPay" type="number" step="0.01" value="${l.totalPay||''}" style="width:90px;"></td>
+          <td><input class="load-field" data-f="accessories" type="number" step="0.01" value="${l.accessories||''}" style="width:90px;"></td>
+          <td style="white-space:nowrap;"><button class="btn-blue btn-sm load-save">Save</button> <button class="load-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
+        </tr>`;
+      }
+    });
+    html += `</tbody></table></div>`;
+  } else {
+    html += `<div class="hint" style="margin-bottom:10px;">No loads booked for this truck this week.</div>`;
+  }
+  html += `<div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLoadBtn">+ Add load</button></div>`;
+
   mainArea.innerHTML = html;
-  wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; renderMain(); });
+  wireWeekPicker("contractsWeekSelect", w=>{ currentView={type:"week", week:w}; contractsTruckIdx=0; renderMain(); });
   document.getElementById("contractsHomeTitle").addEventListener("click", ()=>{ flushIfNeeded(); currentView={type:"summary"}; renderMain(); });
-  active.forEach(v=>{
-    const truck=v.truckId;
+  document.getElementById("contractPrevTruck").addEventListener("click", ()=>{ contractsTruckIdx = (tIdx-1+active.length)%active.length; renderMain(); });
+  document.getElementById("contractNextTruck").addEventListener("click", ()=>{ contractsTruckIdx = (tIdx+1)%active.length; renderMain(); });
+  mainArea.querySelectorAll(".contract-chip").forEach(btn=>{
+    btn.addEventListener("click", ()=>{ contractsTruckIdx = parseInt(btn.dataset.chipIdx); renderMain(); });
+  });
+
+  const editBtn = document.getElementById("contractEditBtn");
+  if(editBtn) editBtn.addEventListener("click", ()=>{ d.submitted=false; markUnsaved(); renderMain(); });
+  const saveBtn = document.getElementById("contractSaveBtn");
+  if(saveBtn) saveBtn.addEventListener("click", ()=>{
+    if(!String(d.contractId||"").trim() || !String(d.blockRate||"").trim() || !String(d.numBlocks||"").trim()){
+      showAppToast("Contract ID, block rate and blocks are needed before saving.", "warning");
+      return;
+    }
+    d.submitted = true; markUnsaved(); renderMain();
+  });
+  if(!locked){
     const map={ci:'contractId',br:'blockRate',nb:'numBlocks',b1:'block1',b2:'block2',b3:'block3'};
     Object.keys(map).forEach(prefix=>{
       const el = document.getElementById(`${prefix}-${week}-${truck}`);
@@ -2242,6 +2475,30 @@ function renderContractsPage(){
         markUnsaved(); updateContractTotalsInline(week,truck);
       });
     });
+  }
+
+  document.getElementById("addLoadBtn").addEventListener("click", ()=>{
+    loadsEntries.push({ week, truck, loadId:"", basePay:"", totalPay:"", accessories:"", submitted:false });
+    markUnsaved(); renderMain();
+  });
+  mainArea.querySelectorAll("[data-load-idx]").forEach(tr=>{
+    const gi = parseInt(tr.dataset.loadIdx);
+    const entry = loadsEntries[gi];
+    tr.querySelectorAll(".load-field").forEach(inp=>{
+      inp.addEventListener("input", ()=>{ entry[inp.dataset.f]=inp.value; markUnsaved(); });
+    });
+    const saveL = tr.querySelector(".load-save");
+    if(saveL) saveL.addEventListener("click", ()=>{
+      if(!String(entry.loadId||"").trim() || !String(entry.totalPay||"").trim()){
+        showAppToast("A load needs its ID and total pay before saving.", "warning");
+        return;
+      }
+      entry.submitted = true; markUnsaved(); renderMain();
+    });
+    const editL = tr.querySelector(".load-edit");
+    if(editL) editL.addEventListener("click", ()=>{ entry.submitted=false; markUnsaved(); renderMain(); });
+    const delL = tr.querySelector(".load-delete");
+    if(delL) delL.addEventListener("click", ()=>{ loadsEntries.splice(gi,1); markUnsaved(); renderMain(); });
   });
 }
 function updateContractTotalsInline(week,truck){
@@ -2395,22 +2652,24 @@ function renderDashboard(){
   } else {
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 18px;">`;
     perTruck.forEach(t=>{
-      const chips = [
-        { label:"NET", value:t.netYTD },
-        { label:"GROSS", value:t.grossYTD },
-        { label:"CONTRACTS", value:t.ytdContracts },
-        { label:"ACC", value:t.ytdAccessories },
-        { label:"EXP", value:t.ytdExpenses },
+      const defs = [
+        { k:"net", label:"NET", note:"Gross less every truck expense", value:t.netYTD },
+        { k:"gross", label:"GROSS", note:"Contracts plus accessories", value:t.grossYTD },
+        { k:"contracts", label:"CONTRACTS", note:"Block rate \u00d7 blocks", value:t.ytdContracts },
+        { k:"acc", label:"ACC", note:"Fuel surcharge and tolls", value:t.ytdAccessories },
+        { k:"exp", label:"EXP", note:"Fuel, parts, mechanic, operations", value:t.ytdExpenses },
       ];
+      const sel = ledgerMetricSel[t.truck] || "net";
+      const def = defs.find(x=>x.k===sel) || defs[0];
       html += `<div style="border: 1px solid var(--border); border-top: 2px solid var(--charcoal); padding: 15px 17px 0; min-width: 0; display: flex; flex-direction: column;">
         <div style="display: flex; align-items: baseline; gap: 10px;">
           <span class="truck-num-open" data-truck="${t.truck}" style="background: transparent; border: 0; padding: 0; cursor: pointer; font-family: 'Archivo',sans-serif; font-weight: 800; font-size: 19px; color: var(--charcoal); border-bottom: 2px solid var(--blue);">${t.truck}</span>
-          <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-left: auto;">Net</div>
+          <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-left: auto;">${def.label}</div>
         </div>
-        <div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.01em; margin: 14px 0 5px; overflow-wrap: anywhere;">${moneyStr(t.netYTD)}</div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">Gross less every truck expense</div>
+        <div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.01em; margin: 14px 0 5px; overflow-wrap: anywhere;">${moneyStr(def.value)}</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">${def.note}</div>
         <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: auto -17px 0; border-top: 1px solid var(--border);">
-          ${chips.map(c=>`<button type="button" style="position: relative; background: transparent; border: 0; border-right: 1px solid var(--border); cursor: pointer; padding: 9px 8px; font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; border-bottom: 1px solid var(--border);">${c.label}</button>`).join("")}
+          ${defs.map(c=>`<button type="button" class="ledger-metric-chip" data-truck="${t.truck}" data-metric="${c.k}" style="position: relative; background: transparent; border: 0; border-right: 1px solid var(--border); cursor: pointer; padding: 9px 8px; font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: ${c.k===sel?'var(--blue-700)':'var(--text-muted)'}; white-space: nowrap; border-bottom: 1px solid var(--border);">${c.label}</button>`).join("")}
         </div>
       </div>`;
     });
@@ -2456,6 +2715,9 @@ function renderDashboard(){
   });
   mainArea.querySelectorAll(".truck-num-open").forEach(el=>{
     el.addEventListener("click", ()=>{ currentModule="contracts"; currentView={type:"week", week:currentWeekNumber()}; renderMain(); });
+  });
+  mainArea.querySelectorAll(".ledger-metric-chip").forEach(el=>{
+    el.addEventListener("click", ()=>{ ledgerMetricSel[el.dataset.truck] = el.dataset.metric; renderMain(); });
   });
 }
 
@@ -2885,7 +3147,7 @@ function wireLogTable(cfg){
     const submitBtn = tr.querySelector(".log-submit");
     if(submitBtn) submitBtn.addEventListener("click", ()=>{
       if(!requiredFieldsFilled(cfg, entries[idx])){
-        showAppToast("Please fill in the truck and every field before submitting.", "warning");
+        showAppToast("Fill in the truck and every field before saving.", "warning");
         return;
       }
       entries[idx].submitted = true;
