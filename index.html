@@ -41,7 +41,7 @@
   header .titles .sub{font-size:10px; color:var(--text-muted); letter-spacing:.14em; text-transform:uppercase; margin-top:2px;}
   header .titles .underline{display:none;}
   header .toolbar{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-  button{font-family:inherit; cursor:pointer; border:1px solid transparent; padding:9px 14px; font-size:13px; font-weight:600; transition:background .15s,opacity .15s;}
+  button{font-family:inherit; cursor:pointer; border:1px solid transparent; padding:9px 14px; font-size:13px; font-weight:600; transition:background .15s,opacity .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
   button:hover{opacity:.88;} button:disabled{opacity:.4; cursor:not-allowed;}
   .btn-blue{background:var(--blue); color:#fff; border-color:var(--blue);}
   .btn-blue:hover{background:#8a3115; opacity:1;}
@@ -60,10 +60,11 @@
   .tab-nav button.active::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--blue);}
   .app-body{flex:1; display:flex; overflow:hidden; min-height:0;}
   main{flex:1; overflow-y:auto; padding:26px clamp(16px,3vw,36px) 60px; min-width:0;}
-  .page-title{font-size:32px; font-weight:600; margin:0 0 4px 0; letter-spacing:-0.005em;}
+  .page-header{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:22px;}
+  .page-title{font-size:38px; font-weight:600; margin:0; letter-spacing:-0.005em;}
   .page-title .clickable-title{cursor:pointer; text-decoration:underline; text-decoration-color:var(--blue); text-underline-offset:4px;}
   .page-title .clickable-title:hover{color:var(--blue);}
-  .page-sub{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); margin:0 0 22px 0;}
+  .page-sub{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap; margin:0;}
   .section-label{font-size:13px; font-weight:600; color:var(--charcoal); text-transform:uppercase; letter-spacing:.08em; margin:30px 0 12px 0; display:flex; align-items:baseline; gap:12px;}
   .section-label:first-of-type{margin-top:0;}
   .section-label::after{content:""; flex:1; height:1px; background:var(--border);}
@@ -239,7 +240,7 @@
   <div class="titles"><div class="name">FLEETHUB</div><div class="sub">Transport management, kept on one screen</div></div>
   </div>
   <div class="toolbar">
-    <button class="btn-ghost btn-sm" data-action="export">Export .xlsx</button>
+    <button class="btn-ghost btn-sm" data-action="export" style="display:inline-flex; align-items:center; gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3v12"></path><path d="M7 11l5 5 5-5"></path><path d="M4 20h16"></path></svg>Export .xlsx</button>
     <button class="btn-ghost btn-sm" data-action="signout">Sign out</button>
   </div>
 </header>
@@ -415,22 +416,26 @@ function daysBetween(today, expDateStr){
   const t = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
   return Math.round((exp - t) / 86400000);
 }
+/* Matches the design's urgency() exactly: only two tag colors exist app-wide
+   (tag-accent for anything within 14 days or overdue, tag-neutral for
+   everything else - there is no third "outline" tier). */
 function getComplianceUrgency(expDateStr, completed){
-  if(!expDateStr) return { level:"none", daysUntil:null };
+  if(!expDateStr) return { level:"none", daysUntil:null, status:"No date", cls:"tag-neutral" };
   const today = new Date();
-  if(completed) return { level:"completed", daysUntil: daysBetween(today, expDateStr) };
+  if(completed) return { level:"completed", daysUntil: daysBetween(today, expDateStr), status:"Completed", cls:"tag-neutral" };
   const d = daysBetween(today, expDateStr);
-  if(d < 0) return { level:"expired", daysUntil:d };
-  if(d <= 14) return { level:"due-soon", daysUntil:d };
-  if(d <= 30) return { level:"upcoming", daysUntil:d };
-  return { level:"ok", daysUntil:d };
+  if(d < 0) return { level:"expired", daysUntil:d, status:`Overdue ${Math.abs(d)}d`, cls:"tag-accent" };
+  if(d <= 14) return { level:"due-soon", daysUntil:d, status:`Due in ${d}d`, cls:"tag-accent" };
+  if(d <= 30) return { level:"upcoming", daysUntil:d, status:`In ${d}d`, cls:"tag-neutral" };
+  return { level:"ok", daysUntil:d, status:`Clear · ${d}d`, cls:"tag-neutral" };
 }
-function urgencyBadgeHTML(urgency){
-  const labels = { none:"", ok:"OK", upcoming:"Upcoming", "due-soon":"Due Soon", expired:"EXPIRED", completed:"Completed" };
-  const colors = { ok:"#2A7A4E", upcoming:"#B8860B", "due-soon":"#C1703D", expired:"#C0392B", completed:"#5B8DBE" };
-  if(urgency.level==="none") return "";
-  const dayTxt = urgency.daysUntil===null ? "" : (urgency.daysUntil>=0 ? ` (${urgency.daysUntil}d)` : ` (${Math.abs(urgency.daysUntil)}d overdue)`);
-  return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:bold; color:#fff; background:${colors[urgency.level]||'#888'};">${labels[urgency.level]}${urgency.level!=='completed'?dayTxt:''}</span>`;
+/* "Sep 05, 2026" - the friendly date label used everywhere a due date is
+   shown as read-only text (as opposed to an editable <input type="date">,
+   which keeps the raw ISO value). */
+function dueLabel(dateStr){
+  if(!dateStr) return "-";
+  const p = dateStr.split("-");
+  return `${MONTH_NAMES[parseInt(p[1],10)-1]} ${p[2]}, ${p[0]}`;
 }
 
 function computeOperationsCostTotal(){
@@ -1774,6 +1779,25 @@ function fieldHTML(id,label,value,opts){
   return `<div class="field"><label>${label}</label><input type="${isNumeric?'text':(opts.type||'text')}" ${inputmode?`inputmode="${inputmode}"`:''} id="${id}" value="${value!==undefined?value:''}" ${opts.readonly?'readonly':''}></div>`;
 }
 function moneyStr(v){ return v<0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`; }
+/* h1 + small uppercase kicker, inline on the same baseline - the design's
+   consistent page-header shape everywhere, instead of a title with a
+   stacked description paragraph underneath it. */
+function pageHeaderHTML(title, kicker){
+  return `<div class="page-header"><h1 class="page-title">${title}</h1>${kicker?`<div class="page-sub">${kicker}</div>`:''}</div>`;
+}
+const EXPENSE_TAB_TITLES = {
+  overview: ["Expenses", "Everything the fleet spends"],
+  fuel: ["Fuel", null],
+  parts: ["Parts", "Purchased per truck"],
+  mechanic: ["Mechanic", "Repairs paid per truck"],
+  operations: ["Operations cost", "Fixed annual cost"],
+  receipts: ["Receipts", "Scanned from parts and mechanic"]
+};
+function expenseHeaderHTML(tabKey, week){
+  const [title, kicker] = EXPENSE_TAB_TITLES[tabKey] || EXPENSE_TAB_TITLES.overview;
+  const resolvedKicker = tabKey==="fuel" ? `Week ${week} &middot; ${weekDateRangeLabel(week)}` : kicker;
+  return pageHeaderHTML(title, resolvedKicker);
+}
 
 /* Shared date validation for every <input type="date"> in the app. Catches two
    real problems: a malformed year from manual typing (e.g. "0026" instead of "2026",
@@ -1838,7 +1862,7 @@ function weekRailHTML(week, prefix, opts){
   opts = opts || {};
   const label = opts.label || "Week of record";
   let html = `<div style="display:flex; align-items:stretch; flex-wrap:wrap; border:1px solid var(--border); border-top:2px solid var(--charcoal); max-width:700px; margin-bottom:4px;">`;
-  html += `<button type="button" class="week-rail-prev" data-rail="${prefix}" aria-label="Previous week" style="width:44px; flex:none; background:transparent; border:0; border-right:1px solid var(--border); cursor:pointer; color:var(--charcoal); display:grid; place-items:center; font-size:16px;">&larr;</button>`;
+  html += `<button type="button" class="week-rail-prev" data-rail="${prefix}" aria-label="Previous week" style="width:44px; flex:none; background:transparent; border:0; border-right:1px solid var(--border); cursor:pointer; color:var(--charcoal); display:grid; place-items:center;">${chevronSVG("left")}</button>`;
   html += `<div style="flex:0 1 auto; min-width:0; padding:9px 16px;">
     <div class="hint" style="text-transform:uppercase; letter-spacing:.16em; font-size:10px;">${label}</div>
     <div style="display:flex; align-items:baseline; gap:10px; margin-top:3px; flex-wrap:wrap;">
@@ -1849,7 +1873,7 @@ function weekRailHTML(week, prefix, opts){
   html += `<div class="week-rail-ticks" data-rail="${prefix}" style="display:flex; align-items:stretch; flex:1 1 120px; min-width:0; overflow-x:auto; overscroll-behavior-x:contain;">`;
   html += WEEKS.map(t=>`<button type="button" class="week-rail-tick" data-rail="${prefix}" data-week="${t}" style="position:relative; min-width:46px; flex-shrink:0; background:transparent; border:0; border-left:1px solid var(--border); cursor:pointer; padding:0 10px; font-family:'Archivo',sans-serif; font-weight:600; font-size:12px; letter-spacing:.06em; color:${t===week?'var(--blue-700)':'var(--text-muted)'};">${t}${t===week?`<span style="position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--blue);"></span>`:''}</button>`).join("");
   html += `</div>`;
-  html += `<button type="button" class="week-rail-next" data-rail="${prefix}" aria-label="Next week" style="width:44px; flex:none; background:transparent; border:0; border-left:1px solid var(--border); cursor:pointer; color:var(--charcoal); display:grid; place-items:center; font-size:16px;">&rarr;</button>`;
+  html += `<button type="button" class="week-rail-next" data-rail="${prefix}" aria-label="Next week" style="width:44px; flex:none; background:transparent; border:0; border-left:1px solid var(--border); cursor:pointer; color:var(--charcoal); display:grid; place-items:center;">${chevronSVG("right")}</button>`;
   html += `</div>`;
   return html;
 }
@@ -1956,9 +1980,7 @@ function buildComplianceRows(){
   });
   return rows.map(r=>{
     const u = getComplianceUrgency(r.date, r.done);
-    const cls = (u.level==="expired"||u.level==="due-soon") ? "tag-accent" : (u.level==="upcoming" ? "tag-outline" : "tag-neutral");
-    const status = u.level==="expired" ? `Overdue ${Math.abs(u.daysUntil)}d` : u.level==="completed" ? "Completed" : u.level==="none" ? "No date" : `Due in ${u.daysUntil}d`;
-    return Object.assign({}, r, { urgency:u, cls, status });
+    return Object.assign({}, r, { urgency:u, cls:u.cls, status:u.status });
   });
 }
 function docButtonForRow(r){
@@ -1996,7 +2018,7 @@ function renderCompliancePage(){
   const today = new Date();
   const todayLabel = `${MONTH_NAMES[today.getMonth()]} ${String(today.getDate()).padStart(2,"0")}, ${today.getFullYear()}`;
 
-  let html = `<h1 class="page-title">Docket</h1><p class="page-sub">Compliance &middot; ${todayLabel}</p>`;
+  let html = pageHeaderHTML("Docket", `Compliance &middot; ${todayLabel}`);
 
   if(overdue.length){
     html += `<div class="banner" style="border-top-color:var(--blue); margin-bottom:2px;"><b style="font-size:22px;">${overdue.length} item${overdue.length===1?'':'s'} overdue</b></div>`;
@@ -2032,11 +2054,9 @@ function renderCompliancePage(){
   html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:1px solid var(--charcoal); border-left:1px solid var(--border);">`;
   [1,2,3,4].forEach(q=>{
     const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
-    const cls = (urg.level==="expired"||urg.level==="due-soon") ? "tag-accent" : (urg.level==="upcoming" ? "tag-outline" : "tag-neutral");
-    const status = urg.level==="expired" ? `Overdue ${Math.abs(urg.daysUntil)}d` : urg.level==="completed" ? "Filed" : urg.level==="none" ? "-" : `Due in ${urg.daysUntil}d`;
     html += `<div style="padding:16px 18px; border-right:1px solid var(--border); border-bottom:1px solid var(--border);">
-      <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${cls}" style="margin-left:auto;">${status}</span></div>
-      <div class="hint" style="margin:6px 0 10px;">Due ${quarterEndDates[q]}</div>
+      <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${urg.cls}" style="margin-left:auto;">${urg.status}</span></div>
+      <div class="hint" style="margin:6px 0 10px;">Due ${dueLabel(quarterEndDates[q])}</div>
       <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}">
       <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-top:10px; cursor:pointer;"><input type="checkbox" class="ifta-done" data-q="${q}" ${iftaData[`q${q}Completed`]?'checked':''}> Filed and paid</label>
     </div>`;
@@ -2240,7 +2260,7 @@ let newTruckDraft = { id:"", vin:"", plate:"", week: WEEKS[0] };
 function renderFleetPage(){
   const activeV = vehicles.filter(v=>v.active), inactiveV = vehicles.filter(v=>!v.active);
   const activeD = drivers.filter(d=>d.active), inactiveD = drivers.filter(d=>!d.active);
-  let html = `<h1 class="page-title">Roster</h1><p class="page-sub">${activeV.length} trucks &middot; ${activeD.length} drivers</p>`;
+  let html = pageHeaderHTML("Roster", `${activeV.length} trucks &middot; ${activeD.length} drivers`);
 
   html += `<div class="section-label">Active trucks</div>`;
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck ID</th><th>Running since</th><th></th></tr></thead><tbody>`;
@@ -2387,10 +2407,7 @@ function fileRowHTML(kind, desc, hasDoc, subject){
 }
 function dateRowHTML(item, date, done){
   const u = getComplianceUrgency(date, done);
-  const label = date ? date : "-";
-  const status = u.level==="expired" ? `Overdue ${Math.abs(u.daysUntil)}d` : u.level==="completed" ? "Completed" : u.level==="none" ? "No date" : u.level==="ok" ? "OK" : `Due in ${u.daysUntil}d`;
-  const cls = (u.level==="expired"||u.level==="due-soon") ? "tag-accent" : (u.level==="upcoming" ? "tag-outline" : "tag-neutral");
-  return { item, due: label, status, cls };
+  return { item, due: dueLabel(date), status: u.status, cls: u.cls };
 }
 function renderProfile(overlay, kind, id){
   const M = moneyStr;
@@ -2495,7 +2512,7 @@ function renderContractsPage(){
   if(currentView.type==="summary"){ renderDashboard(); return; }
   const { week } = currentView;
   const active = vehiclesForWeek(week, showInactive);
-  let html = `<h1 class="page-title"><span class="clickable-title" id="contractsHomeTitle">Contracts</span></h1><p class="page-sub">Week ${week} &middot; ${weekDateRangeLabel(week)} &middot; Sun-Sat</p>`;
+  let html = pageHeaderHTML(`<span class="clickable-title" id="contractsHomeTitle">Contracts</span>`, `Week ${week} &middot; ${weekDateRangeLabel(week)} &middot; Sun-Sat`);
   html += `<div style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:18px; border-bottom:1px solid var(--border); margin-bottom:4px;">`;
   html += weekRailHTML(week, "contractsWeek");
   html += `<label class="inactive-toggle" style="padding-bottom:8px;"><input type="checkbox" id="contractsWeek-inactive" ${showInactive?'checked':''}> Show inactive trucks too</label>`;
@@ -2520,9 +2537,9 @@ function renderContractsPage(){
       <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:46px; line-height:1; letter-spacing:-0.01em; margin-top:6px;">${truck}</div>
     </div>
     <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
-      <button class="btn-ghost btn-sm" id="contractPrevTruck" style="width:40px; height:40px; padding:0;">&larr;</button>
+      <button class="btn-ghost btn-sm" id="contractPrevTruck" style="width:40px; height:40px; padding:0; display:grid; place-items:center;">${chevronSVG("left",18)}</button>
       <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:12px; letter-spacing:.1em; text-transform:uppercase; min-width:82px; text-align:center;">${tIdx+1} of ${active.length}</div>
-      <button class="btn-ghost btn-sm" id="contractNextTruck" style="width:40px; height:40px; padding:0;">&rarr;</button>
+      <button class="btn-ghost btn-sm" id="contractNextTruck" style="width:40px; height:40px; padding:0; display:grid; place-items:center;">${chevronSVG("right",18)}</button>
     </div>
   </div>`;
 
@@ -2700,38 +2717,47 @@ function currentWeekNumber(){
   return Math.max(WEEKS[0], Math.min(WEEKS[WEEKS.length-1], w));
 }
 
-function computeNeedsAttention(){
-  const alerts = [];
-  function addAlert(item, subject, dateStr, completed, navModule){
-    const urg = getComplianceUrgency(dateStr, completed);
-    if(urg.level==="none" || urg.level==="ok" || urg.level==="completed") return;
-    const cls = (urg.level==="expired" || urg.level==="due-soon") ? "tag-accent" : "tag-outline";
-    const statusLabel = urg.level==="expired" ? `Overdue ${Math.abs(urg.daysUntil)}d` : `Due in ${urg.daysUntil}d`;
-    alerts.push({ item, subject, due:dateStr, cls, status:statusLabel, daysUntil:urg.daysUntil, overdue:urg.level==="expired", navModule });
-  }
+/* Mirrors the design's complianceItems()/overdue/soon split exactly: overdue
+   and soon (due-soon + upcoming) items are computed from the same list,
+   capped to 6 combined, then IFTA and "fuel not logged" alerts are appended
+   uncapped and unsorted - the design never re-sorts the final list. */
+function complianceAlertItems(){
+  const items = [];
   drivers.filter(d=>d.active).forEach(d=>{
-    addAlert("CDL licence", d.name, d.licenseExpiration, d.licenseCompleted, "compliance");
-    addAlert("Medical card", d.name, d.medicalCardExpiration, d.medicalCardCompleted, "compliance");
+    items.push({ item:"CDL licence", subject:d.name, date:d.licenseExpiration, completed:d.licenseCompleted, navModule:"compliance" });
+    items.push({ item:"Medical card", subject:d.name, date:d.medicalCardExpiration, completed:d.medicalCardCompleted, navModule:"compliance" });
   });
   activeVehicles().forEach(v=>{
-    addAlert("Annual inspection", `Truck ${v.truckId}`, v.inspectionExpiration, v.inspectionCompleted, "compliance");
-    addAlert("Registration", `Truck ${v.truckId}`, v.registrationExpiration, v.registrationCompleted, "compliance");
-    addAlert("2290 (HVUT)", `Truck ${v.truckId}`, v.hvut2290Expiration, v.hvut2290Completed, "compliance");
+    items.push({ item:"Annual inspection", subject:`Truck ${v.truckId}`, date:v.inspectionExpiration, completed:v.inspectionCompleted, navModule:"compliance" });
+    items.push({ item:"Registration", subject:`Truck ${v.truckId}`, date:v.registrationExpiration, completed:v.registrationCompleted, navModule:"compliance" });
+    items.push({ item:"2290 (HVUT)", subject:`Truck ${v.truckId}`, date:v.hvut2290Expiration, completed:v.hvut2290Completed, navModule:"compliance" });
   });
+  return items.map(it=>Object.assign({}, it, { u: getComplianceUrgency(it.date, it.completed) }));
+}
+function computeNeedsAttention(){
+  const items = complianceAlertItems();
+  const overdue = items.filter(x=>x.u.level==="expired");
+  const soon = items.filter(x=>x.u.level==="due-soon"||x.u.level==="upcoming").sort((a,b)=>a.u.daysUntil-b.u.daysUntil);
+  const alerts = overdue.concat(soon).slice(0,6).map(x=>({ item:x.item, subject:x.subject, due:dueLabel(x.date), status:x.u.status, cls:x.u.cls, overdue:x.u.level==="expired", navModule:x.navModule }));
+
   const year = iftaData.year || 2026;
   const qDates = {1:`${year}-03-31`,2:`${year}-06-30`,3:`${year}-09-30`,4:`${year}-12-31`};
-  [1,2,3,4].forEach(q=>addAlert(`IFTA Q${q}`, "Company-wide", qDates[q], iftaData[`q${q}Completed`], "compliance"));
+  [1,2,3,4].forEach(q=>{
+    const u = getComplianceUrgency(qDates[q], iftaData[`q${q}Completed`]);
+    if(u.level==="expired"||u.level==="due-soon"||u.level==="upcoming"){
+      alerts.push({ item:`IFTA Q${q}`, subject:"Company-wide", due:dueLabel(qDates[q]), status:u.status, cls:u.cls, overdue:u.level==="expired", navModule:"compliance" });
+    }
+  });
 
   // Fuel not logged yet for the current week, per active truck.
   const thisWeek = currentWeekNumber();
   vehiclesForWeek(thisWeek, false).forEach(v=>{
     const hasFuel = fuelEntries.some(e=>e.week===thisWeek && e.truck===v.truckId && parseFloat(e.amount)>0);
     if(!hasFuel){
-      alerts.push({ item:"Fuel not logged", subject:`Truck ${v.truckId}`, due:`Week ${thisWeek}`, cls:"tag-neutral", status:"This week", daysUntil:0.5, overdue:false, navModule:"expenses-fuel" });
+      alerts.push({ item:"Fuel not logged", subject:`Truck ${v.truckId}`, due:`Week ${thisWeek}`, cls:"tag-accent", status:"This week", overdue:false, navModule:"expenses-fuel" });
     }
   });
 
-  alerts.sort((a,b)=>a.daysUntil-b.daysUntil);
   return alerts;
 }
 
@@ -2895,7 +2921,7 @@ function renderDashboard(){
 function renderExpensesOverview(){
   const fuelTotals = computeFuelTotals(), partsSum = computeLogSummary(partsLog,"sum"), mechSum = computeLogSummary(mechanicLog,"sum");
   const opsTotal = computeOperationsCostTotal();
-  let html = `<h1 class="page-title">Expenses</h1>`;
+  let html = expenseHeaderHTML("overview");
   html += subtabsHTML();
   html += `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); border-top:1px solid var(--charcoal); border-left:1px solid var(--border);">
     <button type="button" class="expense-cell" data-tab="fuel" style="text-align:left; background:transparent; border:0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); cursor:pointer; padding:18px 20px;">
@@ -2933,7 +2959,7 @@ function renderExpensesOverview(){
 }
 
 function renderOperationsCostPage(){
-  let html = `<h1 class="page-title">Operations Cost</h1>`;
+  let html = expenseHeaderHTML("operations");
   html += subtabsHTML();
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Inspection</th><th>Registration</th><th>2290</th><th>Insurance / yr</th><th>Bobtail / yr</th><th>Total</th></tr></thead><tbody>`;
   activeVehicles().forEach(v=>{
@@ -2978,7 +3004,7 @@ function allReceiptEntries(){
 
 async function renderReceiptsPage(){
   const receipts = allReceiptEntries();
-  let html = `<h1 class="page-title">Receipts</h1>`;
+  let html = expenseHeaderHTML("receipts");
   html += subtabsHTML();
   if(!receipts.length){
     html += `<div class="banner"><b>No receipts yet</b>Scan one from the Parts or Mechanic page and it'll show up here.</div>`;
@@ -3093,7 +3119,7 @@ let fuelTruckIdx = 0;
 function renderFuelPage(){
   const week = (currentView.type==="week") ? currentView.week : currentWeekNumber();
   const active = vehiclesForWeek(week, showInactive);
-  let html = `<h1 class="page-title">Fuel</h1>`;
+  let html = expenseHeaderHTML("fuel", week);
   html += subtabsHTML();
   html += `<div style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:18px; border-bottom:1px solid var(--border); margin-bottom:4px;">`;
   html += weekRailHTML(week, "fuelWeek");
@@ -3119,9 +3145,9 @@ function renderFuelPage(){
       <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:46px; line-height:1; letter-spacing:-0.01em; margin-top:6px;">${truck}</div>
     </div>
     <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
-      <button class="btn-ghost btn-sm" id="fuelPrevTruck" style="width:40px; height:40px; padding:0;">&larr;</button>
+      <button class="btn-ghost btn-sm" id="fuelPrevTruck" style="width:40px; height:40px; padding:0; display:grid; place-items:center;">${chevronSVG("left",18)}</button>
       <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:12px; letter-spacing:.1em; text-transform:uppercase; min-width:82px; text-align:center;">${tIdx+1} of ${active.length}</div>
-      <button class="btn-ghost btn-sm" id="fuelNextTruck" style="width:40px; height:40px; padding:0;">&rarr;</button>
+      <button class="btn-ghost btn-sm" id="fuelNextTruck" style="width:40px; height:40px; padding:0; display:grid; place-items:center;">${chevronSVG("right",18)}</button>
     </div>
   </div>`;
 
@@ -3185,8 +3211,9 @@ function renderFuelPage(){
 }
 
 /* ============ PAYROLL ============ */
-function payrollHeaderHTML(mode){
-  let html = `<h1 class="page-title">Payroll</h1>`;
+function payrollHeaderHTML(mode, week){
+  const kicker = mode==="week" ? `Week ${week} &middot; ${weekDateRangeLabel(week)}` : "Year to date";
+  let html = pageHeaderHTML("Payroll", kicker);
   html += `<div class="seg-toggle">
     <button type="button" class="payroll-mode-btn ${mode==='week'?'active':''}" data-mode="week">This week</button>
     <button type="button" class="payroll-mode-btn ${mode==='summary'?'active':''}" data-mode="summary">Year to date</button>
@@ -3245,7 +3272,7 @@ function renderPayrollWeek(week){
   const entries = payrollEntries.filter(e=>e.week===week);
   const active = vehiclesForWeek(week, showInactive);
   const availableDrivers = showInactive ? drivers : drivers.filter(d=>d.active);
-  let html = payrollHeaderHTML("week");
+  let html = payrollHeaderHTML("week", week);
   html += weekRailHTML(week, "payrollWeek");
   if(!availableDrivers.length){
     html += `<div class="banner" style="margin-top:20px;"><b>No drivers available</b>Go to Roster to add or reactivate a driver first.</div>`;
@@ -3351,8 +3378,8 @@ function renderLogPage(cfg){
   const entries = getLogArray(cfg.key);
   const summary = computeLogSummary(entries, cfg.summaryType);
   let html = cfg.standalone
-    ? `<h1 class="page-title">${cfg.title}</h1><p class="page-sub">${cfg.kicker||''}</p>`
-    : `<h1 class="page-title">${cfg.title}</h1>`;
+    ? pageHeaderHTML(cfg.title, cfg.kicker)
+    : expenseHeaderHTML(cfg.key);
   if(cfg.key==="parts"||cfg.key==="mechanic") html += subtabsHTML();
   if(!vehicles.filter(v=>v.active).length) html += `<div class="banner"><b>No active vehicles</b>Go to Manage Fleet (hamburger menu) to add or reactivate one.</div>`;
   html += `<div class="cards summary-cards">`;
@@ -3386,6 +3413,12 @@ function renderLogPage(cfg){
 const TRASH_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 const SAVE_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 4h11l3 3v13H5z"></path><path d="M9 4v5h6"></path></svg>`;
 const EDIT_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 20h4l11-11-4-4L4 16z"></path></svg>`;
+function chevronSVG(dir, size){
+  const s = size || 16;
+  const d = dir==="left" ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7";
+  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="${d}"></path></svg>`;
+}
+const DOWNLOAD_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3v12"></path><path d="M7 11l5 5 5-5"></path><path d="M4 20h16"></path></svg>`;
 
 function logRowHTML(cfg, e, idx){
   const truckOptions = vehicles.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
