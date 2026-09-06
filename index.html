@@ -100,10 +100,15 @@
   .hint{font-size:12px; color:var(--text-muted); margin-top:2px;}
   .banner{background:#fff; border:1px solid var(--border); border-top:2px solid var(--blue); color:var(--charcoal); padding:14px 18px; font-size:13px; margin-bottom:16px;}
   .banner b{display:block; margin-bottom:4px; font-weight:600;} .banner.soon{border-top-color:var(--border); color:var(--text-muted);}
-  .subtabs{display:flex; gap:0; margin-bottom:20px; flex-wrap:wrap; border:1px solid var(--border);}
-  .subtabs button{background:var(--card); color:var(--charcoal); border:0; border-right:1px solid var(--border); padding:9px 15px; font-size:12px; font-weight:600; letter-spacing:.05em;}
+  .subtabs{display:flex; gap:0; margin-bottom:20px; flex-wrap:wrap; border-top:1px solid var(--border); border-bottom:1px solid var(--border);}
+  .subtabs button{position:relative; background:transparent; color:var(--charcoal); border:0; border-right:1px solid var(--border); padding:11px 16px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;}
   .subtabs button:last-child{border-right:0;}
-  .subtabs button.active{background:var(--charcoal); color:#fff;}
+  .subtabs button:hover{color:var(--blue);}
+  .subtabs button.active::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--blue);}
+  .seg-toggle{display:inline-flex; margin-bottom:20px; border:1px solid var(--input-border);}
+  .seg-toggle button{background:transparent; color:var(--charcoal); border:0; border-right:1px solid var(--input-border); padding:9px 15px; font-size:12px; font-weight:600; letter-spacing:.05em;}
+  .seg-toggle button:last-child{border-right:0;}
+  .seg-toggle button.active{background:var(--blue); color:#fff;}
   table.logtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border);}
   table.logtable th{background:transparent; color:var(--text-muted); text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--charcoal); font-weight:600;}
   table.logtable td{padding:8px 10px; border-top:1px solid var(--border); vertical-align:middle;}
@@ -1476,7 +1481,7 @@ async function openDocumentPreviewModal(pathOrPaths, onDelete){
   previewHtml += `</div><div id="docPreviewActions" style="display:flex; gap:8px; flex-wrap:wrap;">
     <button class="btn-blue btn-sm" id="docPreviewDownload">Download</button>
     <button class="btn-danger btn-sm" id="docPreviewDelete">Delete</button>
-    <button class="btn-ghost btn-sm" id="docPreviewClose" style="background:var(--charcoal); margin-left:auto;">Close</button>
+    <button class="btn-ghost btn-sm" id="docPreviewClose" style="background:var(--charcoal); color:#fff; margin-left:auto;">Close</button>
   </div>`;
   box.innerHTML = previewHtml;
   overlay.appendChild(box);
@@ -1499,7 +1504,7 @@ async function openDocumentPreviewModal(pathOrPaths, onDelete){
       <p style="color:var(--danger); font-weight:bold; margin:0 0 10px 0;">Delete this document? This cannot be undone.</p>
       <div style="display:flex; gap:8px;">
         <button class="btn-danger btn-sm" id="docPreviewDeleteConfirm">Yes, Delete</button>
-        <button class="btn-ghost btn-sm" id="docPreviewDeleteCancel" style="background:var(--charcoal);">Cancel</button>
+        <button class="btn-ghost btn-sm" id="docPreviewDeleteCancel" style="background:var(--charcoal); color:#fff;">Cancel</button>
       </div></div>`;
     document.getElementById("docPreviewDeleteConfirm").addEventListener("click", async ()=>{
       try{ if(sb) await sb.storage.from("receipts").remove(paths); } catch(e){ console.error(e); }
@@ -1929,8 +1934,8 @@ async function uploadComplianceDocument(pathPrefix, mode){
 }
 
 function docUploadButtonsHTML(idBase){
-  return `<button class="btn-ghost btn-sm" data-doc-camera="${idBase}" style="background:var(--charcoal);">Take Photo</button>
-    <button class="btn-ghost btn-sm" data-doc-upload="${idBase}" style="background:var(--charcoal);">Upload File</button>`;
+  return `<button class="btn-ghost btn-sm" data-doc-camera="${idBase}" style="background:var(--charcoal); color:#fff;">Take Photo</button>
+    <button class="btn-ghost btn-sm" data-doc-upload="${idBase}" style="background:var(--charcoal); color:#fff;">Upload File</button>`;
 }
 
 /* Every driver/vehicle expiration flattened into one row shape, so the Overdue /
@@ -1961,7 +1966,7 @@ function docButtonForRow(r){
   const owner = (r.type==="driver" ? drivers : vehicles)[r.idx];
   const has = !!owner[r.docField];
   const idBase = r.docKind + "-" + r.idx;
-  return `<button type="button" class="btn-ghost btn-sm compliance-doc-btn" data-doc-menu="${idBase}" data-has-doc="${has}" data-doc-path="${has?owner[r.docField]:''}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:${has?'var(--blue)':'var(--charcoal)'}; padding:8px 10px;" title="${has?'View document':'Upload document'}">${PAGE_ICON_SVG}</button>`;
+  return `<button type="button" class="btn-ghost btn-sm compliance-doc-btn" data-doc-menu="${idBase}" data-has-doc="${has}" data-doc-path="${has?owner[r.docField]:''}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:${has?'var(--blue)':'var(--charcoal)'}; color:#fff; padding:8px 10px;" title="${has?'View document':'Upload document'}">${PAGE_ICON_SVG}</button>`;
 }
 function complianceRowHTML(r){
   const costCell = r.hasCost
@@ -2049,13 +2054,13 @@ function renderCompliancePage(){
     const idx = drivers.indexOf(d);
     [["W-9","w9DocumentPath","w9"],["CDL scan","licenseDocumentPath","license"],["Medical card scan","medicalCardDocumentPath","medical"]].forEach(([label,field])=>{
       const has = !!d[field];
-      html += `<tr><td style="font-weight:600;">${d.name}</td><td>${label}</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML((field==="w9DocumentPath"?"w9":field==="licenseDocumentPath"?"license":"medical")+"-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${d[field]}" data-doc-owner="driver-${idx}-${field}" style="background:var(--blue);">View</button>`:''}</td></tr>`;
+      html += `<tr><td style="font-weight:600;">${d.name}</td><td>${label}</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML((field==="w9DocumentPath"?"w9":field==="licenseDocumentPath"?"license":"medical")+"-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${d[field]}" data-doc-owner="driver-${idx}-${field}" style="background:var(--blue); color:#fff;">View</button>`:''}</td></tr>`;
     });
   });
   activeVehicles().forEach(v=>{
     const idx = vehicles.indexOf(v);
     const has = !!v.hvut2290ReceiptPath;
-    html += `<tr><td style="font-weight:600;">Truck ${v.truckId}</td><td>2290 receipt</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML("hvut-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" data-doc-owner="vehicle-${idx}-hvut2290ReceiptPath" style="background:var(--blue);">View</button>`:''}</td></tr>`;
+    html += `<tr><td style="font-weight:600;">Truck ${v.truckId}</td><td>2290 receipt</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML("hvut-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" data-doc-owner="vehicle-${idx}-hvut2290ReceiptPath" style="background:var(--blue); color:#fff;">View</button>`:''}</td></tr>`;
   });
   html += `</tbody></table></div>`;
 
@@ -2383,7 +2388,9 @@ function fileRowHTML(kind, desc, hasDoc, subject){
 function dateRowHTML(item, date, done){
   const u = getComplianceUrgency(date, done);
   const label = date ? date : "-";
-  return { item, due: label, status: u.status || "No date", cls: u.level==="expired"||u.level==="due-soon" ? "tag-accent" : "tag-neutral" };
+  const status = u.level==="expired" ? `Overdue ${Math.abs(u.daysUntil)}d` : u.level==="completed" ? "Completed" : u.level==="none" ? "No date" : u.level==="ok" ? "OK" : `Due in ${u.daysUntil}d`;
+  const cls = (u.level==="expired"||u.level==="due-soon") ? "tag-accent" : (u.level==="upcoming" ? "tag-outline" : "tag-neutral");
+  return { item, due: label, status, cls };
 }
 function renderProfile(overlay, kind, id){
   const M = moneyStr;
@@ -2531,34 +2538,44 @@ function renderContractsPage(){
   html += `</div>`;
 
   if(locked){
-    html += `<div class="banner soon" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:14px; flex:1;">
-        <div><div class="hint">Contract ID</div><div style="font-weight:600;">${d.contractId||'-'}</div></div>
-        <div><div class="hint">Block rate</div><div style="font-weight:600;">${d.blockRate?moneyStr(parseFloat(d.blockRate)):'-'}</div></div>
-        <div><div class="hint">Blocks</div><div style="font-weight:600;">${d.numBlocks||'0'}</div></div>
-        <div><div class="hint">1. Payout+acc</div><div style="font-weight:600;">${d.block1?moneyStr(parseFloat(d.block1)):'-'}</div></div>
-        <div><div class="hint">2. Payout+acc</div><div style="font-weight:600;">${d.block2?moneyStr(parseFloat(d.block2)):'-'}</div></div>
-        <div><div class="hint">3. Payout+acc</div><div style="font-weight:600;">${d.block3?moneyStr(parseFloat(d.block3)):'-'}</div></div>
-      </div>
-      <button class="btn-ghost btn-sm" id="contractEditBtn">Edit this entry</button>
+    const readback = [
+      { label:"Contract ID", value:d.contractId||'-' },
+      { label:"Block rate", value:d.blockRate?moneyStr(parseFloat(d.blockRate)):'-' },
+      { label:"Blocks", value:d.numBlocks||'0' },
+      { label:"1. Payout+acc", value:d.block1?moneyStr(parseFloat(d.block1)):'-' },
+      { label:"2. Payout+acc", value:d.block2?moneyStr(parseFloat(d.block2)):'-' },
+      { label:"3. Payout+acc", value:d.block3?moneyStr(parseFloat(d.block3)):'-' },
+    ];
+    html += `<div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); border-top:1px solid var(--charcoal); border-left:1px solid var(--border); max-width:900px;">
+      ${readback.map(b=>`<div style="padding:14px 16px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); min-width:0;">
+        <div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">${b.label}</div>
+        <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:18px; margin-top:6px; overflow-wrap:anywhere;">${b.value}</div>
+      </div>`).join("")}
+    </div>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:16px;">
+      <button class="btn-ghost btn-sm" id="contractEditBtn" style="gap:8px;">${EDIT_ICON_SVG} Edit this entry</button>
+      <div class="hint" style="text-transform:uppercase; letter-spacing:.1em; font-size:11px;">Saved &middot; locked against mistyping</div>
     </div>`;
   } else {
-    html += `<div class="cards"><div class="card" data-truck="${truck}">
-      ${fieldHTML(`ci-${week}-${truck}`,"Contract ID", d.contractId)}
-      <div class="blockgrid">${fieldHTML(`br-${week}-${truck}`,"Block Rate", d.blockRate, {type:'number'})}${fieldHTML(`nb-${week}-${truck}`,"Blocks (QTY)", d.numBlocks, {type:'number', step:'1'})}</div>
-      <div class="blockgrid" style="grid-template-columns:1fr 1fr 1fr;">
-        ${fieldHTML(`b1-${week}-${truck}`,"1. Payout", d.block1, {type:'number'})}
-        ${fieldHTML(`b2-${week}-${truck}`,"2. Payout", d.block2, {type:'number'})}
-        ${fieldHTML(`b3-${week}-${truck}`,"3. Payout", d.block3, {type:'number'})}
+    html += `<div data-truck="${truck}">
+      <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px 24px; max-width:900px;">
+        ${fieldHTML(`ci-${week}-${truck}`,"Contract ID", d.contractId)}
+        ${fieldHTML(`br-${week}-${truck}`,"Block rate", d.blockRate, {type:'number'})}
+        ${fieldHTML(`nb-${week}-${truck}`,"Blocks (qty)", d.numBlocks, {type:'number', step:'1'})}
       </div>
-      <div class="totalsrow">
-        <div class="field readonly"><label>Contract Rate</label><input readonly value="$${row.contractRate.toFixed(2)}"></div>
-        <div class="field readonly"><label>Contract Payout</label><input readonly value="$${row.contractAcc.toFixed(2)}"></div>
-        <div class="field readonly"><label>Total Accessories</label><input readonly value="$${row.totalAcc.toFixed(2)}"></div>
+      <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px 24px; max-width:900px; margin-top:18px;">
+        ${fieldHTML(`b1-${week}-${truck}`,"1. Payout + acc", d.block1, {type:'number'})}
+        ${fieldHTML(`b2-${week}-${truck}`,"2. Payout + acc", d.block2, {type:'number'})}
+        ${fieldHTML(`b3-${week}-${truck}`,"3. Payout + acc", d.block3, {type:'number'})}
       </div>
-      <button class="btn-blue btn-sm" id="contractSaveBtn" style="margin-top:14px;">Save week ${week} for truck ${truck}</button>
-    </div></div>`;
+      <div style="margin-top:20px;"><button class="btn-blue btn-sm" id="contractSaveBtn" style="gap:8px;">${SAVE_ICON_SVG} Save week ${week} for truck ${truck}</button></div>
+    </div>`;
   }
+  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); border-top:1px solid var(--charcoal); margin-top:26px; max-width:900px;">
+    <div style="padding:14px 16px 14px 0; border-right:1px solid var(--border);"><div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Contract rate</div><div id="contractRateTotal" style="font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(18px,2.3vw,24px); margin-top:6px; overflow-wrap:anywhere;">${moneyStr(row.contractRate)}</div></div>
+    <div style="padding:14px 16px; border-right:1px solid var(--border);"><div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Contract payout</div><div id="contractPayoutTotal" style="font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(18px,2.3vw,24px); margin-top:6px; overflow-wrap:anywhere;">${moneyStr(row.contractAcc)}</div></div>
+    <div style="padding:14px 16px;"><div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Total accessories</div><div id="contractAccTotal" style="font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(18px,2.3vw,24px); margin-top:6px; overflow-wrap:anywhere; color:var(--blue-700);">${moneyStr(row.totalAcc)}</div></div>
+  </div>`;
 
   // ---- Loads ----
   const loadRows = getLoadsForWeekTruck(week, truck);
@@ -2654,10 +2671,11 @@ function renderContractsPage(){
   });
 }
 function updateContractTotalsInline(week,truck){
-  const card = mainArea.querySelector(`.card[data-truck="${truck}"]`); if(!card) return;
   const row = computeRow(truck, getContractEntry(week,truck));
-  const inputs = card.querySelectorAll(".totalsrow input");
-  inputs[0].value=`$${row.contractRate.toFixed(2)}`; inputs[1].value=`$${row.contractAcc.toFixed(2)}`; inputs[2].value=`$${row.totalAcc.toFixed(2)}`;
+  const rateEl = document.getElementById("contractRateTotal"), payoutEl = document.getElementById("contractPayoutTotal"), accEl = document.getElementById("contractAccTotal");
+  if(rateEl) rateEl.textContent = moneyStr(row.contractRate);
+  if(payoutEl) payoutEl.textContent = moneyStr(row.contractAcc);
+  if(accEl) accEl.textContent = moneyStr(row.totalAcc);
 }
 
 function ytdMetricsHTML(m){
@@ -3169,7 +3187,7 @@ function renderFuelPage(){
 /* ============ PAYROLL ============ */
 function payrollHeaderHTML(mode){
   let html = `<h1 class="page-title">Payroll</h1>`;
-  html += `<div class="subtabs" style="max-width:320px; margin-bottom:20px;">
+  html += `<div class="seg-toggle">
     <button type="button" class="payroll-mode-btn ${mode==='week'?'active':''}" data-mode="week">This week</button>
     <button type="button" class="payroll-mode-btn ${mode==='summary'?'active':''}" data-mode="summary">Year to date</button>
   </div>`;
@@ -3300,8 +3318,8 @@ const PAGE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="non
 
 function scanIconButtonsHTML(idBase, hasDoc){
   let html = `<span style="display:inline-flex; gap:6px; align-items:center;">`;
-  html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="background:var(--charcoal); padding:8px 10px;">${CAMERA_ICON_SVG}</button>`;
-  if(hasDoc) html += `<button type="button" class="btn-ghost btn-sm" data-doc-preview="${idBase}" title="Preview document" style="background:var(--blue); padding:8px 10px;">${PAGE_ICON_SVG}</button>`;
+  html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="background:var(--charcoal); color:#fff; padding:8px 10px;">${CAMERA_ICON_SVG}</button>`;
+  if(hasDoc) html += `<button type="button" class="btn-ghost btn-sm" data-doc-preview="${idBase}" title="Preview document" style="background:var(--blue); color:#fff; padding:8px 10px;">${PAGE_ICON_SVG}</button>`;
   html += `</span>`;
   return html;
 }
@@ -3366,13 +3384,15 @@ function renderLogPage(cfg){
   }
 }
 const TRASH_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+const SAVE_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 4h11l3 3v13H5z"></path><path d="M9 4v5h6"></path></svg>`;
+const EDIT_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 20h4l11-11-4-4L4 16z"></path></svg>`;
 
 function logRowHTML(cfg, e, idx){
   const truckOptions = vehicles.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
   const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
   const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="date"?"date":"text";
   const hasDoc = e.receiptPath && receiptPathList(e.receiptPath).length > 0;
-  const docBtn = hasDoc ? `<button type="button" class="btn-ghost btn-sm log-view-receipt" title="Preview document" style="background:var(--blue); padding:8px 10px;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
+  const docBtn = hasDoc ? `<button type="button" class="btn-ghost btn-sm log-view-receipt" title="Preview document" style="background:var(--blue); color:#fff; padding:8px 10px;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
 
   if(cfg.submitMode && e.submitted){
     return `<tr data-idx="${idx}">
@@ -3382,7 +3402,7 @@ function logRowHTML(cfg, e, idx){
       <td>${e[f2]!==""&&e[f2]!=null?e[f2]:'-'}</td>
       <td>${docBtn}</td>
       <td style="white-space:nowrap;">
-        <button type="button" class="btn-ghost btn-sm log-edit" style="background:var(--charcoal);">Edit</button>
+        <button type="button" class="btn-ghost btn-sm log-edit" style="background:var(--charcoal); color:#fff;">Edit</button>
         <button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button>
       </td>
     </tr>`;
