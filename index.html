@@ -10,105 +10,129 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
   :root{
-    --charcoal:#1E2A38; --charcoal-light:#2C3B4E; --blue:#5B8DBE; --blue-light:#8FB4D9;
-    --blue-pale:#E4EDF5; --copper:#C1703D; --bg:#F4F5F6; --card:#FFFFFF; --border:#E1E4E8;
-    --text-muted:#6B7280; --danger:#C0392B;
+    /* Repurposed from the old palette (names kept so nothing else in the app needs to
+       change) - now mapped to the Modernist design system: warm near-black text, a
+       single burnt-orange accent, zero rounded corners, hairline dividers. */
+    --charcoal:#201e1d; --charcoal-light:#2d2b2b; --blue:#b3421f; --blue-light:#ff9783;
+    --blue-pale:#f7ece7; --copper:#b3421f; --bg:#f4f3f1; --card:#ffffff; --border:#cfcbc6;
+    --text-muted:#6b6660; --danger:#ae1800;
   }
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box; border-radius:0 !important;}
   html,body{height:100%;}
-  body{margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--charcoal); height:100vh; display:flex; flex-direction:column; overflow:hidden;}
-  header{background:var(--charcoal); color:#fff; display:flex; align-items:center; padding:10px 20px; gap:14px; flex-shrink:0; border-bottom:3px solid var(--copper); position:relative; flex-wrap:wrap;}
-  header .logo-icon{width:40px;height:34px;flex-shrink:0;}
-  .brand-home{display:flex; align-items:center; gap:14px; cursor:pointer; opacity:1; transition:opacity .15s;}
-  .brand-home:hover{opacity:.85;}
+  body{margin:0; font-family:'Archivo',system-ui,sans-serif; background:var(--bg); color:var(--charcoal); height:100vh; display:flex; flex-direction:column; overflow:hidden; font-variant-numeric:tabular-nums;}
+  h1,h2,h3{font-family:'Archivo',system-ui,sans-serif;}
+  header{background:var(--bg); color:var(--charcoal); display:flex; align-items:center; padding:14px clamp(16px,3vw,28px); gap:14px; flex-shrink:0; border-bottom:1px solid var(--border); position:relative; flex-wrap:wrap;}
+  header .logo-icon{width:34px;height:34px;flex-shrink:0;}
+  .brand-home{display:flex; align-items:center; gap:11px; cursor:pointer; opacity:1; transition:opacity .15s;}
+  .brand-home:hover{opacity:.75;}
   header .titles{display:flex; flex-direction:column; line-height:1.2;}
-  header .titles .name{font-size:18px; font-weight:bold; letter-spacing:.5px;}
-  header .titles .sub{font-size:10px; color:var(--blue-light); letter-spacing:1.2px;}
-  header .titles .underline{width:100%; height:2px; background:var(--copper); margin-top:3px;}
+  header .titles .name{font-size:18px; font-weight:600; letter-spacing:.06em;}
+  header .titles .sub{font-size:10px; color:var(--text-muted); letter-spacing:.14em; text-transform:uppercase; margin-top:2px;}
+  header .titles .underline{display:none;}
   header .toolbar{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-  button{font-family:inherit; cursor:pointer; border:none; border-radius:6px; padding:9px 14px; font-size:13px; font-weight:bold; transition:opacity .15s;}
-  button:hover{opacity:.88;} button:disabled{opacity:.35; cursor:not-allowed;}
-  .btn-blue{background:var(--blue); color:#fff;} .btn-ghost{background:transparent; color:#fff; border:1px solid #445367;}
-  .btn-sm{padding:6px 12px; font-size:12px;} .btn-danger{background:transparent; color:var(--danger); border:1px solid #E8B4AC; padding:6px 10px; font-size:12px;}
-  .btn-success{background:transparent; color:#2A7A4E; border:1px solid #A9D6BC; padding:6px 10px; font-size:12px;}
-  .hamburger-btn{background:transparent; color:#fff; border:1px solid #445367; padding:9px 12px; font-size:16px; line-height:1;}
-  .hamburger-wrap{position:relative;}
-  .hamburger-menu{position:absolute; top:calc(100% + 8px); right:0; background:var(--charcoal-light); border:1px solid #445367; border-radius:8px; min-width:190px; box-shadow:0 6px 18px rgba(0,0,0,.35); overflow:hidden; z-index:50;}
-  .hamburger-menu.hidden{display:none;}
-  .hamburger-menu button{display:block; width:100%; text-align:left; background:transparent; color:#D6D9DD; border-radius:0; padding:11px 16px; font-size:13px; font-weight:normal; border-bottom:1px solid #445367;}
-  .hamburger-menu button:last-child{border-bottom:none;} .hamburger-menu button:hover{background:#37485D;}
-  .hamburger-menu button.active{color:#fff; font-weight:bold; border-left:3px solid var(--blue); padding-left:13px;}
+  button{font-family:inherit; cursor:pointer; border:1px solid transparent; padding:9px 14px; font-size:13px; font-weight:600; transition:background .15s,opacity .15s;}
+  button:hover{opacity:.88;} button:disabled{opacity:.4; cursor:not-allowed;}
+  .btn-blue{background:var(--blue); color:#fff; border-color:var(--blue);}
+  .btn-blue:hover{background:#8a3115; opacity:1;}
+  .btn-ghost{background:transparent; color:var(--charcoal); border:1px solid var(--border);}
+  .btn-ghost:hover{background:color-mix(in srgb, var(--charcoal) 6%, transparent); opacity:1;}
+  .btn-sm{padding:7px 12px; font-size:12px;}
+  .btn-danger{background:transparent; color:var(--danger); border:1px solid var(--danger); padding:6px 10px; font-size:12px;}
+  .btn-success{background:transparent; color:#2A7A4E; border:1px solid #2A7A4E; padding:6px 10px; font-size:12px;}
+  .hamburger-btn{display:none;}
+  .hamburger-wrap{display:none;}
+  .hamburger-menu{display:none;}
+  .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow-x:auto;}
+  .tab-nav button{position:relative; display:flex; align-items:center; gap:7px; background:transparent; border:0; cursor:pointer; padding:13px 15px; color:var(--charcoal); font-weight:600; font-size:12px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;}
+  .tab-nav button:hover{color:var(--blue); opacity:1;}
+  .tab-nav button.active{color:var(--blue);}
+  .tab-nav button.active::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--blue);}
   .app-body{flex:1; display:flex; overflow:hidden; min-height:0;}
-  main{flex:1; overflow-y:auto; padding:24px 30px; min-width:0;}
-  .page-title{font-size:20px; font-weight:bold; margin:0 0 4px 0;}
+  main{flex:1; overflow-y:auto; padding:26px clamp(16px,3vw,36px) 60px; min-width:0;}
+  .page-title{font-size:32px; font-weight:600; margin:0 0 4px 0; letter-spacing:-0.005em;}
   .page-title .clickable-title{cursor:pointer; text-decoration:underline; text-decoration-color:var(--blue); text-underline-offset:4px;}
   .page-title .clickable-title:hover{color:var(--blue);}
-  .page-sub{font-size:12px; color:var(--text-muted); margin:0 0 20px 0;}
-  .section-label{font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:.6px; margin:22px 0 10px 0;}
+  .page-sub{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); margin:0 0 22px 0;}
+  .section-label{font-size:13px; font-weight:600; color:var(--charcoal); text-transform:uppercase; letter-spacing:.08em; margin:30px 0 12px 0; display:flex; align-items:baseline; gap:12px;}
   .section-label:first-of-type{margin-top:0;}
+  .section-label::after{content:""; flex:1; height:1px; background:var(--border);}
   .week-picker-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:20px;}
-  .week-picker-row select{padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; font-size:14px; font-family:inherit; color:var(--charcoal); min-width:260px;}
+  .week-picker-row select{padding:10px 12px; border:1px solid var(--border); border-top:2px solid var(--charcoal); background:#fff; font-size:14px; font-family:inherit; color:var(--charcoal); min-width:260px;}
   .week-picker-row select:focus{outline:none; border-color:var(--blue);}
   .inactive-toggle{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted);}
-  .cards{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:16px;}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:0;}
+  .card{background:var(--card); border:1px solid var(--border); border-top:2px solid var(--charcoal); padding:16px 18px; box-shadow:none;}
   .card.company{background:var(--charcoal); border-color:var(--charcoal);}
-  .card.company h3, .card.company .label{color:#D6D9DD;} .card.company .big{color:#fff;} .card.company h3 .tag{background:var(--blue);}
-  .card.clickable{cursor:pointer; transition:box-shadow .15s, transform .15s;}
-  .card.clickable:hover{box-shadow:0 4px 14px rgba(0,0,0,.1); transform:translateY(-1px);}
-  .card h3{margin:0 0 12px 0; font-size:15px; display:flex; align-items:center; gap:8px;}
-  .card h3 .tag{background:var(--charcoal); color:#fff; font-size:11px; padding:3px 9px; border-radius:20px;}
+  .card.company h3, .card.company .label{color:#cfcbc6;} .card.company .big{color:#fff;} .card.company h3 .tag{background:var(--blue);}
+  .card.clickable{cursor:pointer; transition:background .15s;}
+  .card.clickable:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent); box-shadow:none; transform:none;}
+  .card h3{margin:0 0 12px 0; font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px;}
+  .card h3 .tag{background:var(--charcoal); color:#fff; font-size:10px; padding:3px 8px; letter-spacing:.06em; text-transform:uppercase;}
   .field{margin-bottom:10px;}
-  .field label{display:block; font-size:11px; color:var(--text-muted); margin-bottom:3px; font-weight:bold; text-transform:uppercase; letter-spacing:.4px;}
-  .field input, .field select{width:100%; padding:9px 9px; border:1px solid var(--border); border-radius:5px; font-size:14px; font-family:inherit;}
+  .field label{display:block; font-size:10px; color:var(--text-muted); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:.08em;}
+  .field input, .field select{width:100%; padding:9px 10px; border:1px solid var(--border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal);}
   .field input:focus, .field select:focus{outline:none; border-color:var(--blue);}
-  .field.readonly input{background:var(--blue-pale); font-weight:bold; color:var(--charcoal); border-color:#C7D9EB;}
+  .field.readonly input{background:var(--blue-pale); font-weight:600; color:var(--charcoal); border-color:var(--border);}
   .blockgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .totalsrow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px; padding-top:10px; border-top:1px dashed var(--border);}
+  .totalsrow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; margin-top:10px; border-top:1px solid var(--charcoal);}
+  .totalsrow .field{padding:12px 14px 12px 0; border-right:1px solid var(--border); margin-bottom:0;}
   .ytd-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:12px 16px;}
   .ytd-grid .metric{margin-bottom:0;}
-  .summary-cards .card .big{font-size:20px; font-weight:bold; color:var(--charcoal); margin:2px 0 0 0;}
+  .summary-cards .card .big{font-size:20px; font-weight:600; color:var(--charcoal); margin:2px 0 0 0;}
   .summary-cards .card .big.negative{color:var(--danger);}
   .summary-cards .card.company .big{color:#fff;}
-  .summary-cards .card.company .big.negative{color:#FF9B8A;}
-  .summary-cards .card .label{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.3px;}
-  .summary-cards .card.company .label{color:#B9C2CD;}
+  .summary-cards .card.company .big.negative{color:#ff9783;}
+  .summary-cards .card .label{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.1em;}
+  .summary-cards .card.company .label{color:#b9b5b0;}
   .hint{font-size:12px; color:var(--text-muted); margin-top:2px;}
-  .banner{background:var(--blue-pale); border:1px solid #C7D9EB; color:#2A4E70; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;}
-  .banner b{display:block; margin-bottom:2px;} .banner.soon{background:#EDEFF1; border-color:var(--border); color:var(--text-muted);}
-  .subtabs{display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap;}
-  .subtabs button{background:var(--card); color:var(--charcoal); border:1px solid var(--border); padding:8px 14px; font-size:12px; font-weight:bold;}
-  .subtabs button.active{background:var(--charcoal); color:#fff; border-color:var(--charcoal);}
-  table.logtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden;}
-  table.logtable th{background:var(--charcoal); color:#fff; text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.4px;}
-  table.logtable td{padding:6px 10px; border-top:1px solid var(--border); vertical-align:middle;}
-  table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:13px; font-family:inherit;}
-  table.logtable td textarea.auto-expand{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:13px; font-family:inherit; resize:none; overflow:hidden; min-height:32px; line-height:1.4;}
+  .banner{background:#fff; border:1px solid var(--border); border-top:2px solid var(--blue); color:var(--charcoal); padding:14px 18px; font-size:13px; margin-bottom:16px;}
+  .banner b{display:block; margin-bottom:4px; font-weight:600;} .banner.soon{border-top-color:var(--border); color:var(--text-muted);}
+  .subtabs{display:flex; gap:0; margin-bottom:20px; flex-wrap:wrap; border:1px solid var(--border);}
+  .subtabs button{background:var(--card); color:var(--charcoal); border:0; border-right:1px solid var(--border); padding:9px 15px; font-size:12px; font-weight:600; letter-spacing:.05em;}
+  .subtabs button:last-child{border-right:0;}
+  .subtabs button.active{background:var(--charcoal); color:#fff;}
+  table.logtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border);}
+  table.logtable th{background:transparent; color:var(--text-muted); text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--charcoal); font-weight:600;}
+  table.logtable td{padding:8px 10px; border-top:1px solid var(--border); vertical-align:middle;}
+  table.logtable tbody tr:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent);}
+  table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--border); font-size:13px; font-family:inherit;}
+  table.logtable td textarea.auto-expand{width:100%; padding:6px 8px; border:1px solid var(--border); font-size:13px; font-family:inherit; resize:none; overflow:hidden; min-height:32px; line-height:1.4;}
   table.logtable td input:focus, table.logtable td select:focus{outline:none; border-color:var(--blue);}
   .addrow-wrap{margin-top:14px;}
   .fleet-section{margin-bottom:28px;}
   .fleet-add-row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:flex-end;}
   .fleet-add-row .field{margin-bottom:0; flex:1; min-width:120px;}
+  .tag{display:inline-block; padding:3px 8px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;}
+  .tag-accent{background:var(--blue-pale); color:#8a3115;}
+  .tag-neutral{background:#e8e5e1; color:var(--text-muted);}
+  .tag-outline{border:1px solid var(--blue); color:var(--blue); background:transparent;}
+  .stat-strip{display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%,240px),1fr)); border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);}
+  .stat-strip .stat-cell{padding:18px 20px; border-right:1px solid var(--text-muted);}
+  .stat-strip .stat-cell:last-child{border-right:0;}
+  .stat-strip .stat-label{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);}
+  .stat-strip .stat-value{font-family:'Archivo',sans-serif; font-weight:600; font-size:clamp(18px,2.3vw,24px); margin-top:8px; overflow-wrap:anywhere;}
+  .stat-strip .stat-note{font-size:11px; color:var(--text-muted); margin-top:6px;}
 
   #authScreen{display:none; height:100%; align-items:center; justify-content:center; background:var(--bg); overflow-y:auto; padding:20px;}
-  .auth-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:32px 28px; width:100%; max-width:360px; box-shadow:0 4px 24px rgba(0,0,0,.08);}
-  .auth-card .logo-icon{width:60px; height:50px; display:block; margin:0 auto 10px auto;}
-  .auth-card h1{font-size:20px; text-align:center; margin:0 0 2px 0; color:var(--charcoal);}
-  .auth-card .tag-line{font-size:11px; text-align:center; color:var(--text-muted); letter-spacing:1px; margin-bottom:24px; text-transform:uppercase;}
+  .auth-card{background:var(--card); border:1px solid var(--border); border-top:3px solid var(--blue); padding:32px 28px; width:100%; max-width:360px; box-shadow:none;}
+  .auth-card .logo-icon{width:48px; height:48px; display:block; margin:0 auto 12px auto;}
+  .auth-card h1{font-size:22px; font-weight:600; text-align:center; margin:0 0 2px 0; color:var(--charcoal);}
+  .auth-card .tag-line{font-size:10px; text-align:center; color:var(--text-muted); letter-spacing:.14em; margin-bottom:24px; text-transform:uppercase;}
   .auth-card .field{margin-bottom:14px;} .auth-card button.primary{width:100%; padding:11px; font-size:14px; margin-top:6px;}
   .auth-toggle{text-align:center; font-size:13px; color:var(--text-muted); margin-top:16px;}
-  .auth-toggle a{color:var(--blue); cursor:pointer; font-weight:bold; text-decoration:none;}
+  .auth-toggle a{color:var(--blue); cursor:pointer; font-weight:600; text-decoration:none;}
   .auth-error{color:var(--danger); font-size:12px; margin-top:10px; text-align:center;}
 
-  #statusToast{position:fixed; left:14px; bottom:14px; background:var(--charcoal); color:#fff; padding:8px 14px; border-radius:6px; font-size:12px; box-shadow:0 2px 10px rgba(0,0,0,.2); z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;}
+  #statusToast{position:fixed; left:14px; bottom:14px; background:var(--charcoal); color:#fff; padding:8px 14px; font-size:12px; box-shadow:none; z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;}
 
   #appToastContainer{position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2000; display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:420px; padding:0 16px; pointer-events:none;}
-  .app-toast{background:var(--charcoal); color:#fff; padding:12px 16px; border-radius:8px; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.25); opacity:0; transform:translateY(-10px); transition:opacity .25s, transform .25s; pointer-events:auto; max-width:100%; word-break:break-word;}
+  .app-toast{background:var(--charcoal); color:#fff; padding:12px 16px; font-size:13px; box-shadow:none; opacity:0; transform:translateY(-10px); transition:opacity .25s, transform .25s; pointer-events:auto; max-width:100%; word-break:break-word;}
   .app-toast.visible{opacity:1; transform:translateY(0);}
   .app-toast-success{background:#2A7A4E;}
   .app-toast-error{background:var(--danger);}
-  .app-toast-warning{background:var(--copper);}
+  .app-toast-warning{background:var(--blue);}
   #statusToast.visible{opacity:1;}
 
   @media (max-width: 760px){
@@ -116,30 +140,25 @@
     header .toolbar{gap:6px;} header button{padding:10px 12px; font-size:13px; min-height:44px;}
     main{padding:16px;}
     .cards{grid-template-columns:1fr; gap:14px;} .blockgrid{grid-template-columns:1fr 1fr;}
-    .totalsrow{grid-template-columns:1fr; gap:8px;}
+    .totalsrow{grid-template-columns:1fr; gap:0;}
     .ytd-grid{grid-template-columns:repeat(3, 1fr); gap:8px 10px;}
     .summary-cards .card .big{font-size:16px;}
     table.logtable{display:block; overflow-x:auto; white-space:nowrap;}
     .week-picker-row select{min-width:0; width:100%;}
+    .tab-nav{overflow-x:auto; -webkit-overflow-scrolling:touch;}
 
-    /* Prevent iOS Safari from zooming in on tap (triggers whenever a focused input's
-       font-size is under 16px) and give every tappable control more room to hit. */
     .field input, .field select, table.logtable td input, table.logtable td select,
     .week-picker-row select, input[type="text"], input[type="number"], input[type="date"], input[type="email"], input[type="password"], select {
       font-size:16px !important;
     }
     button, .btn-sm{ min-height:44px; padding:11px 16px; }
     table.logtable td button{ min-height:40px; padding:8px 14px; }
-    .hamburger-menu button{ min-height:48px; }
+    .tab-nav button{ min-height:48px; }
     .subtabs button{ min-height:42px; padding:10px 16px; }
 
-    /* Checkboxes: native boxes are tiny touch targets by default - enlarge the box itself
-       and give the whole label generous padding so the tap area extends well past the box. */
     .inactive-toggle{ padding:8px 4px; gap:10px; min-height:44px; }
     .inactive-toggle input[type="checkbox"]{ width:22px; height:22px; flex-shrink:0; }
 
-    /* More breathing room between adjacent buttons (Take Photo / Upload File,
-       View / Remove, etc.) so a slightly-off tap doesn't hit the wrong one. */
     .fleet-add-row{ gap:12px; }
     .fleet-add-row button{ width:100%; }
     table.logtable td{ padding:10px 12px; }
@@ -173,33 +192,26 @@
 <div id="appRoot" style="display:none; flex-direction:column; height:100%; min-height:0;">
 <header>
   <div class="brand-home" id="brandHomeBtn" title="Go to Dashboard">
-  <svg class="logo-icon" viewBox="0 0 260 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M40 100 Q130 78 220 100" fill="none" stroke="#F4F5F6" stroke-width="6" stroke-linecap="round"/>
-    <path d="M58 94 L58 45 L140 45 L140 94 Z" fill="#F4F5F6"/><path d="M140 65 L166 65 L184 84 L184 94 L140 94 Z" fill="#F4F5F6"/>
-    <rect x="148" y="70" width="14" height="10" fill="#1E2A38"/>
-    <circle cx="82" cy="98" r="14" fill="#F4F5F6"/><circle cx="82" cy="98" r="5" fill="#1E2A38"/>
-    <circle cx="164" cy="98" r="14" fill="#F4F5F6"/><circle cx="164" cy="98" r="5" fill="#1E2A38"/>
-    <circle cx="99" cy="68" r="20" fill="#C1703D"/>
-    <text x="99" y="76" font-size="24" font-family="Arial" font-weight="700" fill="#1E2A38" text-anchor="middle">$</text>
+  <svg class="logo-icon" width="34" height="34" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <text x="20" y="26" text-anchor="middle" font-family="Archivo" font-weight="800" font-size="25" letter-spacing="-0.5" fill="#201e1d">FH</text>
+    <rect x="0" y="31" width="40" height="2.6" fill="#b3421f"></rect>
   </svg>
-  <div class="titles"><div class="name">FleetHub</div><div class="sub">FLEET RECORDS, ALL IN ONE PLACE</div><div class="underline"></div></div>
+  <div class="titles"><div class="name">FLEETHUB</div><div class="sub">Transport management, kept on one screen</div></div>
   </div>
   <div class="toolbar">
-    <div class="hamburger-wrap">
-      <button class="hamburger-btn" id="hamburgerBtn">&#9776;</button>
-      <div class="hamburger-menu hidden" id="hamburgerMenu">
-        <button data-module="contracts">Contracts</button>
-        <button data-module="payroll">Payroll</button>
-        <button data-module="expenses">Expenses</button>
-        <button data-module="maintenance">Maintenance Records</button>
-        <button data-module="fleet">Manage Fleet</button>
-        <button data-module="compliance">Compliance</button>
-        <button data-action="export">Export Excel</button>
-        <button data-action="signout">Sign Out</button>
-      </div>
-    </div>
+    <button class="btn-ghost btn-sm" data-action="export">Export .xlsx</button>
+    <button class="btn-ghost btn-sm" data-action="signout">Sign out</button>
   </div>
 </header>
+<div class="tab-nav" id="hamburgerMenu">
+  <button data-module="contracts" data-view-mode="summary">Ledger</button>
+  <button data-module="contracts" data-view-mode="week">Contracts</button>
+  <button data-module="payroll">Payroll</button>
+  <button data-module="expenses">Expenses</button>
+  <button data-module="maintenance">Service</button>
+  <button data-module="compliance">Docket</button>
+  <button data-module="fleet">Roster</button>
+</div>
 <div class="app-body">
   <main id="mainArea"></main>
 </div>
@@ -1699,7 +1711,7 @@ async function disablePushNotifications(){
 
 /* ============ UI ELEMENT REFS ============ */
 const mainArea=document.getElementById("mainArea");
-const hamburgerBtn=document.getElementById("hamburgerBtn"), hamburgerMenu=document.getElementById("hamburgerMenu");
+const hamburgerMenu=document.getElementById("hamburgerMenu");
 const authScreen=document.getElementById("authScreen"), appRoot=document.getElementById("appRoot");
 
 function fieldHTML(id,label,value,opts){
@@ -1767,6 +1779,15 @@ function wireWeekPicker(selectId, onWeekChange){
 /* ============ MAIN DISPATCH ============ */
 function renderMain(){
   try{ localStorage.setItem("fleethub_navstate", JSON.stringify({ currentModule, currentExpenseTab, currentView })); } catch(e){}
+  const tabNav = document.getElementById("hamburgerMenu");
+  if(tabNav){
+    tabNav.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
+    const selector = (currentModule==="contracts" && currentView.type==="week")
+      ? 'button[data-module="contracts"][data-view-mode="week"]'
+      : `button[data-module="${currentModule}"]`;
+    const btn = tabNav.querySelector(selector) || tabNav.querySelector('button[data-view-mode="summary"]');
+    if(btn) btn.classList.add("active");
+  }
   if(currentModule==="fleet"){ renderFleetPage(); return; }
   if(currentModule==="compliance"){ renderCompliancePage(); return; }
   if(currentModule==="maintenance"){ renderLogPage({ key:"maintenance", title:"Maintenance Records", subtitle:"Service history by truck.",
@@ -2210,19 +2231,73 @@ function ytdMetricsHTML(m){
   </div>`;
 }
 
+/* Aggregates every compliance item (driver license/medical, truck inspection/
+   registration/2290, IFTA quarters) that isn't fully clear, sorted soonest-first,
+   for the Ledger's "Needs attention" section. */
+function computeNeedsAttention(){
+  const alerts = [];
+  function addAlert(item, subject, dateStr, completed){
+    const urg = getComplianceUrgency(dateStr, completed);
+    if(urg.level==="none" || urg.level==="ok" || urg.level==="completed") return;
+    const cls = urg.level==="expired" ? "tag-accent" : (urg.level==="due-soon" ? "tag-accent" : "tag-outline");
+    const statusLabel = urg.level==="expired" ? `Expired ${Math.abs(urg.daysUntil)}d ago` : `Due in ${urg.daysUntil}d`;
+    alerts.push({ item, subject, due:dateStr, cls, status:statusLabel, daysUntil:urg.daysUntil });
+  }
+  drivers.filter(d=>d.active).forEach(d=>{
+    addAlert("License", d.name, d.licenseExpiration, d.licenseCompleted);
+    addAlert("Medical Card", d.name, d.medicalCardExpiration, d.medicalCardCompleted);
+  });
+  activeVehicles().forEach(v=>{
+    addAlert("Inspection", `Truck ${v.truckId}`, v.inspectionExpiration, v.inspectionCompleted);
+    addAlert("Registration", `Truck ${v.truckId}`, v.registrationExpiration, v.registrationCompleted);
+    addAlert("2290 (HVUT)", `Truck ${v.truckId}`, v.hvut2290Expiration, v.hvut2290Completed);
+  });
+  const year = iftaData.year || 2026;
+  const qDates = {1:`${year}-03-31`,2:`${year}-06-30`,3:`${year}-09-30`,4:`${year}-12-31`};
+  [1,2,3,4].forEach(q=>addAlert(`IFTA Q${q}`, "Company-wide", qDates[q], iftaData[`q${q}Completed`]));
+  alerts.sort((a,b)=>a.daysUntil-b.daysUntil);
+  return alerts;
+}
+
 function renderDashboard(){
   const { perTruck, company } = computeDashboardYTD();
-  let html = `<h1 class="page-title">Dashboard</h1><p class="page-sub">All-time (YTD) totals across every week entered. Company totals include removed vehicles/drivers for accurate records.</p>`;
-  html += weekPickerHTML(null, "dashboardWeekSelect");
-  if(!vehicles.length){
-    html += `<div class="banner"><b>No vehicles yet</b>Go to Manage Fleet (hamburger menu) to add your first vehicle.</div>`;
+  const alerts = computeNeedsAttention();
+  let html = `<div style="display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:4px;">
+    <h1 class="page-title">Ledger</h1>
+    <div style="font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap;">Year to date &middot; ${WEEKS.length} weeks tracked</div>
+  </div>`;
+
+  html += `<div class="stat-strip">
+    <div class="stat-cell"><div class="stat-label">Net YTD</div><div class="stat-value" style="color:${company.netYTD<0?'var(--danger)':'#8a3115'};">${moneyStr(company.netYTD)}</div></div>
+    <div class="stat-cell"><div class="stat-label">Gross</div><div class="stat-value">${moneyStr(company.grossYTD)}</div><div class="stat-note">Contracts ${moneyStr(company.ytdContracts)} &middot; Acc ${moneyStr(company.ytdAccessories)}</div></div>
+    <div class="stat-cell"><div class="stat-label">Expenses</div><div class="stat-value">${moneyStr(company.ytdExpenses)}</div><div class="stat-note">Fuel, parts, mechanic, operations</div></div>
+    <div class="stat-cell"><div class="stat-label">Payroll</div><div class="stat-value">${moneyStr(company.ytdPayroll)}</div><div class="stat-note">${activeDrivers().length} drivers paid</div></div>
+  </div>`;
+
+  html += `<div class="section-label">Needs Attention</div>`;
+  if(alerts.length){
+    html += `<div style="overflow-x:auto;"><table class="logtable" style="min-width:560px;"><thead><tr><th>Item</th><th>Subject</th><th>Due</th><th>Status</th></tr></thead><tbody>`;
+    alerts.forEach(a=>{
+      html += `<tr><td style="font-weight:600;">${a.item}</td><td>${a.subject}</td><td>${a.due}</td><td><span class="tag ${a.cls}">${a.status}</span></td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  } else {
+    html += `<div class="banner soon">Nothing overdue and nothing due in the next 30 days.</div>`;
   }
-  html += `<div class="section-label">By Truck</div><div class="cards summary-cards">`;
-  perTruck.forEach(t=>{
-    html += `<div class="card"><h3>Truck <span class="tag">${t.truck}</span></h3>${ytdMetricsHTML(t)}</div>`;
-  });
-  html += `</div><div class="section-label">Entire Company</div><div class="cards summary-cards">
-    <div class="card company"><h3>All Trucks <span class="tag">Combined</span></h3>${ytdMetricsHTML(company)}</div></div>`;
+
+  if(!vehicles.length){
+    html += `<div class="section-label">By Truck</div><div class="banner"><b>No vehicles yet</b>Go to Roster to add your first vehicle.</div>`;
+  } else {
+    html += `<div class="section-label">By Truck</div><div class="cards summary-cards">`;
+    perTruck.forEach(t=>{
+      html += `<div class="card"><h3>Truck <span class="tag tag-neutral">${t.truck}</span></h3>${ytdMetricsHTML(t)}</div>`;
+    });
+    html += `</div>`;
+    html += `<div class="section-label">Entire Fleet <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px; margin-left:8px;">Payroll counts once, company-wide</span></div>`;
+    html += `<div class="cards summary-cards"><div class="card company"><h3>All Trucks <span class="tag" style="background:var(--blue); color:#fff;">Combined</span></h3>${ytdMetricsHTML(company)}</div></div>`;
+  }
+
+  html += `<div class="section-label">Jump to a Week</div>` + weekPickerHTML(null, "dashboardWeekSelect");
   mainArea.innerHTML = html;
   wireWeekPicker("dashboardWeekSelect", w=>{ currentModule="contracts"; currentView={type:"week", week:w}; renderMain(); });
 }
@@ -2689,22 +2764,23 @@ document.getElementById("brandHomeBtn").addEventListener("click", ()=>{
   flushIfNeeded();
   currentModule="contracts"; currentExpenseTab="overview"; currentView={type:"summary"};
   hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
-  hamburgerMenu.querySelector('button[data-module="contracts"]').classList.add("active");
+  hamburgerMenu.querySelector('button[data-view-mode="summary"]').classList.add("active");
   renderMain();
 });
-hamburgerBtn.addEventListener("click", e=>{ e.stopPropagation(); hamburgerMenu.classList.toggle("hidden"); });
-document.addEventListener("click", ()=>{ hamburgerMenu.classList.add("hidden"); });
-hamburgerMenu.querySelectorAll("button").forEach(b=>{
+document.querySelectorAll('[data-action="export"]').forEach(b=>b.addEventListener("click", ()=>exportExcel()));
+document.querySelectorAll('[data-action="signout"]').forEach(b=>b.addEventListener("click", async ()=>{ flushIfNeeded(); await sb.auth.signOut(); }));
+hamburgerMenu.querySelectorAll("button[data-module]").forEach(b=>{
   b.addEventListener("click", async e=>{
-    e.stopPropagation();
-    if(b.dataset.action==="export"){ exportExcel(); hamburgerMenu.classList.add("hidden"); return; }
-    if(b.dataset.action==="signout"){ flushIfNeeded(); await sb.auth.signOut(); return; }
     flushIfNeeded();
     currentModule = b.dataset.module;
     if(currentModule==="expenses") currentExpenseTab="overview";
-    currentView={type:"summary"};
+    if(currentModule==="contracts" && b.dataset.viewMode==="week"){
+      currentView = (currentView.type==="week") ? currentView : { type:"week", week:WEEKS[0] };
+    } else {
+      currentView = {type:"summary"};
+    }
     hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active"); hamburgerMenu.classList.add("hidden");
+    b.classList.add("active");
     renderMain();
   });
 });
@@ -2746,8 +2822,11 @@ async function showApp(userId){
       if(state.currentView) currentView = state.currentView;
     }
   } catch(e){ console.warn("Could not restore last page:", e); }
-  const activeBtn = hamburgerMenu.querySelector(`button[data-module="${currentModule}"]`);
-  (activeBtn || hamburgerMenu.querySelector('button[data-module="contracts"]')).classList.add("active");
+  const activeSelector = (currentModule==="contracts" && currentView.type==="week")
+    ? 'button[data-module="contracts"][data-view-mode="week"]'
+    : `button[data-module="${currentModule}"]`;
+  const activeBtn = hamburgerMenu.querySelector(activeSelector);
+  (activeBtn || hamburgerMenu.querySelector('button[data-view-mode="summary"]')).classList.add("active");
   registerServiceWorker();
   await loadAll(); renderMain();
 }
