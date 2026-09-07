@@ -110,7 +110,7 @@
   .seg-toggle button{background:transparent; color:var(--charcoal); border:0; border-right:1px solid var(--input-border); padding:9px 15px; font-size:12px; font-weight:600; letter-spacing:.05em;}
   .seg-toggle button:last-child{border-right:0;}
   .seg-toggle button.active{background:var(--blue); color:#fff;}
-  table.logtable{width:100%; border-collapse:collapse; border:1px solid var(--border);}
+  table.logtable{width:100%; border-collapse:collapse;}
   table.logtable th{background:transparent; color:var(--text-muted); text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--charcoal); font-weight:600;}
   table.logtable td{padding:8px 10px; border-top:1px solid var(--border); vertical-align:middle;}
   table.logtable tbody tr:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent);}
@@ -275,8 +275,8 @@ function weekSunday(week){ return new Date(ANCHOR_SUNDAY_UTC + (week-ANCHOR_WEEK
 function fmtShort(date){ return `${MONTH_NAMES[date.getUTCMonth()]} ${String(date.getUTCDate()).padStart(2,"0")}`; }
 function weekDateRangeLabel(week){
   const sun = weekSunday(week); const sat = new Date(sun); sat.setUTCDate(sun.getUTCDate()+6);
-  if(sun.getUTCFullYear() !== sat.getUTCFullYear()) return `${fmtShort(sun)}, ${sun.getUTCFullYear()} - ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
-  return `${fmtShort(sun)} - ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
+  if(sun.getUTCFullYear() !== sat.getUTCFullYear()) return `${fmtShort(sun)}, ${sun.getUTCFullYear()} \u2013 ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
+  return `${fmtShort(sun)} \u2013 ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
 }
 function buildWeekList(){
   const list=[]; let week=ANCHOR_WEEK; const yearEnd=Date.UTC(2026,11,31);
@@ -2062,21 +2062,21 @@ function renderCompliancePage(){
 
   const quarterEndDates = { 1:`${iftaData.year}-03-31`, 2:`${iftaData.year}-06-30`, 3:`${iftaData.year}-09-30`, 4:`${iftaData.year}-12-31` };
   html += `<div class="section-label" style="margin-top:34px;">IFTA ${iftaData.year}</div>`;
-  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:1px solid var(--charcoal); border-left:1px solid var(--border);">`;
+  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:2px solid var(--charcoal); gap:0;">`;
   [1,2,3,4].forEach(q=>{
     const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
-    html += `<div style="padding:16px 18px; border-right:1px solid var(--border); border-bottom:1px solid var(--border);">
+    html += `<div style="padding:16px 18px 16px 0;">
       <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${urg.cls}" style="margin-left:auto;">${urg.status}</span></div>
       <div class="hint" style="margin:6px 0 10px;">Due ${dueLabel(quarterEndDates[q])}</div>
-      <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}">
+      <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}" style="max-width:220px;">
       <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-top:10px; cursor:pointer;"><input type="checkbox" class="ifta-done" data-q="${q}" ${iftaData[`q${q}Completed`]?'checked':''}> Filed and paid</label>
     </div>`;
   });
   html += `</div>`;
   const iftaTotal = (parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0);
-  html += `<div style="display:grid; grid-template-columns:1fr auto; border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
-    <div style="padding:14px 18px; font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">IFTA year total</div>
-    <div style="padding:14px 18px; font-family:'Archivo',sans-serif; font-weight:600; font-size:18px;" id="iftaYearTotal">${moneyStr(iftaTotal)}</div>
+  html += `<div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:14px; margin-top:4px;">
+    <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">IFTA year total</div>
+    <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:18px;" id="iftaYearTotal">${moneyStr(iftaTotal)}</div>
   </div>`;
 
   html += `<div class="section-label" style="margin-top:34px;">Paperwork on file</div>`;
@@ -2273,13 +2273,13 @@ let newTruckDraft = { id:"", vin:"", plate:"", week: WEEKS[0] };
 function renderFleetPage(){
   const activeV = vehicles.filter(v=>v.active), inactiveV = vehicles.filter(v=>!v.active);
   const activeD = drivers.filter(d=>d.active), inactiveD = drivers.filter(d=>!d.active);
-  let html = pageHeaderHTML("Roster", `${activeV.length} trucks &middot; ${activeD.length} drivers`);
+  let html = pageHeaderHTML("Roster", `${activeV.length} truck${activeV.length===1?'':'s'} &middot; ${activeD.length} driver${activeD.length===1?'':'s'}`);
 
   html += `<div class="section-label">Active trucks</div>`;
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck ID</th><th>Running since</th><th></th></tr></thead><tbody>`;
   activeV.forEach(v=>{
     const idx = vehicles.indexOf(v);
-    html += `<tr><td><span class="link-nav-truck" data-truck="${v.truckId}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline; font-weight:600;">${v.truckId}</span></td><td>Week ${v.addedWeek} &middot; ${weekDateRangeLabel(v.addedWeek)}</td><td><button class="btn-danger" data-deactivate-vehicle="${idx}">Deactivate</button></td></tr>`;
+    html += `<tr><td><span class="link-nav-truck" data-truck="${v.truckId}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline; font-weight:600;">${v.truckId}</span></td><td>Week ${v.addedWeek} &middot; ${weekDateRangeLabel(v.addedWeek)}</td><td><button class="btn-ghost" data-deactivate-vehicle="${idx}">Deactivate</button></td></tr>`;
   });
   if(!activeV.length) html += `<tr><td colspan="3" class="hint">No active trucks yet - add one below.</td></tr>`;
   html += `</tbody></table></div>`;
@@ -2296,7 +2296,7 @@ function renderFleetPage(){
     html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck ID</th><th>Ran from</th><th></th></tr></thead><tbody>`;
     inactiveV.forEach(v=>{
       const idx = vehicles.indexOf(v);
-      html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek}</td><td><button class="btn-success" data-reactivate-vehicle="${idx}">Activate</button></td></tr>`;
+      html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek}</td><td><button class="btn-blue" data-reactivate-vehicle="${idx}">Activate</button></td></tr>`;
     });
     html += `</tbody></table></div>`;
   }
@@ -2306,7 +2306,7 @@ function renderFleetPage(){
   activeD.forEach(d=>{
     const idx = drivers.indexOf(d);
     const pw = paperworkStatus(d);
-    html += `<tr><td><span class="link-nav-driver" data-driver="${d.name}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline; font-weight:600;">${d.name}</span></td><td><span class="tag ${pw==='Complete'?'tag-neutral':'tag-accent'}">${pw}</span></td><td><button class="btn-danger" data-deactivate-driver="${idx}">Deactivate</button></td></tr>`;
+    html += `<tr><td><span class="link-nav-driver" data-driver="${d.name}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline; font-weight:600;">${d.name}</span></td><td><span class="tag ${pw==='Complete'?'tag-neutral':'tag-accent'}">${pw}</span></td><td><button class="btn-ghost" data-deactivate-driver="${idx}">Deactivate</button></td></tr>`;
   });
   if(!activeD.length) html += `<tr><td colspan="3" class="hint">No active drivers yet - add one below.</td></tr>`;
   html += `</tbody></table></div>`;
@@ -2321,19 +2321,21 @@ function renderFleetPage(){
     html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Paperwork</th><th></th></tr></thead><tbody>`;
     inactiveD.forEach(d=>{
       const idx = drivers.indexOf(d);
-      html += `<tr><td>${d.name}</td><td><span class="tag tag-neutral">${paperworkStatus(d)}</span></td><td><button class="btn-success" data-reactivate-driver="${idx}">Activate</button></td></tr>`;
+      html += `<tr><td><span class="link-nav-driver" data-driver="${d.name}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline; font-weight:600;">${d.name}</span></td><td><span class="tag tag-neutral">${paperworkStatus(d)}</span></td><td><button class="btn-blue" data-reactivate-driver="${idx}">Activate</button></td></tr>`;
     });
     html += `</tbody></table></div>`;
   }
 
   html += `<div class="section-label">Reminders</div>
-    <div class="card">
-      <h3>Push Reminders</h3>
-      <p class="hint" style="margin-bottom:12px;">A weekly nudge to log the week, plus a warning when a week is about to close with fuel missing.</p>
+    <div style="border-top:1px solid var(--charcoal); padding-top:16px; display:flex; align-items:baseline; flex-wrap:wrap; gap:16px 24px;">
+      <div style="flex:1; min-width:240px;">
+        <h3 style="margin:0 0 4px 0; font-weight:600; font-size:15px;">Push reminders</h3>
+        <p class="hint" style="margin:0;">A weekly nudge to log the week, plus a warning when a week is about to close with fuel missing.</p>
+      </div>
       <button class="btn-blue btn-sm" id="enableNotifBtn">Turn on reminders</button>
-      <button class="btn-danger btn-sm" id="disableNotifBtn" style="margin-left:8px;">Turn off</button>
-      <div class="hint" id="notifStatus" style="margin-top:10px;"></div>
-    </div>`;
+      <button class="btn-ghost btn-sm" id="disableNotifBtn">Turn off</button>
+    </div>
+    <div class="hint" id="notifStatus" style="margin-top:10px; text-transform:uppercase; letter-spacing:.08em; font-size:11px;"></div>`;
 
   mainArea.innerHTML = html;
 
@@ -2396,7 +2398,7 @@ async function refreshNotifStatus(){
   const el = document.getElementById("notifStatus");
   if(!el) return;
   const status = await getPushSubscriptionStatus();
-  const labels = { unsupported:"Not supported in this browser.", "not-registered":"Not set up yet.", "not-subscribed":"Notifications are off.", subscribed:"Notifications are ON." };
+  const labels = { unsupported:"NOT SUPPORTED IN THIS BROWSER", "not-registered":"REMINDERS ARE OFF", "not-subscribed":"REMINDERS ARE OFF", subscribed:"REMINDERS ARE ON FOR THIS DEVICE" };
   el.textContent = labels[status] || "";
 }
 
