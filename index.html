@@ -41,7 +41,7 @@
   header .titles .sub{font-size:10px; color:var(--text-muted); letter-spacing:.14em; text-transform:uppercase; margin-top:2px;}
   header .titles .underline{display:none;}
   header .toolbar{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-  button{font-family:inherit; cursor:pointer; border:1px solid transparent; padding:9px 14px; font-size:13px; font-weight:600; transition:background .15s,opacity .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
+  button{font-family:inherit; cursor:pointer; border:1px solid transparent; padding:9px 14px; font-size:13px; font-weight:600; transition:opacity .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
   button:hover{opacity:.88;} button:disabled{opacity:.4; cursor:not-allowed;}
   .btn-blue{background:var(--blue); color:#fff; border-color:var(--blue);}
   .btn-blue:hover{background:#8a3115; opacity:1;}
@@ -53,7 +53,7 @@
   .hamburger-btn{display:none;}
   .hamburger-wrap{display:none;}
   .hamburger-menu{display:none;}
-  .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow-x:auto;}
+  .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; flex-shrink:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow-x:auto; overflow-y:visible;}
   .tab-nav button{position:relative; display:flex; align-items:center; gap:7px; background:transparent; border:0; cursor:pointer; padding:13px 15px; color:var(--charcoal); font-weight:600; font-size:12px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;}
   .tab-nav button:hover{color:var(--blue); opacity:1;}
   .tab-nav button.active{color:var(--blue);}
@@ -61,7 +61,7 @@
   .app-body{flex:1; display:flex; overflow:hidden; min-height:0;}
   main{flex:1; overflow-y:auto; padding:26px clamp(16px,3vw,36px) 60px; min-width:0;}
   .page-header{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:22px;}
-  .page-title{font-size:38px; font-weight:600; margin:0; letter-spacing:-0.005em;}
+  .page-title{font-size:38px; font-weight:800; margin:0; letter-spacing:-0.005em;}
   .page-title .clickable-title{cursor:pointer; text-decoration:underline; text-decoration-color:var(--blue); text-underline-offset:4px;}
   .page-title .clickable-title:hover{color:var(--blue);}
   .page-sub{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap; margin:0;}
@@ -885,7 +885,10 @@ async function saveAll(){
   } catch(e){
     console.error(e);
     setStatus("Save failed");
-    showAppToast("Save failed: " + (e.message||e), "error");
+    const friendly = /uuid/i.test(e.message||"")
+      ? "Save failed - you're not signed in. Please sign in to save changes."
+      : "Save failed: " + (e.message||e);
+    showAppToast(friendly, "error");
   }
 }
 
@@ -2061,20 +2064,20 @@ function renderCompliancePage(){
   html += `</tbody></table></div>`;
 
   const quarterEndDates = { 1:`${iftaData.year}-03-31`, 2:`${iftaData.year}-06-30`, 3:`${iftaData.year}-09-30`, 4:`${iftaData.year}-12-31` };
-  html += `<div class="section-label" style="margin-top:34px;">IFTA ${iftaData.year}</div>`;
-  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:2px solid var(--charcoal); gap:0;">`;
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">IFTA ${iftaData.year}</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Company-wide</div></div>`;
+  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:2px solid var(--charcoal); border-bottom:1px solid var(--border);">`;
   [1,2,3,4].forEach(q=>{
     const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
-    html += `<div style="padding:16px 18px 16px 0;">
+    html += `<div style="padding:16px 18px; border-right:1px solid var(--border);">
       <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${urg.cls}" style="margin-left:auto;">${urg.status}</span></div>
       <div class="hint" style="margin:6px 0 10px;">Due ${dueLabel(quarterEndDates[q])}</div>
-      <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}" style="max-width:220px;">
+      <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}">
       <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-top:10px; cursor:pointer;"><input type="checkbox" class="ifta-done" data-q="${q}" ${iftaData[`q${q}Completed`]?'checked':''}> Filed and paid</label>
     </div>`;
   });
   html += `</div>`;
   const iftaTotal = (parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0);
-  html += `<div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:14px; margin-top:4px;">
+  html += `<div style="display:flex; justify-content:space-between; align-items:center; padding-top:14px;">
     <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">IFTA year total</div>
     <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:18px;" id="iftaYearTotal">${moneyStr(iftaTotal)}</div>
   </div>`;
@@ -2456,7 +2459,7 @@ function renderProfile(overlay, kind, id){
     </div>
     <div style="max-width:1080px; padding:26px clamp(16px,3vw,36px) 90px;">
       <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
-        <h1 style="font-size:clamp(28px,4vw,40px); margin:0; letter-spacing:-0.01em;">Truck ${id}</h1>
+        <h1 style="font-size:clamp(28px,4vw,40px); font-weight:800; margin:0; letter-spacing:-0.01em;">Truck ${id}</h1>
         <span class="tag ${v.active?'tag-neutral':'tag-accent'}">${v.active?'Active':'Inactive'}</span>
       </div>
       <p style="max-width:62ch; font-size:13px; color:var(--text-muted); margin:8px 0 22px;">VIN ${v.vin||'not recorded'} &middot; plate ${v.plate||'not recorded'} &middot; running since week ${v.addedWeek}${driverNames.length?' &middot; driven by '+driverNames.join(', '):''}</p>
@@ -2493,7 +2496,7 @@ function renderProfile(overlay, kind, id){
     </div>
     <div style="max-width:1080px; padding:26px clamp(16px,3vw,36px) 90px;">
       <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
-        <h1 style="font-size:clamp(28px,4vw,40px); margin:0; letter-spacing:-0.01em;">${dr.name}</h1>
+        <h1 style="font-size:clamp(28px,4vw,40px); font-weight:800; margin:0; letter-spacing:-0.01em;">${dr.name}</h1>
         <span class="tag ${dr.active?'tag-neutral':'tag-accent'}">${dr.active?'Active':'Inactive'}</span>
       </div>
       <p style="max-width:62ch; font-size:13px; color:var(--text-muted); margin:8px 0 22px;">Licence ${dr.licenseNumber||'not recorded'} &middot; ${trucks.length?('runs '+trucks.map(t=>'truck '+t).join(', ')):'no truck logged yet'}.</p>
@@ -2794,7 +2797,7 @@ function renderDashboard(){
   const weekCount = WEEKS.filter(w=>contractsEntries.some(e=>e.week===w)||fuelEntries.some(e=>e.week===w)).length;
 
   let html = `<div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 4px;">
-    <h1 style="font-size: 38px; margin: 0; letter-spacing: -0.005em;">Ledger</h1>
+    <h1 style="font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -0.005em;">Ledger</h1>
     <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap;">Year to date &middot; ${weekCount} week${weekCount===1?'':'s'} entered</div>
   </div>`;
 
@@ -2839,7 +2842,7 @@ function renderDashboard(){
     alerts.forEach(a=>{
       html += `<tr>
         <td style="font-weight: 600;">${a.item}</td>
-        <td><span class="link-nav" data-nav="${a.navModule}" style="color:var(--blue-700); cursor:pointer; text-decoration:underline;">${a.subject}</span></td>
+        <td>${a.subject}</td>
         <td>${a.due}</td>
         <td><span class="tag ${a.cls}">${a.status}</span></td>
       </tr>`;
@@ -2909,9 +2912,7 @@ function renderDashboard(){
     html += `</div>`;
   }
 
-  html += `<div class="section-label" style="margin-top:34px;">Jump to a Week</div>` + weekPickerHTML(null, "dashboardWeekSelect");
   mainArea.innerHTML = html;
-  wireWeekPicker("dashboardWeekSelect", w=>{ currentModule="contracts"; currentView={type:"week", week:w}; renderMain(); });
   const docketBtn = document.getElementById("openDocketBtn");
   if(docketBtn) docketBtn.addEventListener("click", ()=>{ currentModule="compliance"; currentView={type:"summary"}; renderMain(); });
   const rosterBtn = document.getElementById("openRosterBtn");
@@ -3626,7 +3627,7 @@ function showAuth(){ appRoot.style.display="none"; authScreen.style.display="blo
    app behind a login form. Data reads/writes will still fail gracefully
    (caught, shown as a toast) if there's no real Supabase session, since RLS
    still requires a real signed-in user underneath. */
-const DISABLE_LOGIN_SCREEN = true;
+const DISABLE_LOGIN_SCREEN = false;
 
 if(sb){
   sb.auth.onAuthStateChange((event,session)=>{
