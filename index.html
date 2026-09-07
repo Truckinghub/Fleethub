@@ -54,6 +54,7 @@
   .hamburger-wrap{display:none;}
   .hamburger-menu{display:none;}
   .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; flex-shrink:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow-x:auto; overflow-y:visible;}
+  .bottom-nav{display:none;}
   .tab-nav button{position:relative; display:flex; align-items:center; gap:7px; background:transparent; border:0; cursor:pointer; padding:13px 15px; color:var(--charcoal); font-weight:600; font-size:12px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;}
   .tab-nav button:hover{color:var(--blue); opacity:1;}
   .tab-nav button.active{color:var(--blue);}
@@ -171,6 +172,24 @@
   #statusToast.visible{opacity:1;}
 
   @media (max-width: 760px){
+    .tab-nav{display:none;}
+    .bottom-nav{display:flex; position:fixed; left:0; right:0; bottom:0; z-index:900; background:var(--bg); border-top:2px solid var(--charcoal); padding-bottom:env(safe-area-inset-bottom, 0);}
+    .bottom-nav button{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:transparent; border:0; padding:8px 2px 7px; font-size:10px; font-weight:600; letter-spacing:.02em; color:var(--text-muted); min-height:52px;}
+    .bottom-nav button.active{color:var(--blue-700);}
+    .bottom-nav button svg{flex-shrink:0;}
+    .app-body{padding-bottom:60px;}
+    /* Wide tables become stacked cards instead of requiring sideways scroll -
+       every cell shows its column header as a label above its content. Cells
+       are given a data-label attribute wherever this applies; action/doc cells
+       that don't need a label simply have no data-label and show none. */
+    table.logtable{display:block; overflow-x:visible !important; white-space:normal !important; min-width:0 !important;}
+    table.logtable thead{display:none;}
+    table.logtable tbody, table.logtable tr{display:block; width:100%;}
+    table.logtable tr{border:1px solid var(--border); border-top:2px solid var(--charcoal); margin-bottom:14px; padding:4px 14px;}
+    table.logtable td{display:block; border:0 !important; padding:8px 0 !important; border-bottom:1px solid var(--border) !important;}
+    table.logtable tr td:last-child{border-bottom:0 !important;}
+    table.logtable td[data-label]::before{content:attr(data-label); display:block; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); margin-bottom:4px;}
+    table.logtable td input, table.logtable td select, table.logtable td textarea{width:100%;}
     header{padding:10px 12px;} header .titles .sub{display:none;}
     header .toolbar{gap:6px;} header button{padding:10px 12px; font-size:13px; min-height:44px;}
     main{padding:16px;}
@@ -178,8 +197,6 @@
     .totalsrow{grid-template-columns:1fr; gap:0;}
     .ytd-grid{grid-template-columns:repeat(3, 1fr); gap:8px 10px;}
     .summary-cards .card .big{font-size:16px;}
-    table.logtable{display:block; overflow-x:auto; white-space:nowrap;}
-    table.logtable[style*="table-layout:fixed"]{min-width:640px; white-space:normal;}
     .contract-chip{padding:10px 12px !important; font-size:12px !important;}
     #docPreviewActions button, .dialog-actions button{min-height:44px;}
     .week-picker-row select{min-width:0; width:100%;}
@@ -261,6 +278,22 @@
 <div class="app-body">
   <main id="mainArea"></main>
 </div>
+<div class="bottom-nav" id="bottomNav">
+  <button data-module="contracts" data-view-mode="summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 9v12"></path></svg><span>Ledger</span></button>
+  <button data-module="contracts" data-view-mode="week"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 3h9l5 5v13H5z"></path><path d="M14 3v5h5"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg><span>Contracts</span></button>
+  <button data-module="payroll"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M2 6h20v12H2z"></path><path d="M2 10h20"></path><path d="M6 14h4"></path></svg><span>Payroll</span></button>
+  <button data-module="expenses"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 2h14v20l-3.5-2-3.5 2-3.5-2L5 22z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg><span>Expenses</span></button>
+  <button id="bottomNavMoreBtn" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg><span>More</span></button>
+</div>
+</div>
+
+<div id="bottomNavMoreMenu" style="display:none; position:fixed; inset:0; z-index:1500;">
+  <div id="bottomNavMoreBackdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.4);"></div>
+  <div style="position:absolute; left:0; right:0; bottom:0; background:var(--bg); border-top:2px solid var(--charcoal);">
+    <button data-module="maintenance" style="display:flex; align-items:center; gap:14px; width:100%; background:transparent; border:0; border-bottom:1px solid var(--border); padding:18px 20px; font-size:15px; font-weight:600; text-align:left;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 18a8 8 0 1 1 16 0"></path><path d="M12 18l4.5-6"></path><path d="M4 18h16"></path></svg>Service</button>
+    <button data-module="compliance" style="display:flex; align-items:center; gap:14px; width:100%; background:transparent; border:0; border-bottom:1px solid var(--border); padding:18px 20px; font-size:15px; font-weight:600; text-align:left;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>Docket</button>
+    <button data-module="fleet" style="display:flex; align-items:center; gap:14px; width:100%; background:transparent; border:0; padding:18px 20px; font-size:15px; font-weight:600; text-align:left;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 6h11v10H3z"></path><path d="M14 9h4l3 3v4h-7z"></path><path d="M7 16v2"></path><path d="M17 16v2"></path></svg>Roster</button>
+  </div>
 </div>
 
 <div id="statusToast"></div>
@@ -1808,6 +1841,25 @@ async function disablePushNotifications(){
 
 /* ============ UI ELEMENT REFS ============ */
 const mainArea=document.getElementById("mainArea");
+
+/* Every table.logtable automatically gets a data-label on each cell, read
+   straight from that table's own header row - so on mobile (where the CSS
+   turns each row into a stacked card) every field shows its column name
+   without needing to hand-edit dozens of separate row-template functions.
+   Fires via MutationObserver so it covers every page's tables uniformly,
+   present and future, with zero changes needed to how any table is built. */
+function applyTableLabels(){
+  mainArea.querySelectorAll("table.logtable").forEach(table=>{
+    const headers = Array.from(table.querySelectorAll(":scope > thead th")).map(th=>th.textContent.trim());
+    if(!headers.length) return;
+    table.querySelectorAll(":scope > tbody > tr").forEach(tr=>{
+      Array.from(tr.children).forEach((td,i)=>{
+        if(td.tagName==="TD" && headers[i]) td.setAttribute("data-label", headers[i]);
+      });
+    });
+  });
+}
+new MutationObserver(()=>applyTableLabels()).observe(mainArea, {childList:true, subtree:false});
 const hamburgerMenu=document.getElementById("hamburgerMenu");
 const authScreen=document.getElementById("authScreen"), appRoot=document.getElementById("appRoot");
 
@@ -1940,14 +1992,21 @@ function wireWeekRail(prefix, week, onChange){
 /* ============ MAIN DISPATCH ============ */
 function renderMain(){
   try{ localStorage.setItem("fleethub_navstate", JSON.stringify({ currentModule, currentExpenseTab, currentView })); } catch(e){}
+  const selector = (currentModule==="contracts" && currentView.type==="week")
+    ? 'button[data-module="contracts"][data-view-mode="week"]'
+    : `button[data-module="${currentModule}"]`;
   const tabNav = document.getElementById("hamburgerMenu");
   if(tabNav){
     tabNav.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
-    const selector = (currentModule==="contracts" && currentView.type==="week")
-      ? 'button[data-module="contracts"][data-view-mode="week"]'
-      : `button[data-module="${currentModule}"]`;
     const btn = tabNav.querySelector(selector) || tabNav.querySelector('button[data-view-mode="summary"]');
     if(btn) btn.classList.add("active");
+  }
+  const bottomNavEl = document.getElementById("bottomNav");
+  if(bottomNavEl){
+    bottomNavEl.querySelectorAll("button").forEach(x=>x.classList.remove("active"));
+    const bBtn = bottomNavEl.querySelector(selector);
+    if(bBtn) bBtn.classList.add("active");
+    else if(["maintenance","compliance","fleet"].includes(currentModule)) document.getElementById("bottomNavMoreBtn").classList.add("active");
   }
   if(currentModule==="fleet"){ renderFleetPage(); return; }
   if(currentModule==="compliance"){ renderCompliancePage(); return; }
@@ -2122,13 +2181,21 @@ function renderCompliancePage(){
     const idx = drivers.indexOf(d);
     [["W-9","w9DocumentPath","w9"],["CDL scan","licenseDocumentPath","license"],["Medical card scan","medicalCardDocumentPath","medical"]].forEach(([label,field])=>{
       const has = !!d[field];
-      html += `<tr><td style="font-weight:600;">${d.name}</td><td>${label}</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML((field==="w9DocumentPath"?"w9":field==="licenseDocumentPath"?"license":"medical")+"-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${d[field]}" data-doc-owner="driver-${idx}-${field}" style="background:var(--blue); color:#fff;">View</button>`:''}</td></tr>`;
+      const idBase = (field==="w9DocumentPath"?"w9":field==="licenseDocumentPath"?"license":"medical")+"-"+idx;
+      const actionBtn = has
+        ? `<button class="btn-ghost btn-sm" data-view-doc="${d[field]}" data-doc-owner="driver-${idx}-${field}">View</button>`
+        : `<button class="btn-ghost btn-sm" data-doc-menu="${idBase}">Upload</button>`;
+      html += `<tr><td style="font-weight:600;">${d.name}</td><td>${label}</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${actionBtn}</td></tr>`;
     });
   });
   activeVehicles().forEach(v=>{
     const idx = vehicles.indexOf(v);
     const has = !!v.hvut2290ReceiptPath;
-    html += `<tr><td style="font-weight:600;">Truck ${v.truckId}</td><td>2290 receipt</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${docUploadButtonsHTML("hvut-"+idx)} ${has?`<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" data-doc-owner="vehicle-${idx}-hvut2290ReceiptPath" style="background:var(--blue); color:#fff;">View</button>`:''}</td></tr>`;
+    const idBase2 = "hvut-"+idx;
+    const actionBtn2 = has
+      ? `<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" data-doc-owner="vehicle-${idx}-hvut2290ReceiptPath">View</button>`
+      : `<button class="btn-ghost btn-sm" data-doc-menu="${idBase2}">Upload</button>`;
+    html += `<tr><td style="font-weight:600;">Truck ${v.truckId}</td><td>2290 receipt</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${actionBtn2}</td></tr>`;
   });
   html += `</tbody></table></div>`;
 
@@ -2226,6 +2293,12 @@ function wireCompliancePage(){
         const idBase = btn.dataset.docMenu;
         showDocOptionsMenu(btn, ()=>handleComplianceDocUpload(idBase,"camera"), ()=>handleComplianceDocUpload(idBase,"upload"));
       }
+    });
+  });
+  mainArea.querySelectorAll("[data-doc-menu]:not(.compliance-doc-btn):not(.doc-camera-icon)").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const idBase = btn.dataset.docMenu;
+      showDocOptionsMenu(btn, ()=>handleComplianceDocUpload(idBase,"camera"), ()=>handleComplianceDocUpload(idBase,"upload"));
     });
   });
   mainArea.querySelectorAll("[data-view-doc]").forEach(btn=>{
@@ -3402,7 +3475,7 @@ const PAGE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="non
 
 function scanIconButtonsHTML(idBase, hasDoc){
   let html = `<span style="display:inline-flex; gap:8px; align-items:center;">`;
-  html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="display:inline-flex; align-items:center; gap:8px;">${CAMERA_ICON_SVG}<span>Scan a receipt</span></button>`;
+  html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="display:inline-flex; align-items:center; gap:8px; min-height:34px; box-sizing:border-box;">${CAMERA_ICON_SVG}<span>Scan a receipt</span></button>`;
   if(hasDoc) html += `<button type="button" data-doc-preview="${idBase}" title="Preview document" style="background:transparent; border:0; color:var(--charcoal); padding:6px; cursor:pointer;">${PAGE_ICON_SVG}</button>`;
   html += `</span>`;
   return html;
@@ -3457,7 +3530,7 @@ function renderLogPage(cfg){
   html += `<div class="section-label">Entry Log</div>`;
   html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th>Doc</th><th></th></tr></thead><tbody id="logTbody">`;
   entries.forEach((e,idx)=>{ html += logRowHTML(cfg, e, idx); });
-  html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add entry</button>`;
+  html += `</tbody></table><div class="addrow-wrap" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><button class="btn-blue btn-sm" id="addLogRow" style="min-height:34px; box-sizing:border-box;">+ Add entry</button>`;
   if(cfg.key==="parts" || cfg.key==="mechanic" || cfg.allowDocs){
     html += ` ${scanIconButtonsHTML("pagelevel-"+cfg.key, false)}`;
   }
@@ -3599,29 +3672,36 @@ function refreshLogSummary(cfg){
 }
 
 /* ============ FILE-LESS NAV EVENTS ============ */
+function navigateToModule(moduleName, viewMode){
+  flushIfNeeded();
+  currentModule = moduleName;
+  if(currentModule==="expenses") currentExpenseTab="overview";
+  if(currentModule==="contracts" && viewMode==="week"){
+    currentView = (currentView.type==="week") ? currentView : { type:"week", week:WEEKS[0] };
+  } else {
+    currentView = {type:"summary"};
+  }
+  renderMain();
+}
 document.getElementById("brandHomeBtn").addEventListener("click", ()=>{
   flushIfNeeded();
   currentModule="contracts"; currentExpenseTab="overview"; currentView={type:"summary"};
-  hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
-  hamburgerMenu.querySelector('button[data-view-mode="summary"]').classList.add("active");
   renderMain();
 });
 document.querySelectorAll('[data-action="export"]').forEach(b=>b.addEventListener("click", ()=>exportExcel()));
 document.querySelectorAll('[data-action="signout"]').forEach(b=>b.addEventListener("click", async ()=>{ flushIfNeeded(); await sb.auth.signOut(); }));
 hamburgerMenu.querySelectorAll("button[data-module]").forEach(b=>{
-  b.addEventListener("click", async e=>{
-    flushIfNeeded();
-    currentModule = b.dataset.module;
-    if(currentModule==="expenses") currentExpenseTab="overview";
-    if(currentModule==="contracts" && b.dataset.viewMode==="week"){
-      currentView = (currentView.type==="week") ? currentView : { type:"week", week:WEEKS[0] };
-    } else {
-      currentView = {type:"summary"};
-    }
-    hamburgerMenu.querySelectorAll("button[data-module]").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active");
-    renderMain();
-  });
+  b.addEventListener("click", ()=>navigateToModule(b.dataset.module, b.dataset.viewMode));
+});
+const bottomNav = document.getElementById("bottomNav");
+bottomNav.querySelectorAll("button[data-module]").forEach(b=>{
+  b.addEventListener("click", ()=>navigateToModule(b.dataset.module, b.dataset.viewMode));
+});
+const bottomNavMoreMenu = document.getElementById("bottomNavMoreMenu");
+document.getElementById("bottomNavMoreBtn").addEventListener("click", ()=>{ bottomNavMoreMenu.style.display="block"; });
+document.getElementById("bottomNavMoreBackdrop").addEventListener("click", ()=>{ bottomNavMoreMenu.style.display="none"; });
+bottomNavMoreMenu.querySelectorAll("button[data-module]").forEach(b=>{
+  b.addEventListener("click", ()=>{ bottomNavMoreMenu.style.display="none"; navigateToModule(b.dataset.module); });
 });
 
 /* ============ AUTH ============ */
@@ -3661,11 +3741,6 @@ async function showApp(userId){
       if(state.currentView) currentView = state.currentView;
     }
   } catch(e){ console.warn("Could not restore last page:", e); }
-  const activeSelector = (currentModule==="contracts" && currentView.type==="week")
-    ? 'button[data-module="contracts"][data-view-mode="week"]'
-    : `button[data-module="${currentModule}"]`;
-  const activeBtn = hamburgerMenu.querySelector(activeSelector);
-  (activeBtn || hamburgerMenu.querySelector('button[data-view-mode="summary"]')).classList.add("active");
   registerServiceWorker();
   await loadAll(); renderMain();
 }
