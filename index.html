@@ -3154,13 +3154,14 @@ async function renderReceiptsPage(){
     mainArea.innerHTML = html; wireSubtabs(); return;
   }
   html += `<div style="margin-bottom:16px;"><button class="btn-blue btn-sm" id="downloadAllReceiptsBtn">Download All as PDF (${receipts.length})</button></div>`;
-  html += `<div class="cards" id="receiptCards">`;
+  html += `<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:24px;" id="receiptCards">`;
   receipts.forEach((r,idx)=>{
-    html += `<div class="card">
-      <h3>${r.logType} <span class="tag">${r.truck||'?'}</span></h3>
-      <div class="hint">${r.date||''}</div>
-      <div style="margin:8px 0; font-weight:bold;">${r.description||''} - $${(parseFloat(r.amount)||0).toFixed(2)}</div>
-      <div id="receiptThumb-${idx}" style="width:100%; height:140px; background:var(--bg); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:12px; cursor:pointer;">Loading...</div>
+    html += `<div style="border-top:1px solid var(--charcoal); padding-top:10px;">
+      <div style="font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:600;">${r.logType}</div>
+      <div class="hint" style="margin-bottom:8px;">Truck ${r.truck||'?'} &middot; ${r.date?dueLabel(r.date):''}</div>
+      <div id="receiptThumb-${idx}" style="width:100%; height:150px; background:#fff; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--text-muted); cursor:pointer; margin-bottom:8px;">${PAGE_ICON_SVG}</div>
+      <div style="font-size:13px;">${r.description||''}</div>
+      <div style="font-weight:600; margin-top:2px;">${moneyStr(parseFloat(r.amount)||0)}</div>
     </div>`;
   });
   html += `</div>`;
@@ -3172,9 +3173,7 @@ async function renderReceiptsPage(){
     const thumb = document.getElementById(`receiptThumb-${idx}`);
     if(!thumb) return;
     if(url){
-      thumb.innerHTML = `<img src="${url}" style="max-width:100%; max-height:140px; border-radius:6px; pointer-events:none;">`;
-    } else {
-      thumb.textContent = "Couldn't load image";
+      thumb.innerHTML = `<img src="${url}" style="max-width:100%; max-height:150px; pointer-events:none;">`;
     }
     thumb.addEventListener("click", ()=>{
       const sourceArray = r.logType==="Parts" ? partsLog : mechanicLog;
