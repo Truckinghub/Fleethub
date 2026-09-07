@@ -84,6 +84,8 @@
   .field{margin-bottom:10px;}
   .field label{display:block; font-size:12px; color:color-mix(in srgb, var(--charcoal) 70%, transparent); margin-bottom:5px;}
   .field input, .field select{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal); min-height:36px;}
+  input.input, select.input, textarea.input{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal); min-height:36px;}
+  input.input:hover, select.input:hover, textarea.input:hover{border-color:var(--neutral-500);}
   .field input:hover, .field select:hover{border-color:var(--neutral-500);}
   .field input:focus, .field select:focus{outline:none; border-color:var(--blue);}
   .field.readonly input{background:var(--blue-pale); font-weight:600; color:var(--charcoal); border-color:var(--border);}
@@ -99,7 +101,7 @@
   .summary-cards .card .label{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.1em;}
   .summary-cards .card.company .label{color:#b9b5b0;}
   .hint{font-size:12px; color:var(--text-muted); margin-top:2px;}
-  .banner{background:#fff; border:1px solid var(--border); border-top:2px solid var(--blue); color:var(--charcoal); padding:14px 18px; font-size:13px; margin-bottom:16px;}
+  .banner{color:var(--charcoal); padding:14px 0; font-size:13px; margin-bottom:16px; border-top:2px solid var(--blue);}
   .banner b{display:block; margin-bottom:4px; font-weight:600;} .banner.soon{border-top-color:var(--border); color:var(--text-muted);}
   .subtabs{display:flex; gap:0; margin-bottom:20px; flex-wrap:wrap; border-top:1px solid var(--border); border-bottom:1px solid var(--border);}
   .subtabs button{position:relative; background:transparent; color:var(--charcoal); border:0; border-right:1px solid var(--border); padding:11px 16px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;}
@@ -177,6 +179,9 @@
     .ytd-grid{grid-template-columns:repeat(3, 1fr); gap:8px 10px;}
     .summary-cards .card .big{font-size:16px;}
     table.logtable{display:block; overflow-x:auto; white-space:nowrap;}
+    table.logtable[style*="table-layout:fixed"]{min-width:640px; white-space:normal;}
+    .contract-chip{padding:10px 12px !important; font-size:12px !important;}
+    #docPreviewActions button, .dialog-actions button{min-height:44px;}
     .week-picker-row select{min-width:0; width:100%;}
     .tab-nav{overflow-x:auto; -webkit-overflow-scrolling:touch;}
 
@@ -837,6 +842,29 @@ function showAppToast(message, type){
   }, duration);
 }
 
+/* A toast that stays visible until explicitly dismissed - used to show
+   "Uploading..." for the duration of an actual upload, instead of the usual
+   fixed-duration toast, since we don't know in advance how long it'll take. */
+function showProgressToast(message){
+  const container = document.getElementById("appToastContainer");
+  if(!container){ console.log("[progress]", message); return { done: ()=>{} }; }
+  const toast = document.createElement("div");
+  toast.className = "app-toast app-toast-warning";
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(()=> toast.classList.add("visible"));
+  return {
+    done(finalMessage, type){
+      toast.textContent = finalMessage;
+      toast.className = `app-toast app-toast-${type||'success'} visible`;
+      setTimeout(()=>{
+        toast.classList.remove("visible");
+        setTimeout(()=>{ if(toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+      }, 1400);
+    }
+  };
+}
+
 async function saveAll(){
   if(!sb){ showAppToast("Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md", "error"); return; }
   setStatus("Saving...");
@@ -1448,8 +1476,10 @@ async function uploadReceiptImage(canvas){
   try{
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.85);
     const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+    const progress = showProgressToast("Uploading document...");
     const { error } = await sb.storage.from("receipts").upload(path, blob, { contentType: "image/jpeg" });
-    if(error){ console.error("Receipt upload failed:", error); return null; }
+    if(error){ console.error("Receipt upload failed:", error); progress.done("Upload failed", "error"); return null; }
+    progress.done("Document uploaded", "success");
     return path;
   } catch(e){
     console.error("Receipt upload failed:", e);
@@ -1948,8 +1978,10 @@ async function uploadComplianceDocument(pathPrefix, mode){
     if(isPdfFile(file)){
       // PDFs are already flat digital documents - no need to crop/filter, just upload as-is.
       const path = `${currentUserId}/${pathPrefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}.pdf`;
+      const progress = showProgressToast("Uploading document...");
       const { error } = await sb.storage.from("receipts").upload(path, file, { contentType: "application/pdf" });
-      if(error){ console.error(error); showAppToast("Upload failed: " + error.message, "error"); return null; }
+      if(error){ console.error(error); progress.done("Upload failed", "error"); return null; }
+      progress.done("Document uploaded", "success");
       return path;
     }
 
@@ -1962,8 +1994,10 @@ async function uploadComplianceDocument(pathPrefix, mode){
 
     const blob = await canvasToBlob(filtered, "image/jpeg", 0.85);
     const path = `${currentUserId}/${pathPrefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+    const progress = showProgressToast("Uploading document...");
     const { error } = await sb.storage.from("receipts").upload(path, blob, { contentType: "image/jpeg" });
-    if(error){ console.error(error); showAppToast("Upload failed: " + error.message, "error"); return null; }
+    if(error){ console.error(error); progress.done("Upload failed", "error"); return null; }
+    progress.done("Document uploaded", "success");
     return path;
   } catch(e){
     console.error(e);
@@ -2021,7 +2055,7 @@ function complianceRowHTML(r){
 }
 function complianceTableHTML(list){
   if(!list.length) return "";
-  return `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Item</th><th>Subject</th><th>Due</th><th>Status</th><th>Cost</th><th>Done</th><th>Doc</th></tr></thead><tbody>${list.map(complianceRowHTML).join("")}</tbody></table></div>`;
+  return `<div style="overflow-x:auto;"><table class="logtable" style="table-layout:fixed;"><thead><tr><th style="width:20%;">Item</th><th style="width:18%;">Subject</th><th style="width:16%;">Due</th><th style="width:14%;">Status</th><th style="width:12%;">Cost</th><th style="width:10%;">Done</th><th style="width:10%;">Doc</th></tr></thead><tbody>${list.map(complianceRowHTML).join("")}</tbody></table></div>`;
 }
 
 function renderCompliancePage(){
@@ -2047,7 +2081,7 @@ function renderCompliancePage(){
   html += clear.length ? complianceTableHTML(clear) : `<div class="hint">Nothing else on file.</div>`;
 
   html += `<div class="section-label" style="margin-top:34px;">Insurance</div>`;
-  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Liability / month</th><th>Liability / year</th><th>Bobtail</th><th>Bobtail / month</th><th>Yearly total</th></tr></thead><tbody>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable" style="table-layout:fixed;"><thead><tr><th style="width:12%;">Truck</th><th style="width:18%;">Liability / month</th><th style="width:18%;">Liability / year</th><th style="width:14%;">Bobtail</th><th style="width:18%;">Bobtail / month</th><th style="width:20%;">Yearly total</th></tr></thead><tbody>`;
   activeVehicles().forEach(v=>{
     const idx = vehicles.indexOf(v);
     const yearly = (parseFloat(v.insuranceMonthlyCost)||0)*12;
@@ -2056,8 +2090,8 @@ function renderCompliancePage(){
       <td style="font-weight:600;">${v.truckId}</td>
       <td><input class="input insurance-monthly" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.insuranceMonthlyCost||''}"></td>
       <td>${moneyStr(yearly)}</td>
-      <td><label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;"><input type="checkbox" class="insurance-bobtail-toggle" data-vehicle-idx="${idx}" ${v.hasBobtailInsurance?'checked':''}> Carried</label></td>
-      <td>${v.hasBobtailInsurance ? `<input class="input insurance-bobtail-cost" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.bobtailInsuranceCost||''}">` : `<span class="hint">-</span>`}</td>
+      <td><label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;"><input type="checkbox" class="insurance-bobtail-toggle" data-vehicle-idx="${idx}" ${v.hasBobtailInsurance?'checked':''}></label></td>
+      <td><input class="input insurance-bobtail-cost" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.bobtailInsuranceCost||''}" ${v.hasBobtailInsurance?'':'disabled'} style="${v.hasBobtailInsurance?'':'opacity:.4;'}"></td>
       <td style="font-weight:600;">${moneyStr(yearly+bobYearly)}</td>
     </tr>`;
   });
@@ -2682,8 +2716,15 @@ function renderContractsPage(){
   }
 
   document.getElementById("addLoadBtn").addEventListener("click", ()=>{
+    const existing = getLoadsForWeekTruck(week, truck);
+    const unfinished = existing.find(l=>!l.submitted);
+    if(unfinished){
+      showAppToast("Finish and save the current load before adding another.", "warning");
+      return;
+    }
     loadsEntries.push({ week, truck, loadId:"", basePay:"", totalPay:"", accessories:"", submitted:false });
-    markUnsaved(); renderMain();
+    markUnsaved();
+    rerenderPreservingScroll(renderMain);
   });
   mainArea.querySelectorAll("[data-load-idx]").forEach(tr=>{
     const gi = parseInt(tr.dataset.loadIdx);
@@ -3231,8 +3272,8 @@ function payrollHeaderHTML(mode, week){
   const kicker = mode==="week" ? `Week ${week} &middot; ${weekDateRangeLabel(week)}` : "Year to date";
   let html = pageHeaderHTML("Payroll", kicker);
   html += `<div class="seg-toggle">
-    <button type="button" class="payroll-mode-btn ${mode==='week'?'active':''}" data-mode="week">This week</button>
     <button type="button" class="payroll-mode-btn ${mode==='summary'?'active':''}" data-mode="summary">Year to date</button>
+    <button type="button" class="payroll-mode-btn ${mode==='week'?'active':''}" data-mode="week">This week</button>
   </div>`;
   return html;
 }
@@ -3360,9 +3401,9 @@ const CAMERA_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="n
 const PAGE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
 
 function scanIconButtonsHTML(idBase, hasDoc){
-  let html = `<span style="display:inline-flex; gap:6px; align-items:center;">`;
-  html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="background:var(--charcoal); color:#fff; padding:8px 10px;">${CAMERA_ICON_SVG}</button>`;
-  if(hasDoc) html += `<button type="button" class="btn-ghost btn-sm" data-doc-preview="${idBase}" title="Preview document" style="background:var(--blue); color:#fff; padding:8px 10px;">${PAGE_ICON_SVG}</button>`;
+  let html = `<span style="display:inline-flex; gap:8px; align-items:center;">`;
+  html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="display:inline-flex; align-items:center; gap:8px;">${CAMERA_ICON_SVG}<span>Scan a receipt</span></button>`;
+  if(hasDoc) html += `<button type="button" class="btn-ghost btn-sm" data-doc-preview="${idBase}" title="Preview document" style="padding:8px;">${PAGE_ICON_SVG}</button>`;
   html += `</span>`;
   return html;
 }
@@ -3398,23 +3439,30 @@ function renderLogPage(cfg){
     : expenseHeaderHTML(cfg.key);
   if(cfg.key==="parts"||cfg.key==="mechanic") html += subtabsHTML();
   if(!vehicles.filter(v=>v.active).length) html += `<div class="banner"><b>No active vehicles</b>Go to Manage Fleet (hamburger menu) to add or reactivate one.</div>`;
-  html += `<div class="cards summary-cards">`;
-  vehicles.filter(v=>v.active).forEach(v=>{
-    const truck=v.truckId;
-    const val = cfg.summaryType==="sum" ? summary.sums[truck] : summary.maxes[truck];
-    const display = cfg.currency ? moneyStr(val) : val.toLocaleString();
-    html += `<div class="card"><h3>Truck <span class="tag">${truck}</span></h3><div class="metric"><div class="label">${cfg.summaryLabel}</div><div class="big">${display}</div></div></div>`;
-  });
-  if(cfg.summaryType==="sum") html += `<div class="card company"><h3>${cfg.companyLabel}</h3><div class="metric"><div class="big">${moneyStr(summary.grand)}</div></div></div>`;
-  html += `</div>`;
-  html += `<div class="section-label">Entry Log</div><p class="hint">Truck dropdown includes inactive vehicles too, so you can still log/edit entries for a truck no longer in active use.</p>`;
+  const activeVs = vehicles.filter(v=>v.active);
+  if(activeVs.length){
+    html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); border-top:2px solid var(--charcoal); border-bottom:1px solid var(--border);">`;
+    activeVs.forEach((v,i)=>{
+      const truck=v.truckId;
+      const val = cfg.summaryType==="sum" ? summary.sums[truck] : summary.maxes[truck];
+      const display = cfg.currency ? moneyStr(val) : val.toLocaleString() + (cfg.summaryType==="max"?" mi":"");
+      html += `<div style="padding:14px 16px 14px ${i===0?'0':'16px'}; border-right:1px solid var(--border);">
+        <div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Truck ${truck}</div>
+        <div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(18px,2.2vw,22px); margin-top:7px;">${display}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  if(cfg.summaryType==="sum") html += `<div class="hint" style="margin-top:8px;">${cfg.companyLabel}: <b style="color:var(--charcoal);">${moneyStr(summary.grand)}</b></div>`;
+  html += `<div class="section-label">Entry Log</div>`;
   html += `<table class="logtable"><thead><tr><th>Truck</th><th>${cfg.colHeaders[0]}</th><th>${cfg.colHeaders[1]}</th><th>${cfg.colHeaders[2]}</th><th>Doc</th><th></th></tr></thead><tbody id="logTbody">`;
   entries.forEach((e,idx)=>{ html += logRowHTML(cfg, e, idx); });
-  html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add Entry</button>`;
+  html += `</tbody></table><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addLogRow">+ Add entry</button>`;
   if(cfg.key==="parts" || cfg.key==="mechanic" || cfg.allowDocs){
     html += ` ${scanIconButtonsHTML("pagelevel-"+cfg.key, false)}`;
   }
   html += `</div>`;
+  html += `<p class="hint" style="margin-top:12px;">Truck dropdown includes inactive vehicles too, so you can still log/edit entries for a truck no longer in active use.</p>`;
   mainArea.innerHTML = html;
   if(cfg.key==="parts"||cfg.key==="mechanic") wireSubtabs();
   wireLogTable(cfg);
@@ -3441,7 +3489,7 @@ function logRowHTML(cfg, e, idx){
   const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
   const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="date"?"date":"text";
   const hasDoc = e.receiptPath && receiptPathList(e.receiptPath).length > 0;
-  const docBtn = hasDoc ? `<button type="button" class="btn-ghost btn-sm log-view-receipt" title="Preview document" style="background:var(--blue); color:#fff; padding:8px 10px;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
+  const docBtn = hasDoc ? `<button type="button" class="btn-ghost btn-sm log-view-receipt" title="Preview document" style="padding:8px;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
 
   if(cfg.submitMode && e.submitted){
     return `<tr data-idx="${idx}">
