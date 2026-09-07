@@ -82,7 +82,7 @@
   .card h3{margin:0 0 12px 0; font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px;}
   .card h3 .tag{background:var(--charcoal); color:#fff; font-size:10px; padding:3px 8px; letter-spacing:.06em; text-transform:uppercase;}
   .field{margin-bottom:10px;}
-  .field label{display:block; font-size:10px; color:var(--text-muted); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:.08em;}
+  .field label{display:block; font-size:12px; color:color-mix(in srgb, var(--charcoal) 70%, transparent); margin-bottom:5px;}
   .field input, .field select{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal); min-height:36px;}
   .field input:hover, .field select:hover{border-color:var(--neutral-500);}
   .field input:focus, .field select:focus{outline:none; border-color:var(--blue);}
@@ -110,7 +110,7 @@
   .seg-toggle button{background:transparent; color:var(--charcoal); border:0; border-right:1px solid var(--input-border); padding:9px 15px; font-size:12px; font-weight:600; letter-spacing:.05em;}
   .seg-toggle button:last-child{border-right:0;}
   .seg-toggle button.active{background:var(--blue); color:#fff;}
-  table.logtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border);}
+  table.logtable{width:100%; border-collapse:collapse; border:1px solid var(--border);}
   table.logtable th{background:transparent; color:var(--text-muted); text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--charcoal); font-weight:600;}
   table.logtable td{padding:8px 10px; border-top:1px solid var(--border); vertical-align:middle;}
   table.logtable tbody tr:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent);}
@@ -122,7 +122,7 @@
   .fleet-section{margin-bottom:28px;}
   .fleet-add-row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:flex-end;}
   .fleet-add-row .field{margin-bottom:0; flex:1; min-width:120px;}
-  .tag{display:inline-block; padding:3px 8px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;}
+  .tag{display:inline-flex; align-items:center; padding:3px 10px; font-size:11px; letter-spacing:.02em;}
   .tag-accent{background:var(--blue-pale); color:#8a3115;}
   .tag-neutral{background:#e8e5e1; color:var(--text-muted);}
   .tag-outline{border:1px solid var(--blue); color:var(--blue); background:transparent;}
@@ -421,6 +421,13 @@ function daysBetween(today, expDateStr){
    everything else - there is no third "outline" tier). */
 function getComplianceUrgency(expDateStr, completed){
   if(!expDateStr) return { level:"none", daysUntil:null, status:"No date", cls:"tag-neutral" };
+  // Defensive check: a malformed year (like a typo'd "0026") shouldn't ever
+  // reach the caller as a real day-count - treat it the same as no date at
+  // all rather than showing something like "Overdue 730490d".
+  const yearMatch = String(expDateStr).match(/^(\d{4})-/);
+  const year = yearMatch ? parseInt(yearMatch[1]) : 0;
+  const nowYear = new Date().getFullYear();
+  if(year < 1990 || year > nowYear + 10) return { level:"none", daysUntil:null, status:"No date", cls:"tag-neutral" };
   const today = new Date();
   if(completed) return { level:"completed", daysUntil: daysBetween(today, expDateStr), status:"Completed", cls:"tag-neutral" };
   const d = daysBetween(today, expDateStr);
@@ -840,6 +847,7 @@ async function saveAll(){
       inspection_expiration: v.inspectionExpiration || null, inspection_cost: v.inspectionCost!==""&&v.inspectionCost!=null?parseFloat(v.inspectionCost):null, inspection_completed: !!v.inspectionCompleted,
       registration_expiration: v.registrationExpiration || null, registration_cost: v.registrationCost!==""&&v.registrationCost!=null?parseFloat(v.registrationCost):null, registration_completed: !!v.registrationCompleted,
       form2290_expiration: v.hvut2290Expiration || null, form2290_cost: v.hvut2290Cost!==""&&v.hvut2290Cost!=null?parseFloat(v.hvut2290Cost):null, form2290_completed: !!v.hvut2290Completed, form2290_receipt_path: v.hvut2290ReceiptPath || null,
+      inspection_document_path: v.inspectionDocumentPath || null, registration_document_path: v.registrationDocumentPath || null,
       insurance_monthly_cost: v.insuranceMonthlyCost!==""&&v.insuranceMonthlyCost!=null?parseFloat(v.insuranceMonthlyCost):null,
       has_bobtail_insurance: !!v.hasBobtailInsurance, bobtail_insurance_cost: v.bobtailInsuranceCost!==""&&v.bobtailInsuranceCost!=null?parseFloat(v.bobtailInsuranceCost):null
     }));
@@ -898,6 +906,7 @@ async function loadAll(){
       inspectionExpiration:r.inspection_expiration||"", inspectionCost:r.inspection_cost??"", inspectionCompleted:!!r.inspection_completed,
       registrationExpiration:r.registration_expiration||"", registrationCost:r.registration_cost??"", registrationCompleted:!!r.registration_completed,
       hvut2290Expiration:r.form2290_expiration||"", hvut2290Cost:r.form2290_cost??"", hvut2290Completed:!!r.form2290_completed, hvut2290ReceiptPath:r.form2290_receipt_path||"",
+      inspectionDocumentPath:r.inspection_document_path||"", registrationDocumentPath:r.registration_document_path||"",
       insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??""
     }));
     drivers = (drv.data||[]).map(r=>({
@@ -1778,7 +1787,10 @@ function fieldHTML(id,label,value,opts){
   const inputmode = isNumeric ? (opts.step==='1' ? 'numeric' : 'decimal') : '';
   return `<div class="field"><label>${label}</label><input type="${isNumeric?'text':(opts.type||'text')}" ${inputmode?`inputmode="${inputmode}"`:''} id="${id}" value="${value!==undefined?value:''}" ${opts.readonly?'readonly':''}></div>`;
 }
-function moneyStr(v){ return v<0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`; }
+function moneyStr(v){
+  const abs = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 });
+  return v<0 ? `-$${abs}` : `$${abs}`;
+}
 /* h1 + small uppercase kicker, inline on the same baseline - the design's
    consistent page-header shape everywhere, instead of a title with a
    stacked description paragraph underneath it. */
@@ -1974,8 +1986,8 @@ function buildComplianceRows(){
   });
   vehicles.filter(v=>v.active).forEach(v=>{
     const idx = vehicles.indexOf(v);
-    rows.push({ type:"vehicle", idx, field:"inspectionExpiration", doneField:"inspectionCompleted", costField:"inspectionCost", item:"Annual inspection", subject:"Truck "+v.truckId, date:v.inspectionExpiration, done:v.inspectionCompleted, hasCost:true, cost:v.inspectionCost });
-    rows.push({ type:"vehicle", idx, field:"registrationExpiration", doneField:"registrationCompleted", costField:"registrationCost", item:"Registration", subject:"Truck "+v.truckId, date:v.registrationExpiration, done:v.registrationCompleted, hasCost:true, cost:v.registrationCost });
+    rows.push({ type:"vehicle", idx, field:"inspectionExpiration", doneField:"inspectionCompleted", costField:"inspectionCost", docField:"inspectionDocumentPath", docKind:"inspection", item:"Annual inspection", subject:"Truck "+v.truckId, date:v.inspectionExpiration, done:v.inspectionCompleted, hasCost:true, cost:v.inspectionCost });
+    rows.push({ type:"vehicle", idx, field:"registrationExpiration", doneField:"registrationCompleted", costField:"registrationCost", docField:"registrationDocumentPath", docKind:"registration", item:"Registration", subject:"Truck "+v.truckId, date:v.registrationExpiration, done:v.registrationCompleted, hasCost:true, cost:v.registrationCost });
     rows.push({ type:"vehicle", idx, field:"hvut2290Expiration", doneField:"hvut2290Completed", costField:"hvut2290Cost", docField:"hvut2290ReceiptPath", docKind:"hvut", item:"2290 (HVUT)", subject:"Truck "+v.truckId, date:v.hvut2290Expiration, done:v.hvut2290Completed, hasCost:true, cost:v.hvut2290Cost });
   });
   return rows.map(r=>{
@@ -1988,7 +2000,7 @@ function docButtonForRow(r){
   const owner = (r.type==="driver" ? drivers : vehicles)[r.idx];
   const has = !!owner[r.docField];
   const idBase = r.docKind + "-" + r.idx;
-  return `<button type="button" class="btn-ghost btn-sm compliance-doc-btn" data-doc-menu="${idBase}" data-has-doc="${has}" data-doc-path="${has?owner[r.docField]:''}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:${has?'var(--blue)':'var(--charcoal)'}; color:#fff; padding:8px 10px;" title="${has?'View document':'Upload document'}">${PAGE_ICON_SVG}</button>`;
+  return `<button type="button" class="btn-ghost compliance-doc-btn" data-doc-menu="${idBase}" data-has-doc="${has}" data-doc-path="${has?owner[r.docField]:''}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:transparent; border:0; color:var(--charcoal); padding:6px;" title="${has?'View document':'Upload document'}">${CAMERA_ICON_SVG}</button>`;
 }
 function complianceRowHTML(r){
   const costCell = r.hasCost
@@ -2025,8 +2037,7 @@ function renderCompliancePage(){
     html += complianceTableHTML(overdue);
   }
 
-  html += `<div class="section-label" style="margin-top:34px;">Coming up</div>`;
-  html += `<p class="hint" style="margin:-6px 0 12px;">Next ${window} days</p>`;
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Coming up</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Next ${window} days</div></div>`;
   html += soon.length ? complianceTableHTML(soon) : `<div class="banner soon">Nothing falls due in the next ${window} days.</div>`;
 
   html += `<div class="section-label" style="margin-top:34px;">Clear</div>`;
@@ -2243,6 +2254,8 @@ async function handleComplianceDocUpload(idBase, mode){
   else if(kind==="medical") drivers[idx].medicalCardDocumentPath = path;
   else if(kind==="w9") drivers[idx].w9DocumentPath = path;
   else if(kind==="hvut") vehicles[idx].hvut2290ReceiptPath = path;
+  else if(kind==="inspection") vehicles[idx].inspectionDocumentPath = path;
+  else if(kind==="registration") vehicles[idx].registrationDocumentPath = path;
   markUnsaved();
   renderCompliancePage();
   await showBlockingModal("Upload Successful", "The document was uploaded and saved.", "Done");
@@ -3604,7 +3617,23 @@ async function showApp(userId){
   await loadAll(); renderMain();
 }
 function showAuth(){ appRoot.style.display="none"; authScreen.style.display="block"; }
-if(sb){ sb.auth.onAuthStateChange((event,session)=>{ if(session&&session.user) showApp(session.user.id); else showAuth(); }); }
+
+/* Login screen temporarily deactivated for visual/UI iteration, per request.
+   To re-enable: set DISABLE_LOGIN_SCREEN back to false. Everything else about
+   real authentication is untouched - this only skips the gate that blocks the
+   app behind a login form. Data reads/writes will still fail gracefully
+   (caught, shown as a toast) if there's no real Supabase session, since RLS
+   still requires a real signed-in user underneath. */
+const DISABLE_LOGIN_SCREEN = true;
+
+if(sb){
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(session && session.user) showApp(session.user.id);
+    else if(DISABLE_LOGIN_SCREEN) showApp(null);
+    else showAuth();
+  });
+}
+else if(DISABLE_LOGIN_SCREEN){ showApp(null); }
 else { showAuth(); authError.textContent="Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"; }
 window.addEventListener("beforeunload", ()=>{ if(autoSaveTimer){ saveAll(); } });
 </script>
