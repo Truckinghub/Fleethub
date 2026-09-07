@@ -2656,7 +2656,7 @@ function renderContractsPage(){
       if(l.submitted){
         html += `<tr data-load-idx="${gi}">
           <td style="font-weight:600;">${l.loadId||'-'}</td><td>${moneyStr(parseFloat(l.basePay)||0)}</td><td>${moneyStr(parseFloat(l.totalPay)||0)}</td><td>${moneyStr(parseFloat(l.accessories)||0)}</td>
-          <td style="white-space:nowrap;"><button class="btn-ghost btn-sm load-edit">Edit</button> <button class="load-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
+          <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-ghost btn-sm load-edit">Edit</button><button class="load-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
         </tr>`;
       } else {
         html += `<tr data-load-idx="${gi}">
@@ -2664,7 +2664,7 @@ function renderContractsPage(){
           <td><input class="load-field" data-f="basePay" type="text" inputmode="decimal" value="${l.basePay||''}" style="width:90px;"></td>
           <td><input class="load-field" data-f="totalPay" type="text" inputmode="decimal" value="${l.totalPay||''}" style="width:90px;"></td>
           <td><input class="load-field" data-f="accessories" type="text" inputmode="decimal" value="${l.accessories||''}" style="width:90px;"></td>
-          <td style="white-space:nowrap;"><button class="btn-blue btn-sm load-save">Save</button> <button class="load-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
+          <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-blue btn-sm load-save">Save</button><button class="load-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
         </tr>`;
       }
     });
@@ -3352,7 +3352,7 @@ function payrollRowHTML(e, idx, active, availableDrivers){
       <td style="font-weight:600;">${e.driver||'-'}</td>
       <td>${e.truck?('Truck '+e.truck):'-'}</td>
       <td>${moneyStr(parseFloat(e.amount)||0)}</td>
-      <td style="white-space:nowrap;"><button class="btn-ghost btn-sm pr-edit">Edit</button> <button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
+      <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-ghost btn-sm pr-edit">Edit</button><button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
     </tr>`;
   }
   const driverOptions = availableDrivers.map(d=>`<option value="${d.name}" ${e.driver===d.name?'selected':''}>${d.name}${d.active?'':' (inactive)'}</option>`).join("");
@@ -3363,7 +3363,7 @@ function payrollRowHTML(e, idx, active, availableDrivers){
     <td><select class="pr-driver"><option value="">-</option>${orphanDriverOption}${driverOptions}</select></td>
     <td><select class="pr-truck"><option value="">-</option>${orphanTruckOption}${truckOptions}</select></td>
     <td><input class="pr-amount" type="text" inputmode="decimal" value="${e.amount||''}"></td>
-    <td style="white-space:nowrap;"><button class="btn-blue btn-sm pr-save">Save</button> <button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td>
+    <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-blue btn-sm pr-save">Save</button><button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
   </tr>`;
 }
 function wirePayrollTable(week, active, availableDrivers){
@@ -3403,7 +3403,7 @@ const PAGE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="non
 function scanIconButtonsHTML(idBase, hasDoc){
   let html = `<span style="display:inline-flex; gap:8px; align-items:center;">`;
   html += `<button type="button" class="btn-ghost btn-sm doc-camera-icon" data-doc-menu="${idBase}" title="Take a photo or upload a file" style="display:inline-flex; align-items:center; gap:8px;">${CAMERA_ICON_SVG}<span>Scan a receipt</span></button>`;
-  if(hasDoc) html += `<button type="button" class="btn-ghost btn-sm" data-doc-preview="${idBase}" title="Preview document" style="padding:8px;">${PAGE_ICON_SVG}</button>`;
+  if(hasDoc) html += `<button type="button" data-doc-preview="${idBase}" title="Preview document" style="background:transparent; border:0; color:var(--charcoal); padding:6px; cursor:pointer;">${PAGE_ICON_SVG}</button>`;
   html += `</span>`;
   return html;
 }
@@ -3489,7 +3489,7 @@ function logRowHTML(cfg, e, idx){
   const f0=cfg.fieldOrder[0], f1=cfg.fieldOrder[1], f2=cfg.fieldOrder[2];
   const type0=f0==="date"?"date":"text", type1=f1==="date"?"date":"text", type2=f2==="date"?"date":"text";
   const hasDoc = e.receiptPath && receiptPathList(e.receiptPath).length > 0;
-  const docBtn = hasDoc ? `<button type="button" class="btn-ghost btn-sm log-view-receipt" title="Preview document" style="padding:8px;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
+  const docBtn = hasDoc ? `<button type="button" class="log-view-receipt" title="Preview document" style="background:transparent; border:0; color:var(--charcoal); padding:6px; cursor:pointer;">${PAGE_ICON_SVG}</button>` : `<span class="hint">-</span>`;
 
   if(cfg.submitMode && e.submitted){
     return `<tr data-idx="${idx}">
@@ -3499,8 +3499,10 @@ function logRowHTML(cfg, e, idx){
       <td>${e[f2]!==""&&e[f2]!=null?e[f2]:'-'}</td>
       <td>${docBtn}</td>
       <td style="white-space:nowrap;">
-        <button type="button" class="btn-ghost btn-sm log-edit" style="background:var(--charcoal); color:#fff;">Edit</button>
-        <button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="btn-ghost btn-sm log-edit" style="background:var(--charcoal); color:#fff;">Edit</button>
+          <button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button>
+        </div>
       </td>
     </tr>`;
   }
@@ -3514,7 +3516,7 @@ function logRowHTML(cfg, e, idx){
     ? `<textarea class="log-f1 auto-expand" rows="1">${esc(e[f1]||'')}</textarea>`
     : `<input class="log-f1" type="${type1}" value="${e[f1]||''}">`;
   const actionCell = cfg.submitMode
-    ? `<div style="display:flex; gap:6px; white-space:nowrap;"><button type="button" class="btn-blue btn-sm log-submit">Submit</button><button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div>`
+    ? `<div style="display:flex; justify-content:space-between; align-items:center; white-space:nowrap;"><button type="button" class="btn-blue btn-sm log-submit">Submit</button><button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div>`
     : `<button class="btn-danger log-delete">Remove</button>`;
   return `<tr data-idx="${idx}">
     <td><select class="log-truck"><option value="">-</option>${truckOptions}</select></td>
