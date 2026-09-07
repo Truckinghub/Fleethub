@@ -4,10 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>FleetHub - Fleet Records, All In One Place</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 220'%3E%3Cpath d='M40 100 Q130 78 220 100' fill='none' stroke='%231E2A38' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M58 94 L58 45 L140 45 L140 94 Z' fill='%231E2A38'/%3E%3Cpath d='M140 65 L166 65 L184 84 L184 94 L140 94 Z' fill='%231E2A38'/%3E%3Crect x='148' y='70' width='14' height='10' fill='%23F4F5F6'/%3E%3Ccircle cx='82' cy='98' r='14' fill='%231E2A38'/%3E%3Ccircle cx='82' cy='98' r='5' fill='%23F4F5F6'/%3E%3Ccircle cx='164' cy='98' r='14' fill='%231E2A38'/%3E%3Ccircle cx='164' cy='98' r='5' fill='%23F4F5F6'/%3E%3Ccircle cx='99' cy='68' r='20' fill='%23C1703D'/%3E%3Ctext x='99' y='76' font-size='24' font-family='Arial' font-weight='700' fill='%231E2A38' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23f4f3f1'/%3E%3Ctext x='20' y='26' text-anchor='middle' font-family='Arial' font-weight='800' font-size='23' letter-spacing='-1' fill='%23201e1d'%3EFH%3C/text%3E%3Crect x='0' y='31' width='40' height='3' fill='%23b3421f'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1E2A38">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#f4f3f1">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="FleetHub">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
@@ -30,7 +33,7 @@
   ::-webkit-scrollbar-thumb{background:var(--neutral-500);}
   ::-webkit-scrollbar-thumb:hover{background:var(--blue);}
   html,body{height:100%;}
-  body{margin:0; font-family:'Archivo',system-ui,sans-serif; background:var(--bg); color:var(--charcoal); height:100vh; display:flex; flex-direction:column; overflow:hidden; font-variant-numeric:tabular-nums;}
+  body{margin:0; font-family:'Archivo',system-ui,sans-serif; background:var(--bg); color:var(--charcoal); height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; font-variant-numeric:tabular-nums;}
   h1,h2,h3{font-family:'Archivo',system-ui,sans-serif;}
   header{background:var(--bg); color:var(--charcoal); display:flex; align-items:center; padding:14px clamp(16px,3vw,28px); gap:14px; flex-shrink:0; border-bottom:1px solid var(--border); position:relative; flex-wrap:wrap;}
   header .logo-icon{width:34px;height:34px;flex-shrink:0;}
@@ -160,7 +163,7 @@
   /* Superseded by the persistent #autosaveWatermark below - kept in the DOM only so
      the existing setStatus() calls have somewhere harmless to write to. */
   #statusToast{display:none;}
-  #autosaveWatermark{position:fixed; right:12px; bottom:10px; display:flex; align-items:center; gap:6px; padding:5px 9px; background:var(--bg); border:1px solid var(--border); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--neutral-500); pointer-events:none; z-index:40;}
+  #autosaveWatermark{display:none; position:fixed; right:12px; bottom:10px; align-items:center; gap:6px; padding:5px 9px; background:var(--bg); border:1px solid var(--border); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--neutral-500); pointer-events:none; z-index:40;}
   #autosaveWatermark .dot{width:4px; height:4px; background:var(--neutral-500);}
 
   #appToastContainer{position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2000; display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:420px; padding:0 16px; pointer-events:none;}
@@ -173,11 +176,32 @@
 
   @media (max-width: 760px){
     .tab-nav{display:none;}
-    .bottom-nav{display:flex; position:fixed; left:0; right:0; bottom:0; z-index:900; background:var(--bg); border-top:2px solid var(--charcoal); padding-bottom:env(safe-area-inset-bottom, 0);}
-    .bottom-nav button{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:transparent; border:0; padding:8px 2px 7px; font-size:10px; font-weight:600; letter-spacing:.02em; color:var(--text-muted); min-height:52px;}
+    .bottom-nav{display:flex; position:fixed; left:0; right:0; bottom:0; z-index:900; background:var(--bg); border-top:2px solid var(--charcoal); padding-bottom:env(safe-area-inset-bottom, 0); overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;}
+    .bottom-nav button{flex:0 0 auto; min-width:74px; display:flex; flex-direction:column; align-items:center; gap:3px; background:transparent; border:0; border-right:1px solid var(--border); padding:8px 6px 7px; font-size:10px; font-weight:600; letter-spacing:.02em; color:var(--text-muted); min-height:52px;}
+    .bottom-nav button:last-child{border-right:0;}
     .bottom-nav button.active{color:var(--blue-700);}
     .bottom-nav button svg{flex-shrink:0;}
+    /* Docket: Done checkbox sits in the top-right corner of each card, in
+       front of the item name, instead of its own stacked row. */
+    table.logtable-compliance tr{position:relative; padding-right:44px;}
+    table.logtable-compliance td:nth-child(6){position:absolute; top:4px; right:14px; padding:0 !important; border-bottom:0 !important; width:auto;}
+    table.logtable-compliance td:nth-child(6)::before{content:none !important;}
     .app-body{padding-bottom:60px;}
+    /* Compact week selector: the wide horizontal tick-strip (which can force
+       the whole page wider than the viewport) is replaced with just the
+       prev/next arrows and the week display, centered and full-width. */
+    [style*="max-width:700px"]{max-width:100% !important; width:100%; box-sizing:border-box;}
+    .week-rail-ticks{display:none !important;}
+    .week-rail-prev, .week-rail-next{width:52px !important; min-height:52px;}
+    [style*="max-width:700px"] > div:nth-child(2){flex:1 1 auto !important; text-align:center;}
+    [style*="max-width:700px"] > div:nth-child(2) > div{justify-content:center;}
+    /* Sign-in: form on top, tagline below - desktop keeps the side-by-side split.
+       The logo is pulled out and pinned to the true top-left corner of the
+       page, independent of the tagline block's reordering below the form. */
+    .auth-split{position:relative;}
+    .auth-left{order:2; border-right:0; min-height:0; padding:24px;}
+    .auth-right{order:1; padding:70px 20px 16px;}
+    .auth-left-logo{position:absolute; top:16px; left:16px; z-index:5;}
     /* Wide tables become stacked cards instead of requiring sideways scroll -
        every cell shows its column header as a label above its content. Cells
        are given a data-label attribute wherever this applies; action/doc cells
@@ -262,7 +286,6 @@
   <div class="titles"><div class="name">FLEETHUB</div><div class="sub">Transport management, kept on one screen</div></div>
   </div>
   <div class="toolbar">
-    <button class="btn-ghost btn-sm" data-action="export" style="display:inline-flex; align-items:center; gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3v12"></path><path d="M7 11l5 5 5-5"></path><path d="M4 20h16"></path></svg>Export .xlsx</button>
     <button class="btn-ghost btn-sm" data-action="signout">Sign out</button>
   </div>
 </header>
@@ -283,17 +306,10 @@
   <button data-module="contracts" data-view-mode="week"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 3h9l5 5v13H5z"></path><path d="M14 3v5h5"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg><span>Contracts</span></button>
   <button data-module="payroll"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M2 6h20v12H2z"></path><path d="M2 10h20"></path><path d="M6 14h4"></path></svg><span>Payroll</span></button>
   <button data-module="expenses"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 2h14v20l-3.5-2-3.5 2-3.5-2L5 22z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg><span>Expenses</span></button>
-  <button id="bottomNavMoreBtn" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg><span>More</span></button>
+  <button data-module="maintenance"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 18a8 8 0 1 1 16 0"></path><path d="M12 18l4.5-6"></path><path d="M4 18h16"></path></svg><span>Service</span></button>
+  <button data-module="compliance"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg><span>Docket</span></button>
+  <button data-module="fleet"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 6h11v10H3z"></path><path d="M14 9h4l3 3v4h-7z"></path><path d="M7 16v2"></path><path d="M17 16v2"></path></svg><span>Roster</span></button>
 </div>
-</div>
-
-<div id="bottomNavMoreMenu" style="display:none; position:fixed; inset:0; z-index:1500;">
-  <div id="bottomNavMoreBackdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.4);"></div>
-  <div style="position:absolute; left:0; right:0; bottom:0; background:var(--bg); border-top:2px solid var(--charcoal);">
-    <button data-module="maintenance" style="display:flex; align-items:center; gap:14px; width:100%; background:transparent; border:0; border-bottom:1px solid var(--border); padding:18px 20px; font-size:15px; font-weight:600; text-align:left;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 18a8 8 0 1 1 16 0"></path><path d="M12 18l4.5-6"></path><path d="M4 18h16"></path></svg>Service</button>
-    <button data-module="compliance" style="display:flex; align-items:center; gap:14px; width:100%; background:transparent; border:0; border-bottom:1px solid var(--border); padding:18px 20px; font-size:15px; font-weight:600; text-align:left;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>Docket</button>
-    <button data-module="fleet" style="display:flex; align-items:center; gap:14px; width:100%; background:transparent; border:0; padding:18px 20px; font-size:15px; font-weight:600; text-align:left;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 6h11v10H3z"></path><path d="M14 9h4l3 3v4h-7z"></path><path d="M7 16v2"></path><path d="M17 16v2"></path></svg>Roster</button>
-  </div>
 </div>
 
 <div id="statusToast"></div>
@@ -2006,7 +2022,6 @@ function renderMain(){
     bottomNavEl.querySelectorAll("button").forEach(x=>x.classList.remove("active"));
     const bBtn = bottomNavEl.querySelector(selector);
     if(bBtn) bBtn.classList.add("active");
-    else if(["maintenance","compliance","fleet"].includes(currentModule)) document.getElementById("bottomNavMoreBtn").classList.add("active");
   }
   if(currentModule==="fleet"){ renderFleetPage(); return; }
   if(currentModule==="compliance"){ renderCompliancePage(); return; }
@@ -2096,7 +2111,11 @@ function docButtonForRow(r){
   const owner = (r.type==="driver" ? drivers : vehicles)[r.idx];
   const has = !!owner[r.docField];
   const idBase = r.docKind + "-" + r.idx;
-  return `<button type="button" class="btn-ghost compliance-doc-btn" data-doc-menu="${idBase}" data-has-doc="${has}" data-doc-path="${has?owner[r.docField]:''}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:transparent; border:0; color:var(--charcoal); padding:6px;" title="${has?'View document':'Upload document'}">${CAMERA_ICON_SVG}</button>`;
+  const cameraBtn = `<button type="button" class="doc-camera-only" data-doc-menu="${idBase}" style="background:transparent; border:0; color:var(--charcoal); padding:6px; cursor:pointer;" title="Take a photo or upload a file">${CAMERA_ICON_SVG}</button>`;
+  const viewBtn = has
+    ? `<button type="button" data-view-doc="${owner[r.docField]}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:var(--blue); color:#fff; border:0; padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer;">View</button>`
+    : `<button type="button" disabled style="background:var(--charcoal); color:#fff; border:0; padding:7px 14px; font-size:12px; font-weight:600; opacity:.45; cursor:not-allowed;">View</button>`;
+  return `<div style="display:flex; align-items:center; justify-content:center; gap:10px;">${cameraBtn}${viewBtn}</div>`;
 }
 function complianceRowHTML(r){
   const costCell = r.hasCost
@@ -2114,9 +2133,14 @@ function complianceRowHTML(r){
 }
 function complianceTableHTML(list){
   if(!list.length) return "";
-  return `<div style="overflow-x:auto;"><table class="logtable" style="table-layout:fixed;"><thead><tr><th style="width:20%;">Item</th><th style="width:18%;">Subject</th><th style="width:16%;">Due</th><th style="width:14%;">Status</th><th style="width:12%;">Cost</th><th style="width:10%;">Done</th><th style="width:10%;">Doc</th></tr></thead><tbody>${list.map(complianceRowHTML).join("")}</tbody></table></div>`;
+  return `<div style="overflow-x:auto;"><table class="logtable logtable-compliance" style="table-layout:fixed;"><thead><tr><th style="width:20%;">Item</th><th style="width:18%;">Subject</th><th style="width:16%;">Due</th><th style="width:14%;">Status</th><th style="width:12%;">Cost</th><th style="width:10%;">Done</th><th style="width:10%;">Doc</th></tr></thead><tbody>${list.map(complianceRowHTML).join("")}</tbody></table></div>`;
 }
 
+let currentDocketTab = "overview";
+function docketSubtabsHTML(){
+  const tabs=[["overview","Overdue & Coming Up"],["clear","Clear"],["insurance","Insurance"],["ifta","IFTA"]];
+  return `<div class="subtabs">` + tabs.map(([k,label])=>`<button data-docket-tab="${k}" class="${currentDocketTab===k?'active':''}">${label}</button>`).join("") + `</div>`;
+}
 function renderCompliancePage(){
   const rows = buildComplianceRows();
   const overdue = rows.filter(r=>r.urgency.level==="expired");
@@ -2127,79 +2151,65 @@ function renderCompliancePage(){
   const todayLabel = `${MONTH_NAMES[today.getMonth()]} ${String(today.getDate()).padStart(2,"0")}, ${today.getFullYear()}`;
 
   let html = pageHeaderHTML("Docket", `Compliance &middot; ${todayLabel}`);
+  html += docketSubtabsHTML();
 
-  if(overdue.length){
-    html += `<div class="banner" style="border-top-color:var(--blue); margin-bottom:2px;"><b style="font-size:22px;">${overdue.length} item${overdue.length===1?'':'s'} overdue</b></div>`;
-    html += complianceTableHTML(overdue);
+  if(currentDocketTab==="overview"){
+    if(overdue.length){
+      html += `<div class="banner" style="border-top-color:var(--blue); margin-bottom:2px;"><b style="font-size:22px;">${overdue.length} item${overdue.length===1?'':'s'} overdue</b></div>`;
+      html += complianceTableHTML(overdue);
+    }
+    html += `<div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Coming up</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Next ${window} days</div></div>`;
+    html += soon.length ? complianceTableHTML(soon) : `<div class="banner soon">Nothing falls due in the next ${window} days.</div>`;
+    if(!overdue.length && !soon.length) html += `<div class="banner soon" style="margin-top:16px;">Nothing overdue and nothing due in the next ${window} days.</div>`;
   }
 
-  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Coming up</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Next ${window} days</div></div>`;
-  html += soon.length ? complianceTableHTML(soon) : `<div class="banner soon">Nothing falls due in the next ${window} days.</div>`;
+  if(currentDocketTab==="clear"){
+    html += clear.length ? complianceTableHTML(clear) : `<div class="hint">Nothing else on file.</div>`;
+  }
 
-  html += `<div class="section-label" style="margin-top:34px;">Clear</div>`;
-  html += clear.length ? complianceTableHTML(clear) : `<div class="hint">Nothing else on file.</div>`;
-
-  html += `<div class="section-label" style="margin-top:34px;">Insurance</div>`;
-  html += `<div style="overflow-x:auto;"><table class="logtable" style="table-layout:fixed;"><thead><tr><th style="width:12%;">Truck</th><th style="width:18%;">Liability / month</th><th style="width:18%;">Liability / year</th><th style="width:14%;">Bobtail</th><th style="width:18%;">Bobtail / month</th><th style="width:20%;">Yearly total</th></tr></thead><tbody>`;
-  activeVehicles().forEach(v=>{
-    const idx = vehicles.indexOf(v);
-    const yearly = (parseFloat(v.insuranceMonthlyCost)||0)*12;
-    const bobYearly = v.hasBobtailInsurance ? (parseFloat(v.bobtailInsuranceCost)||0)*12 : 0;
-    html += `<tr>
-      <td style="font-weight:600;">${v.truckId}</td>
-      <td><input class="input insurance-monthly" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.insuranceMonthlyCost||''}"></td>
-      <td>${moneyStr(yearly)}</td>
-      <td><label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;"><input type="checkbox" class="insurance-bobtail-toggle" data-vehicle-idx="${idx}" ${v.hasBobtailInsurance?'checked':''}></label></td>
-      <td><input class="input insurance-bobtail-cost" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.bobtailInsuranceCost||''}" ${v.hasBobtailInsurance?'':'disabled'} style="${v.hasBobtailInsurance?'':'opacity:.4;'}"></td>
-      <td style="font-weight:600;">${moneyStr(yearly+bobYearly)}</td>
-    </tr>`;
-  });
-  html += `</tbody></table></div>`;
-
-  const quarterEndDates = { 1:`${iftaData.year}-03-31`, 2:`${iftaData.year}-06-30`, 3:`${iftaData.year}-09-30`, 4:`${iftaData.year}-12-31` };
-  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">IFTA ${iftaData.year}</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Company-wide</div></div>`;
-  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:2px solid var(--charcoal); border-bottom:1px solid var(--border);">`;
-  [1,2,3,4].forEach(q=>{
-    const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
-    html += `<div style="padding:16px 18px; border-right:1px solid var(--border);">
-      <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${urg.cls}" style="margin-left:auto;">${urg.status}</span></div>
-      <div class="hint" style="margin:6px 0 10px;">Due ${dueLabel(quarterEndDates[q])}</div>
-      <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}">
-      <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-top:10px; cursor:pointer;"><input type="checkbox" class="ifta-done" data-q="${q}" ${iftaData[`q${q}Completed`]?'checked':''}> Filed and paid</label>
-    </div>`;
-  });
-  html += `</div>`;
-  const iftaTotal = (parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0);
-  html += `<div style="display:flex; justify-content:space-between; align-items:center; padding-top:14px;">
-    <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">IFTA year total</div>
-    <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:18px;" id="iftaYearTotal">${moneyStr(iftaTotal)}</div>
-  </div>`;
-
-  html += `<div class="section-label" style="margin-top:34px;">Paperwork on file</div>`;
-  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Subject</th><th>Document</th><th>Status</th><th></th></tr></thead><tbody>`;
-  drivers.filter(d=>d.active).forEach(d=>{
-    const idx = drivers.indexOf(d);
-    [["W-9","w9DocumentPath","w9"],["CDL scan","licenseDocumentPath","license"],["Medical card scan","medicalCardDocumentPath","medical"]].forEach(([label,field])=>{
-      const has = !!d[field];
-      const idBase = (field==="w9DocumentPath"?"w9":field==="licenseDocumentPath"?"license":"medical")+"-"+idx;
-      const actionBtn = has
-        ? `<button class="btn-ghost btn-sm" data-view-doc="${d[field]}" data-doc-owner="driver-${idx}-${field}">View</button>`
-        : `<button class="btn-ghost btn-sm" data-doc-menu="${idBase}">Upload</button>`;
-      html += `<tr><td style="font-weight:600;">${d.name}</td><td>${label}</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${actionBtn}</td></tr>`;
+  if(currentDocketTab==="insurance"){
+    html += `<div style="overflow-x:auto;"><table class="logtable" style="table-layout:fixed;"><thead><tr><th style="width:12%;">Truck</th><th style="width:18%;">Liability / month</th><th style="width:18%;">Liability / year</th><th style="width:14%;">Bobtail</th><th style="width:18%;">Bobtail / month</th><th style="width:20%;">Yearly total</th></tr></thead><tbody>`;
+    activeVehicles().forEach(v=>{
+      const idx = vehicles.indexOf(v);
+      const yearly = (parseFloat(v.insuranceMonthlyCost)||0)*12;
+      const bobYearly = v.hasBobtailInsurance ? (parseFloat(v.bobtailInsuranceCost)||0)*12 : 0;
+      html += `<tr>
+        <td style="font-weight:600;">${v.truckId}</td>
+        <td><input class="input insurance-monthly" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.insuranceMonthlyCost||''}"></td>
+        <td>${moneyStr(yearly)}</td>
+        <td><label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;"><input type="checkbox" class="insurance-bobtail-toggle" data-vehicle-idx="${idx}" ${v.hasBobtailInsurance?'checked':''}></label></td>
+        <td><input class="input insurance-bobtail-cost" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.bobtailInsuranceCost||''}" ${v.hasBobtailInsurance?'':'disabled'} style="${v.hasBobtailInsurance?'':'opacity:.4;'}"></td>
+        <td style="font-weight:600;">${moneyStr(yearly+bobYearly)}</td>
+      </tr>`;
     });
-  });
-  activeVehicles().forEach(v=>{
-    const idx = vehicles.indexOf(v);
-    const has = !!v.hvut2290ReceiptPath;
-    const idBase2 = "hvut-"+idx;
-    const actionBtn2 = has
-      ? `<button class="btn-ghost btn-sm" data-view-doc="${v.hvut2290ReceiptPath}" data-doc-owner="vehicle-${idx}-hvut2290ReceiptPath">View</button>`
-      : `<button class="btn-ghost btn-sm" data-doc-menu="${idBase2}">Upload</button>`;
-    html += `<tr><td style="font-weight:600;">Truck ${v.truckId}</td><td>2290 receipt</td><td><span class="tag ${has?'tag-neutral':'tag-accent'}">${has?'On file':'Missing'}</span></td><td>${actionBtn2}</td></tr>`;
-  });
-  html += `</tbody></table></div>`;
+    html += `</tbody></table></div>`;
+  }
+
+  if(currentDocketTab==="ifta"){
+    const quarterEndDates = { 1:`${iftaData.year}-03-31`, 2:`${iftaData.year}-06-30`, 3:`${iftaData.year}-09-30`, 4:`${iftaData.year}-12-31` };
+    html += `<div style="display:flex; align-items:baseline; gap:12px; margin-bottom:12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">IFTA ${iftaData.year}</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Company-wide</div></div>`;
+    html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:2px solid var(--charcoal); border-bottom:1px solid var(--border);">`;
+    [1,2,3,4].forEach(q=>{
+      const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
+      html += `<div style="padding:16px 18px; border-right:1px solid var(--border);">
+        <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${urg.cls}" style="margin-left:auto;">${urg.status}</span></div>
+        <div class="hint" style="margin:6px 0 10px;">Due ${dueLabel(quarterEndDates[q])}</div>
+        <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}">
+        <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-top:10px; cursor:pointer;"><input type="checkbox" class="ifta-done" data-q="${q}" ${iftaData[`q${q}Completed`]?'checked':''}> Filed and paid</label>
+      </div>`;
+    });
+    html += `</div>`;
+    const iftaTotal = (parseFloat(iftaData.q1Cost)||0)+(parseFloat(iftaData.q2Cost)||0)+(parseFloat(iftaData.q3Cost)||0)+(parseFloat(iftaData.q4Cost)||0);
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; padding-top:14px;">
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase;">IFTA year total</div>
+      <div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:18px;" id="iftaYearTotal">${moneyStr(iftaTotal)}</div>
+    </div>`;
+  }
 
   mainArea.innerHTML = html;
+  mainArea.querySelectorAll("[data-docket-tab]").forEach(b=>{
+    b.addEventListener("click", ()=>{ currentDocketTab = b.dataset.docketTab; renderCompliancePage(); });
+  });
   wireCompliancePage();
 }
 
@@ -3119,10 +3129,13 @@ function renderOperationsCostPage(){
 
 function subtabsHTML(){
   const tabs=[["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"],["operations","Operations Cost"],["receipts","Receipts"]];
-  return `<div class="subtabs">` + tabs.map(([k,label])=>`<button data-tab="${k}" class="${currentExpenseTab===k?'active':''}">${label}</button>`).join("") + `</div>`;
+  const exportBtn = `<button type="button" id="expensesExportBtn" style="display:inline-flex; align-items:center; gap:8px; background:transparent; border:0; border-left:1px solid var(--border); padding:9px 15px; font-size:12px; font-weight:600; letter-spacing:.05em; color:var(--charcoal);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3v12"></path><path d="M7 11l5 5 5-5"></path><path d="M4 20h16"></path></svg>Export report</button>`;
+  return `<div class="subtabs">` + tabs.map(([k,label])=>`<button data-tab="${k}" class="${currentExpenseTab===k?'active':''}">${label}</button>`).join("") + exportBtn + `</div>`;
 }
 function wireSubtabs(){
-  mainArea.querySelectorAll(".subtabs button").forEach(b=>{ b.addEventListener("click", ()=>{ currentExpenseTab=b.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
+  mainArea.querySelectorAll(".subtabs button[data-tab]").forEach(b=>{ b.addEventListener("click", ()=>{ currentExpenseTab=b.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
+  const exportBtn = document.getElementById("expensesExportBtn");
+  if(exportBtn) exportBtn.addEventListener("click", ()=>exportExcel());
 }
 
 /* ============ RECEIPTS ARCHIVE ============ */
@@ -3697,12 +3710,6 @@ const bottomNav = document.getElementById("bottomNav");
 bottomNav.querySelectorAll("button[data-module]").forEach(b=>{
   b.addEventListener("click", ()=>navigateToModule(b.dataset.module, b.dataset.viewMode));
 });
-const bottomNavMoreMenu = document.getElementById("bottomNavMoreMenu");
-document.getElementById("bottomNavMoreBtn").addEventListener("click", ()=>{ bottomNavMoreMenu.style.display="block"; });
-document.getElementById("bottomNavMoreBackdrop").addEventListener("click", ()=>{ bottomNavMoreMenu.style.display="none"; });
-bottomNavMoreMenu.querySelectorAll("button[data-module]").forEach(b=>{
-  b.addEventListener("click", ()=>{ bottomNavMoreMenu.style.display="none"; navigateToModule(b.dataset.module); });
-});
 
 /* ============ AUTH ============ */
 let authMode="signin";
@@ -3732,6 +3739,7 @@ authSubmitBtn.addEventListener("click", async ()=>{
 /* ============ INIT ============ */
 async function showApp(userId){
   currentUserId=userId; authScreen.style.display="none"; appRoot.style.display="flex";
+  const w=document.getElementById("autosaveWatermark"); if(w) w.style.display="flex";
   try{
     const saved = localStorage.getItem("fleethub_navstate");
     if(saved){
@@ -3744,7 +3752,7 @@ async function showApp(userId){
   registerServiceWorker();
   await loadAll(); renderMain();
 }
-function showAuth(){ appRoot.style.display="none"; authScreen.style.display="block"; }
+function showAuth(){ appRoot.style.display="none"; authScreen.style.display="block"; const w=document.getElementById("autosaveWatermark"); if(w) w.style.display="none"; }
 
 /* Login screen temporarily deactivated for visual/UI iteration, per request.
    To re-enable: set DISABLE_LOGIN_SCREEN back to false. Everything else about
