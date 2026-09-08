@@ -2351,14 +2351,14 @@ function wireCompliancePage(){
         });
       } else {
         const idBase = btn.dataset.docMenu;
-        showDocOptionsMenu(btn, ()=>handleComplianceDocUpload(idBase,"camera"), ()=>handleComplianceDocUpload(idBase,"upload"));
+        handleComplianceDocUpload(idBase,"upload");
       }
     });
   });
   mainArea.querySelectorAll("[data-doc-menu]:not(.compliance-doc-btn):not(.doc-camera-icon)").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const idBase = btn.dataset.docMenu;
-      showDocOptionsMenu(btn, ()=>handleComplianceDocUpload(idBase,"camera"), ()=>handleComplianceDocUpload(idBase,"upload"));
+      handleComplianceDocUpload(idBase,"upload");
     });
   });
   mainArea.querySelectorAll("[data-view-doc]").forEach(btn=>{
@@ -2714,9 +2714,9 @@ function renderProfile(overlay, kind, id){
       } else {
         if(f.docMeta.kind==="single"){
           const idBase = f.docMeta.uploadKind + "-" + f.docMeta.ownerIdx;
-          showDocOptionsMenu(btn, ()=>handleComplianceDocUpload(idBase,"camera"), ()=>handleComplianceDocUpload(idBase,"upload"));
+          handleComplianceDocUpload(idBase,"upload");
         } else {
-          showDocOptionsMenu(btn, ()=>handleProfileLogDocUpload(f.docMeta.logType, f.docMeta.logIdx, "camera"), ()=>handleProfileLogDocUpload(f.docMeta.logType, f.docMeta.logIdx, "upload"));
+          handleProfileLogDocUpload(f.docMeta.logType, f.docMeta.logIdx, "upload");
         }
       }
     });
@@ -3670,7 +3670,7 @@ function renderLogPage(cfg){
     const menuBtn = mainArea.querySelector(`[data-doc-menu="pagelevel-${cfg.key}"]`);
     if(menuBtn) menuBtn.addEventListener("click", (e)=>{
       e.stopPropagation();
-      showDocOptionsMenu(menuBtn, ()=>scanReceiptForLog(cfg,"camera"), ()=>scanReceiptForLog(cfg,"upload"));
+      scanReceiptForLog(cfg,"upload");
     });
   }
 }
