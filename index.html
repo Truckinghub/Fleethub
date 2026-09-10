@@ -304,6 +304,7 @@
   <button data-module="maintenance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 18a8 8 0 1 1 16 0"></path><path d="M12 18l4.5-6"></path><path d="M4 18h16"></path></svg>Service</button>
   <button data-module="compliance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>Docket</button>
   <button data-module="fleet"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 6h11v10H3z"></path><path d="M14 9h4l3 3v4h-7z"></path><path d="M7 16v2"></path><path d="M17 16v2"></path></svg>Roster</button>
+  <button data-module="financials"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M22 20H2"></path></svg>Financials</button>
 </div>
 <div class="app-body">
   <main id="mainArea"></main>
@@ -316,6 +317,7 @@
   <button data-module="maintenance"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 18a8 8 0 1 1 16 0"></path><path d="M12 18l4.5-6"></path><path d="M4 18h16"></path></svg><span>Service</span></button>
   <button data-module="compliance"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg><span>Docket</span></button>
   <button data-module="fleet"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 6h11v10H3z"></path><path d="M14 9h4l3 3v4h-7z"></path><path d="M7 16v2"></path><path d="M17 16v2"></path></svg><span>Roster</span></button>
+  <button data-module="financials"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M22 20H2"></path></svg><span>Financials</span></button>
 </div>
 </div>
 
@@ -328,23 +330,65 @@ const SUPABASE_URL = "https://fszqfhntaofgrompboap.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_mIhle8vWmsYr5ELwStQs-g_OQs-84Jr";
 const sb = (SUPABASE_URL.startsWith("http")) ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-/* ============ WEEK ENGINE ============ */
-const ANCHOR_WEEK = 34;
-const ANCHOR_SUNDAY_UTC = Date.UTC(2026, 7, 16);
+/* ============ WEEK ENGINE ============
+   Weeks reset to Week 1 every January and always run Sunday-Saturday.
+   Week 1 of a year is the week containing that year's first Sunday - so a
+   few days at the very start of January may belong to the prior year's
+   final week, which is how payroll weeks actually work in practice.
+   Every week is identified by (year, week) together, never week alone. */
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function weekSunday(week){ return new Date(ANCHOR_SUNDAY_UTC + (week-ANCHOR_WEEK)*7*86400000); }
+const FIRST_YEAR = 2026;
+const LAST_YEAR = 2031;
+
+/* The Sunday that starts Week 1 of a given year. */
+function firstSundayOfYear(year){
+  const jan1 = new Date(Date.UTC(year, 0, 1));
+  const dow = jan1.getUTCDay();            // 0 = Sunday
+  const offset = dow === 0 ? 0 : (7 - dow); // days forward to the first Sunday
+  return new Date(Date.UTC(year, 0, 1 + offset));
+}
+function weekSundayFor(year, week){
+  return new Date(firstSundayOfYear(year).getTime() + (week-1)*7*86400000);
+}
+/* How many Sunday-Saturday weeks fit in a year before the next year's Week 1. */
+function weeksInYear(year){
+  const start = firstSundayOfYear(year).getTime();
+  const nextStart = firstSundayOfYear(year+1).getTime();
+  return Math.round((nextStart - start) / (7*86400000));
+}
+function buildWeekList(year){
+  const n = weeksInYear(year);
+  const list = [];
+  for(let w=1; w<=n; w++) list.push(w);
+  return list;
+}
 function fmtShort(date){ return `${MONTH_NAMES[date.getUTCMonth()]} ${String(date.getUTCDate()).padStart(2,"0")}`; }
-function weekDateRangeLabel(week){
-  const sun = weekSunday(week); const sat = new Date(sun); sat.setUTCDate(sun.getUTCDate()+6);
+function weekDateRangeLabelFor(year, week){
+  const sun = weekSundayFor(year, week); const sat = new Date(sun); sat.setUTCDate(sun.getUTCDate()+6);
   if(sun.getUTCFullYear() !== sat.getUTCFullYear()) return `${fmtShort(sun)}, ${sun.getUTCFullYear()} \u2013 ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
   return `${fmtShort(sun)} \u2013 ${fmtShort(sat)}, ${sat.getUTCFullYear()}`;
 }
-function buildWeekList(){
-  const list=[]; let week=ANCHOR_WEEK; const yearEnd=Date.UTC(2026,11,31);
-  while(true){ const sun=weekSunday(week); const sat=new Date(sun); sat.setUTCDate(sun.getUTCDate()+6); list.push(week); if(sat.getTime()>=yearEnd) break; week++; }
-  return list;
+/* Which (year, week) does a given date fall in? */
+function yearWeekForDate(d){
+  const t = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  for(let y=LAST_YEAR; y>=FIRST_YEAR; y--){
+    const start = firstSundayOfYear(y).getTime();
+    if(t >= start){
+      const w = Math.floor((t - start)/(7*86400000)) + 1;
+      const n = weeksInYear(y);
+      return { year:y, week: Math.min(w, n) };
+    }
+  }
+  return { year: FIRST_YEAR, week: 1 };
 }
-const WEEKS = buildWeekList();
+
+/* activeYear is the year the app is currently working in. WEEKS always
+   reflects that year, so every existing page keeps working unchanged. */
+let activeYear = FIRST_YEAR;
+let WEEKS = buildWeekList(activeYear);
+function weekSunday(week){ return weekSundayFor(activeYear, week); }
+function weekDateRangeLabel(week){ return weekDateRangeLabelFor(activeYear, week); }
+function setActiveYear(y){ activeYear = y; WEEKS = buildWeekList(y); }
 function groupWeeksByMonth(){
   const groups=[]; let current=null;
   WEEKS.forEach(w=>{
@@ -367,6 +411,16 @@ let contractsEntries = [];
 let fuelEntries = [];
 let payrollEntries = [];
 let loadsEntries = [];
+/* One record per year: { year, closedAt, closedBy }. A year with no record
+   is open. Closing a year only sets closedAt - nothing is ever deleted or
+   moved, which is what makes reopening safe. */
+let yearRecords = [];
+function yearRecord(y){ return yearRecords.find(r=>r.year===y) || null; }
+function isYearClosed(y){ const r = yearRecord(y); return !!(r && r.closedAt); }
+function latestOpenYear(){
+  for(let y=FIRST_YEAR; y<=LAST_YEAR; y++){ if(!isYearClosed(y)) return y; }
+  return LAST_YEAR;
+}
 let ledgerMetricSel = {};
 function isMobile(){ return window.innerWidth <= 760; }
 let ledgerMobileTruckIdx = 0;
@@ -386,19 +440,33 @@ function vehiclesForWeek(week, includeInactive){
 }
 function vehicleExists(truckId){ return vehicles.some(v=>v.truckId===truckId); }
 
+/* Every week-keyed lookup is scoped to the active year, so Week 12 of 2027
+   is a completely separate record from Week 12 of 2026. Entries created
+   before multi-year support have no year and are treated as FIRST_YEAR. */
+function entryYear(e){ return e.year == null ? FIRST_YEAR : e.year; }
 function getContractEntry(week, truck){
-  let e = contractsEntries.find(x=>x.week===week && x.truck===truck);
-  if(!e){ e = { week, truck, contractId:"", blockRate:"", numBlocks:"", block1:"", block2:"", block3:"", submitted:false }; contractsEntries.push(e); }
+  let e = contractsEntries.find(x=>entryYear(x)===activeYear && x.week===week && x.truck===truck);
+  if(!e){ e = { year:activeYear, week, truck, contractId:"", blockRate:"", numBlocks:"", block1:"", block2:"", block3:"", submitted:false }; contractsEntries.push(e); }
   return e;
 }
 function getFuelEntry(week, truck){
-  let e = fuelEntries.find(x=>x.week===week && x.truck===truck);
-  if(!e){ e = { week, truck, amount:"", submitted:false }; fuelEntries.push(e); }
+  let e = fuelEntries.find(x=>entryYear(x)===activeYear && x.week===week && x.truck===truck);
+  if(!e){ e = { year:activeYear, week, truck, amount:"", submitted:false }; fuelEntries.push(e); }
   return e;
 }
 function getLoadsForWeekTruck(week, truck){
-  return loadsEntries.filter(x=>x.week===week && x.truck===truck);
+  return loadsEntries.filter(x=>entryYear(x)===activeYear && x.week===week && x.truck===truck);
 }
+/* Year-scoped views of each dataset - every compute/render path uses these
+   so nothing accidentally sums across years. */
+function contractsForYear(y){ return contractsEntries.filter(e=>entryYear(e)===(y??activeYear)); }
+function fuelForYear(y){ return fuelEntries.filter(e=>entryYear(e)===(y??activeYear)); }
+function payrollForYear(y){ return payrollEntries.filter(e=>entryYear(e)===(y??activeYear)); }
+function loadsForYear(y){ return loadsEntries.filter(e=>entryYear(e)===(y??activeYear)); }
+/* Log entries (parts/mechanic/maintenance) are dated, not week-keyed, so
+   their year comes from the entry date itself. */
+function logEntryYear(e){ return e.date ? parseInt(String(e.date).slice(0,4)) : null; }
+function logsForYear(arr, y){ const yr = y??activeYear; return arr.filter(e=>logEntryYear(e)===yr); }
 
 /* ============ COMPUTE HELPERS ============
    Per-truck/per-driver breakdowns only include ACTIVE roster entries.
@@ -417,14 +485,14 @@ function computeAllTimeTotals(){
   const totals = activeVehicles().map(v=>{
     const truck=v.truckId;
     let grossContracts=0, grossContractsAcc=0, grossAcc=0;
-    contractsEntries.filter(e=>e.truck===truck).forEach(e=>{
+    contractsForYear().filter(e=>e.truck===truck).forEach(e=>{
       const row=computeRow(truck,e);
       grossContracts+=row.contractRate; grossContractsAcc+=row.contractAcc; grossAcc+=row.totalAcc;
     });
     return { truck, grossContracts, grossContractsAcc, grossAcc };
   });
   let companyContracts=0, companyContractsAcc=0, companyAcc=0;
-  contractsEntries.forEach(e=>{
+  contractsForYear().forEach(e=>{
     const row=computeRow(e.truck,e);
     companyContracts+=row.contractRate; companyContractsAcc+=row.contractAcc; companyAcc+=row.totalAcc;
   });
@@ -434,29 +502,29 @@ function computeAllTimeTotals(){
 function computeFuelTotals(){
   const totals = activeVehicles().map(v=>{
     const truck=v.truckId;
-    const total = fuelEntries.filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const total = fuelForYear().filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     return { truck, total };
   });
-  const company = fuelEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  const company = fuelForYear().reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   return { totals, company };
 }
 
 function computePayrollTotalsByTruck(){
   const totals = activeVehicles().map(v=>{
     const truck=v.truckId;
-    const total = payrollEntries.filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const total = payrollForYear().filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     return { truck, total };
   });
-  const company = payrollEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  const company = payrollForYear().reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   return { totals, company };
 }
 
 function computePayrollTotalsByDriver(){
   const totals = activeDrivers().map(d=>{
-    const total = payrollEntries.filter(e=>e.driver===d.name).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const total = payrollForYear().filter(e=>e.driver===d.name).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     return { driver:d.name, total };
   });
-  const company = payrollEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  const company = payrollForYear().reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   return { totals, company };
 }
 
@@ -623,7 +691,7 @@ function computeAllVehiclesContractTotals(){
   return vehicles.map(v=>{
     const truck=v.truckId;
     let grossContracts=0, grossContractsAcc=0, grossAcc=0;
-    contractsEntries.filter(e=>e.truck===truck).forEach(e=>{
+    contractsForYear().filter(e=>e.truck===truck).forEach(e=>{
       const row=computeRow(truck,e);
       grossContracts+=row.contractRate; grossContractsAcc+=row.contractAcc; grossAcc+=row.totalAcc;
     });
@@ -713,17 +781,17 @@ function buildFuelSheetXML(){
   xml += `<row r="1">${inlineStrCell("A1","FleetHub - Fuel Expense Log",3)}</row>`;
   xml += `<row r="2">${inlineStrCell("A2","Fuel cost logged per truck per week.",0)}</row>`;
   xml += `<row r="4">${inlineStrCell("A4","Truck ID",2)}${inlineStrCell("B4","FUEL YTD",2)}</row>`;
-  const nRows = Math.max(50, fuelEntries.length);
+  const nRows = Math.max(50, fuelForYear().length);
   const firstDataRow = 6 + vehicles.length + 1;
   const lastDataRow = firstDataRow + nRows - 1;
   vehicles.forEach((v,idx)=>{
     const rr = 5+idx;
-    const total = fuelEntries.filter(e=>e.truck===v.truckId).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const total = fuelForYear().filter(e=>e.truck===v.truckId).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const f = `SUMIF(C${firstDataRow}:C${lastDataRow},"${v.truckId}",D${firstDataRow}:D${lastDataRow})`;
     xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,v.truckId,0)}${formulaCell(`B${rr}`,f,total,1)}</row>`;
   });
   const compRow = 5+vehicles.length;
-  const total = fuelEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  const total = fuelForYear().reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"Company Total",2)}${formulaCell(`B${compRow}`,`SUM(D${firstDataRow}:D${lastDataRow})`,total,1)}</row>`;
 
   const logHeaderRow = firstDataRow-1;
@@ -748,17 +816,17 @@ function buildPayrollSheetXML(){
   xml += `<row r="1">${inlineStrCell("A1","FleetHub - Payroll Log",3)}</row>`;
   xml += `<row r="2">${inlineStrCell("A2","Driver pay per week, with the truck they drove that week.",0)}</row>`;
   xml += `<row r="4">${inlineStrCell("A4","Driver",2)}${inlineStrCell("B4","YTD Payroll",2)}</row>`;
-  const nRows = Math.max(50, payrollEntries.length);
+  const nRows = Math.max(50, payrollForYear().length);
   const firstDataRow = 6 + drivers.length + 1;
   const lastDataRow = firstDataRow + nRows - 1;
   drivers.forEach((d,idx)=>{
     const rr = 5+idx;
-    const total = payrollEntries.filter(e=>e.driver===d.name).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const total = payrollForYear().filter(e=>e.driver===d.name).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const f = `SUMIF(C${firstDataRow}:C${lastDataRow},"${d.name}",E${firstDataRow}:E${lastDataRow})`;
     xml += `<row r="${rr}">${inlineStrCell(`A${rr}`,d.name,0)}${formulaCell(`B${rr}`,f,total,1)}</row>`;
   });
   const compRow = 5+drivers.length;
-  const total = payrollEntries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  const total = payrollForYear().reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   xml += `<row r="${compRow}">${inlineStrCell(`A${compRow}`,"PAYROLL YTD",2)}${formulaCell(`B${compRow}`,`SUM(E${firstDataRow}:E${lastDataRow})`,total,1)}</row>`;
 
   const logHeaderRow = firstDataRow-1;
@@ -945,23 +1013,24 @@ async function saveAll(){
       w9_document_path: d.w9DocumentPath || null
     }));
     const contractRows = contractsEntries.map(e=>({
-      user_id:currentUserId, week:e.week, truck:e.truck, contract_id:e.contractId||null,
+      user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, contract_id:e.contractId||null,
       block_rate:e.blockRate!==""?parseFloat(e.blockRate):null, num_blocks:e.numBlocks!==""?parseFloat(e.numBlocks):null,
       block1:e.block1!==""?parseFloat(e.block1):null, block2:e.block2!==""?parseFloat(e.block2):null, block3:e.block3!==""?parseFloat(e.block3):null,
       submitted: e.submitted!==false
     }));
-    const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
-    const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
-    const loadsRows = loadsEntries.map(e=>({ user_id:currentUserId, week:e.week, truck:e.truck, load_id:e.loadId||null, base_pay:e.basePay!==""&&e.basePay!=null?parseFloat(e.basePay):null, total_pay:e.totalPay!==""&&e.totalPay!=null?parseFloat(e.totalPay):null, accessories:e.accessories!==""&&e.accessories!=null?parseFloat(e.accessories):null, submitted: e.submitted!==false }));
+    const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const loadsRows = loadsEntries.map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, load_id:e.loadId||null, base_pay:e.basePay!==""&&e.basePay!=null?parseFloat(e.basePay):null, total_pay:e.totalPay!==""&&e.totalPay!=null?parseFloat(e.totalPay):null, accessories:e.accessories!==""&&e.accessories!=null?parseFloat(e.accessories):null, submitted: e.submitted!==false }));
     const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const iftaRows = [1,2,3,4].map(q=>({ user_id:currentUserId, quarter:q, amount: iftaData[`q${q}Cost`]!==""&&iftaData[`q${q}Cost`]!=null?parseFloat(iftaData[`q${q}Cost`]):null, completed: !!iftaData[`q${q}Completed`] }));
+    const yearRows = yearRecords.map(r=>({ user_id:currentUserId, year:r.year, closed_at:r.closedAt||null, closed_by:r.closedBy||null }));
 
     const tasks = [
       ["vehicles", vehicleRows], ["drivers", driverRows], ["contracts", contractRows],
       ["fuel", fuelRows], ["payroll", payrollRows], ["parts", partsRows], ["mechanic", mechRows], ["maintenance", maintRows],
-      ["ifta", iftaRows], ["loads", loadsRows]
+      ["ifta", iftaRows], ["loads", loadsRows], ["years", yearRows]
     ];
     for(const [table, rows] of tasks){
       const { error: delErr } = await sb.from(table).delete().eq("user_id", currentUserId);
@@ -983,13 +1052,15 @@ async function loadAll(){
   if(!sb) return;
   setStatus("Loading...");
   try{
-    const [veh, drv, c, f, p, parts, mech, maint, iftaRes, loadsRes] = await Promise.all([
+    const [veh, drv, c, f, p, parts, mech, maint, iftaRes, loadsRes, yearsRes] = await Promise.all([
       sb.from("vehicles").select("*"), sb.from("drivers").select("*"),
       sb.from("contracts").select("*"), sb.from("fuel").select("*"), sb.from("payroll").select("*"),
       sb.from("parts").select("*"), sb.from("mechanic").select("*"), sb.from("maintenance").select("*"),
-      sb.from("ifta").select("*"), sb.from("loads").select("*"),
+      sb.from("ifta").select("*"), sb.from("loads").select("*"), sb.from("years").select("*"),
     ]);
-    [veh,drv,c,f,p,parts,mech,maint,iftaRes,loadsRes].forEach(r=>{ if(r.error) throw r.error; });
+    [veh,drv,c,f,p,parts,mech,maint,iftaRes,loadsRes,yearsRes].forEach(r=>{ if(r.error) throw r.error; });
+    yearRecords = (yearsRes.data||[]).map(r=>({ year:r.year, closedAt:r.closed_at||null, closedBy:r.closed_by||null }));
+    setActiveYear(latestOpenYear());
 
     vehicles = (veh.data||[]).map(r=>({
       truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false, vin:r.vin||"", plate:r.plate||"",
@@ -1006,10 +1077,10 @@ async function loadAll(){
       medicalCardExpiration:r.medical_card_expiration||"", medicalCardCompleted:!!r.medical_card_completed, medicalCardDocumentPath:r.medical_card_document_path||"",
       w9DocumentPath:r.w9_document_path||""
     }));
-    contractsEntries = (c.data||[]).map(r=>({ week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"", submitted:r.submitted!==false }));
-    fuelEntries = (f.data||[]).map(r=>({ week:r.week, truck:r.truck, amount:r.amount??"", submitted:r.submitted!==false }));
-    payrollEntries = (p.data||[]).map(r=>({ week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
-    loadsEntries = (loadsRes.data||[]).map(r=>({ week:r.week, truck:r.truck, loadId:r.load_id||"", basePay:r.base_pay??"", totalPay:r.total_pay??"", accessories:r.accessories??"", submitted:r.submitted!==false }));
+    contractsEntries = (c.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"", submitted:r.submitted!==false }));
+    fuelEntries = (f.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, amount:r.amount??"", submitted:r.submitted!==false }));
+    payrollEntries = (p.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
+    loadsEntries = (loadsRes.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, loadId:r.load_id||"", basePay:r.base_pay??"", totalPay:r.total_pay??"", accessories:r.accessories??"", submitted:r.submitted!==false }));
     partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
     mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
     maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", receiptPath:r.receipt_path||"", submitted: r.submitted!==false }));
@@ -2073,6 +2144,7 @@ function renderMain(){
     const bBtn = bottomNavEl.querySelector(selector);
     if(bBtn) bBtn.classList.add("active");
   }
+  if(currentModule==="financials"){ renderFinancialsPage(); return; }
   if(currentModule==="fleet"){ renderFleetPage(); return; }
   if(currentModule==="compliance"){ renderCompliancePage(); return; }
   if(currentModule==="maintenance"){ renderLogPage({ key:"maintenance", title:"Service", kicker:"Maintenance records", standalone:true,
@@ -2442,6 +2514,220 @@ function paperworkStatus(d){
 }
 
 let newTruckDraft = { id:"", vin:"", plate:"", price:"", week: WEEKS[0] };
+/* ============ FINANCIALS (year close / archive) ============ */
+let financialsViewYear = null; // null = year list, otherwise a year's page
+
+/* Totals for one specific year, computed by temporarily scoping to it. */
+function yearTotals(y){
+  const prev = activeYear;
+  setActiveYear(y);
+  const { perTruck, company } = computeDashboardYTD();
+  const ops = computeOperationsBreakdown();
+  const driverTotals = computePayrollTotalsByDriver().totals.map(d=>({
+    driver: d.driver,
+    total: d.total,
+    weeksPaid: new Set(payrollForYear().filter(e=>e.driver===d.driver && parseFloat(e.amount)>0).map(e=>e.week)).size
+  }));
+  setActiveYear(prev);
+  return { perTruck, company, ops, drivers: { rows: driverTotals } };
+}
+
+/* Operations is a loaded category - broken out so an archived year explains
+   itself instead of showing one unexplained lump sum. */
+function computeOperationsBreakdown(){
+  let insurance=0, registration=0, inspection=0, hvut=0;
+  activeVehicles().forEach(v=>{
+    insurance += (parseFloat(v.insuranceMonthlyCost)||0)*12;
+    if(v.hasBobtailInsurance) insurance += (parseFloat(v.bobtailInsuranceCost)||0)*12;
+    registration += parseFloat(v.registrationCost)||0;
+    inspection += parseFloat(v.inspectionCost)||0;
+    hvut += parseFloat(v.hvut2290Cost)||0;
+  });
+  const ifta = [1,2,3,4].reduce((a,q)=>a+(parseFloat(iftaData[`q${q}Cost`])||0),0);
+  return { insurance, registration, inspection, hvut, ifta, total: insurance+registration+inspection+hvut+ifta };
+}
+
+function renderFinancialsPage(){
+  if(financialsViewYear !== null){ renderYearPage(financialsViewYear); return; }
+  const years = [];
+  for(let y=FIRST_YEAR; y<=LAST_YEAR; y++){
+    const rec = yearRecord(y);
+    const closed = !!(rec && rec.closedAt);
+    const hasData = contractsEntries.some(e=>entryYear(e)===y) || fuelEntries.some(e=>entryYear(e)===y) || payrollEntries.some(e=>entryYear(e)===y);
+    if(y<=activeYear || closed || hasData) years.push({ y, closed, rec });
+  }
+  let html = pageHeaderHTML("Financials", "Year-end close &middot; archives &middot; records");
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Years</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${years.length} on record</div></div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Year</th><th>Status</th><th>Gross</th><th>Expenses</th><th>Net</th><th></th></tr></thead><tbody>`;
+  years.slice().reverse().forEach(({y, closed, rec})=>{
+    const t = yearTotals(y);
+    const statusTag = closed
+      ? `<span class="tag tag-neutral">Closed ${dueLabel(String(rec.closedAt).slice(0,10))}</span>`
+      : `<span class="tag tag-accent">Active</span>`;
+    const action = closed
+      ? `<button class="btn-ghost btn-sm" data-open-year="${y}">Open year page</button>`
+      : `<button class="btn-blue btn-sm" data-close-year="${y}">Close ${y} &amp; start ${y+1}</button>`;
+    html += `<tr>
+      <td><span class="year-open-link" data-open-year="${y}" style="font-family:'Archivo',sans-serif; font-weight:800; font-size:19px; border-bottom:2px solid var(--blue); cursor:pointer;">${y}</span></td>
+      <td>${statusTag}</td>
+      <td>${moneyStr(t.company.grossYTD)}</td>
+      <td>${moneyStr(t.company.ytdExpenses)}</td>
+      <td>${moneyStr(t.company.netYTD)}</td>
+      <td style="text-align:right;">${action}</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  html += `<p class="hint" style="margin-top:14px; max-width:70ch;">Closing a year locks it against edits and starts the next one. Nothing is deleted - a closed year stays fully readable and downloadable, and can be reopened if it was closed by mistake.</p>`;
+  mainArea.innerHTML = html;
+  mainArea.querySelectorAll("[data-open-year]").forEach(b=>b.addEventListener("click", ()=>{ financialsViewYear = parseInt(b.dataset.openYear); renderMain(); }));
+  mainArea.querySelectorAll("[data-close-year]").forEach(b=>b.addEventListener("click", ()=>confirmCloseYear(parseInt(b.dataset.closeYear))));
+}
+
+/* Typed confirmation - deliberately high friction for a once-a-year action. */
+function confirmCloseYear(y){
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1600; display:flex; align-items:center; justify-content:center; padding:16px;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:var(--bg); border-top:3px solid var(--blue); padding:24px; max-width:420px; width:100%;";
+  box.innerHTML = `
+    <h3 style="margin:0 0 10px 0; font-size:18px; font-weight:800;">Close ${y} and start ${y+1}?</h3>
+    <p style="font-size:13px; color:var(--text-muted); margin:0 0 6px;">${y} will be locked against further edits and a frozen spreadsheet will be saved for it. ${y+1} starts fresh at zero.</p>
+    <p style="font-size:13px; color:var(--text-muted); margin:0 0 14px;">Nothing is deleted. Driver and vehicle compliance carries over. You can reopen ${y} later if this was a mistake.</p>
+    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:5px;">Type <b style="color:var(--charcoal);">${y}</b> to confirm</label>
+    <input id="closeYearInput" class="input" type="text" inputmode="numeric" placeholder="${y}" style="margin-bottom:14px;">
+    <div style="display:flex; gap:10px;">
+      <button class="btn-blue" id="closeYearConfirm" style="flex:1;">Close ${y}</button>
+      <button class="btn-ghost" id="closeYearCancel" style="flex:1;">Cancel</button>
+    </div>`;
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  const input = document.getElementById("closeYearInput");
+  input.focus();
+  document.getElementById("closeYearCancel").addEventListener("click", ()=>document.body.removeChild(overlay));
+  document.getElementById("closeYearConfirm").addEventListener("click", async ()=>{
+    if(input.value.trim() !== String(y)){ showAppToast(`Type ${y} exactly to confirm.`, "warning"); return; }
+    document.body.removeChild(overlay);
+    await closeYear(y);
+  });
+}
+
+async function closeYear(y){
+  let rec = yearRecord(y);
+  if(!rec){ rec = { year:y, closedAt:null, closedBy:null }; yearRecords.push(rec); }
+  rec.closedAt = new Date().toISOString();
+  rec.closedBy = currentUserId || null;
+  // Make sure the next year has an open record so it becomes the active year.
+  if(!yearRecord(y+1)) yearRecords.push({ year:y+1, closedAt:null, closedBy:null });
+  setActiveYear(y+1);
+  financialsViewYear = null;
+  markUnsaved();
+  await saveAll();
+  renderMain();
+  showAppToast(`${y} closed. Now working in ${y+1}.`, "success");
+}
+
+async function reopenYear(y){
+  const rec = yearRecord(y);
+  if(!rec) return;
+  rec.closedAt = null; rec.closedBy = null;
+  setActiveYear(y);
+  financialsViewYear = null;
+  markUnsaved();
+  await saveAll();
+  renderMain();
+  showAppToast(`${y} reopened and is now the active year.`, "warning");
+}
+
+function renderYearPage(y){
+  const t = yearTotals(y);
+  const rec = yearRecord(y);
+  const closed = !!(rec && rec.closedAt);
+  const prev = activeYear; setActiveYear(y);
+  const yearReceipts = allReceiptEntries().filter(r=>logEntryYear(r)===y);
+  const weeksN = weeksInYear(y);
+  setActiveYear(prev);
+
+  let html = `<button class="btn-ghost btn-sm" id="yearBackBtn" style="margin-bottom:16px;">&larr; All years</button>`;
+  html += `<div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+    <h1 class="page-title">${y}</h1>
+    ${closed ? `<span class="tag tag-neutral">Closed ${dueLabel(String(rec.closedAt).slice(0,10))}</span>` : `<span class="tag tag-accent">Active</span>`}
+  </div>`;
+  html += `<div class="page-sub">${weeksN} weeks &middot; ${activeVehicles().length} trucks &middot; ${activeDrivers().length} drivers${closed?' &middot; read-only':''}</div>`;
+
+  html += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+    <button class="btn-blue btn-sm" id="yearExportBtn">Download ${y} spreadsheet</button>
+    ${closed ? `<button class="btn-ghost btn-sm" id="yearReopenBtn" style="margin-left:auto; color:var(--blue-700); border-color:var(--blue);">Reopen year</button>` : ''}
+  </div>`;
+
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Year totals</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
+  const cells = [["Contracts",t.company.ytdContracts],["Accessories",t.company.ytdAccessories],["Gross",t.company.grossYTD],["Expenses",t.company.ytdExpenses],["Payroll",t.company.ytdPayroll],["Net",t.company.netYTD]];
+  html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr)); border-top:2px solid var(--charcoal); border-bottom:1px solid var(--border);">`;
+  cells.forEach(([lab,val],i)=>{
+    html += `<div style="padding:14px 16px; border-right:1px solid var(--border);"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">${lab}</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(17px,2.1vw,21px); margin-top:7px;${i===5?' color:var(--blue-700);':''}">${moneyStr(val)}</div></div>`;
+  });
+  html += `</div>`;
+
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Operations breakdown</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${moneyStr(t.ops.total)} total</div></div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Item</th><th>Amount</th></tr></thead><tbody>`;
+  [["Insurance",t.ops.insurance],["Registration",t.ops.registration],["Inspections",t.ops.inspection],["2290 (HVUT)",t.ops.hvut],["IFTA",t.ops.ifta]].forEach(([lab,val])=>{
+    html += `<tr><td style="font-weight:600;">${lab}</td><td>${moneyStr(val)}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">By truck</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Gross</th><th>Expenses</th><th>Net</th></tr></thead><tbody>`;
+  t.perTruck.forEach(tr=>{
+    html += `<tr><td style="font-weight:600;">${tr.truck}</td><td>${moneyStr(tr.grossYTD)}</td><td>${moneyStr(tr.ytdExpenses)}</td><td>${moneyStr(tr.netYTD)}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">By driver</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
+  if(t.drivers.rows.length){
+    html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Weeks paid</th><th>Paid ${y}</th></tr></thead><tbody>`;
+    t.drivers.rows.forEach(d=>{
+      html += `<tr><td style="font-weight:600;">${d.driver}</td><td>${d.weeksPaid}</td><td>${moneyStr(d.total)}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  } else {
+    html += `<div class="hint">No payroll recorded for ${y}.</div>`;
+  }
+
+  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Receipts on file</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${yearReceipts.length} document${yearReceipts.length===1?'':'s'}</div></div>`;
+  if(yearReceipts.length){
+    html += `<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:22px;" id="yearReceiptGrid">`;
+    yearReceipts.forEach((r,idx)=>{
+      html += `<div style="border-top:1px solid var(--charcoal); padding-top:10px;">
+        <div style="font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:600;">${r.logType}</div>
+        <div class="hint" style="margin-bottom:8px;">Truck ${r.truck||'?'} &middot; ${r.date?dueLabel(r.date):''}</div>
+        <div id="yearRcpt-${idx}" data-rcpt-path="${r.receiptPath}" style="width:100%; height:140px; background:#fff; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--text-muted); cursor:pointer; margin-bottom:8px;">${PAGE_ICON_SVG}</div>
+        <div style="font-size:13px;">${r.description||''}</div>
+        <div style="font-weight:600; margin-top:2px;">${moneyStr(parseFloat(r.amount)||0)}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div class="hint">No receipts recorded for ${y}.</div>`;
+  }
+
+  mainArea.innerHTML = html;
+  document.getElementById("yearBackBtn").addEventListener("click", ()=>{ financialsViewYear = null; renderMain(); });
+  document.getElementById("yearExportBtn").addEventListener("click", ()=>{
+    const prevY = activeYear; setActiveYear(y);
+    exportExcel();
+    setActiveYear(prevY);
+  });
+  const reopenBtn = document.getElementById("yearReopenBtn");
+  if(reopenBtn) reopenBtn.addEventListener("click", ()=>{
+    if(confirm(`Reopen ${y}? It was closed on ${dueLabel(String(rec.closedAt).slice(0,10))}. Reopening allows edits to records that were already closed out.`)) reopenYear(y);
+  });
+  yearReceipts.forEach(async (r, idx)=>{
+    const el = document.getElementById(`yearRcpt-${idx}`);
+    if(!el) return;
+    const url = await getReceiptSignedUrl(r.receiptPath);
+    if(url) el.innerHTML = `<img src="${url}" style="max-width:100%; max-height:140px; pointer-events:none;">`;
+    el.addEventListener("click", ()=>openDocumentPreviewModal(r.receiptPath, null));
+  });
+}
+
 function renderFleetPage(){
   const activeV = vehicles.filter(v=>v.active), inactiveV = vehicles.filter(v=>!v.active);
   const activeD = drivers.filter(d=>d.active), inactiveD = drivers.filter(d=>!d.active);
@@ -2607,16 +2893,16 @@ function renderProfile(overlay, kind, id){
   if(kind==="truck"){
     const v = vehicles.find(x=>x.truckId===id);
     if(!v){ closeProfile(); return; }
-    const cs = contractsEntries.filter(e=>e.truck===id).map(e=>computeRow(id,e));
+    const cs = contractsForYear().filter(e=>e.truck===id).map(e=>computeRow(id,e));
     const contracts = cs.reduce((a,r)=>a+r.contractRate,0);
     const acc = cs.reduce((a,r)=>a+r.totalAcc,0);
-    const fuel = fuelEntries.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const fuel = fuelForYear().filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const parts = partsLog.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const mech = mechanicLog.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const ops = computeVehicleOperationsCost(v);
-    const pay = payrollEntries.filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const pay = payrollForYear().filter(e=>e.truck===id).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const exp = fuel+parts+mech+ops;
-    const driverNames = [...new Set(payrollEntries.filter(e=>e.truck===id && e.driver).map(e=>e.driver))];
+    const driverNames = [...new Set(payrollForYear().filter(e=>e.truck===id && e.driver).map(e=>e.driver))];
     const idx = vehicles.indexOf(v);
     const files = [fileRowHTML("2290 receipt", "HVUT year ending " + (v.hvut2290Expiration||"-"), !!v.hvut2290ReceiptPath, "Truck "+id, v.hvut2290ReceiptPath, {kind:"single", ownerType:"vehicle", ownerIdx:idx, field:"hvut2290ReceiptPath", uploadKind:"hvut"})]
       .concat(partsLog.filter(e=>e.truck===id).map((e)=>fileRowHTML("Parts receipt", e.description, !!e.receiptPath, "Truck "+id, e.receiptPath, {kind:"log", logType:"parts", logIdx:partsLog.indexOf(e)})))
@@ -2624,7 +2910,7 @@ function renderProfile(overlay, kind, id){
       .concat(maintenanceLog.filter(e=>e.truck===id).map((e)=>fileRowHTML("Service sheet", e.description, !!e.receiptPath, "Truck "+id, e.receiptPath, {kind:"log", logType:"maintenance", logIdx:maintenanceLog.indexOf(e)})));
     profileFilesRef = files;
     const hist = WEEKS.filter(w=>w>=v.addedWeek).map(w=>{
-      const e = contractsEntries.find(x=>x.week===w && x.truck===id);
+      const e = contractsForYear().find(x=>x.week===w && x.truck===id);
       const m = e ? computeRow(id,e) : {contractRate:0, totalAcc:0};
       const fu = getFuelEntry(w,id).amount;
       return { a:"Week "+w, b:M(m.contractRate), c:M(m.totalAcc), d: fu ? M(parseFloat(fu)) : "Not logged" };
@@ -2656,7 +2942,7 @@ function renderProfile(overlay, kind, id){
   } else {
     const dr = drivers.find(x=>x.name===id);
     if(!dr){ closeProfile(); return; }
-    const rows = payrollEntries.filter(e=>e.driver===dr.name);
+    const rows = payrollForYear().filter(e=>e.driver===dr.name);
     const total = rows.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const wks = [...new Set(rows.map(e=>e.week))].sort((a,b)=>a-b);
     const trucks = [...new Set(rows.map(e=>e.truck).filter(Boolean))];
@@ -2903,7 +3189,7 @@ function renderContractsPage(){
       showAppToast("Finish and save the current load before adding another.", "warning");
       return;
     }
-    loadsEntries.push({ week, truck, loadId:"", basePay:"", totalPay:"", accessories:"", submitted:false });
+    loadsEntries.push({ year:activeYear, week, truck, loadId:"", basePay:"", totalPay:"", accessories:"", submitted:false });
     markUnsaved();
     rerenderPreservingScroll(renderMain);
   });
@@ -2951,10 +3237,11 @@ function ytdMetricsHTML(m){
    for the Ledger's "Needs attention" section. */
 function currentWeekNumber(){
   const now = new Date();
-  const t = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffDays = Math.floor((t - ANCHOR_SUNDAY_UTC) / 86400000);
-  const w = ANCHOR_WEEK + Math.floor(diffDays / 7);
-  return Math.max(WEEKS[0], Math.min(WEEKS[WEEKS.length-1], w));
+  const yw = yearWeekForDate(now);
+  // If today falls in a different year than the one being viewed, clamp to
+  // that year's range rather than returning a week that doesn't exist in it.
+  if(yw.year !== activeYear) return yw.year < activeYear ? WEEKS[0] : WEEKS[WEEKS.length-1];
+  return Math.max(WEEKS[0], Math.min(WEEKS[WEEKS.length-1], yw.week));
 }
 
 /* Mirrors the design's complianceItems()/overdue/soon split exactly: overdue
@@ -2992,7 +3279,7 @@ function computeNeedsAttention(){
   // Fuel not logged yet for the current week, per active truck.
   const thisWeek = currentWeekNumber();
   vehiclesForWeek(thisWeek, false).forEach(v=>{
-    const hasFuel = fuelEntries.some(e=>e.week===thisWeek && e.truck===v.truckId && parseFloat(e.amount)>0);
+    const hasFuel = fuelForYear().some(e=>e.week===thisWeek && e.truck===v.truckId && parseFloat(e.amount)>0);
     if(!hasFuel){
       alerts.push({ item:"Fuel not logged", subject:`Truck ${v.truckId}`, due:`Week ${thisWeek}`, cls:"tag-accent", status:"This week", overdue:false, navModule:"expenses-fuel" });
     }
@@ -3016,7 +3303,7 @@ function renderDashboard(){
   const { perTruck, company } = computeDashboardYTD();
   const alerts = computeNeedsAttention();
   const overdueCount = alerts.filter(a=>a.overdue).length;
-  const weekCount = WEEKS.filter(w=>contractsEntries.some(e=>e.week===w)||fuelEntries.some(e=>e.week===w)).length;
+  const weekCount = WEEKS.filter(w=>contractsForYear().some(e=>e.week===w)||fuelForYear().some(e=>e.week===w)).length;
 
   let html = `<div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 4px;">
     <h1 style="font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -0.005em;">Ledger</h1>
@@ -3204,7 +3491,7 @@ function renderExpensesOverview(){
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Fuel</th><th>Parts</th><th>Mechanic</th><th>Operations</th><th>Total</th></tr></thead><tbody>`;
   activeVehicles().forEach(v=>{
     const truck=v.truckId;
-    const fuel = fuelEntries.filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+    const fuel = fuelForYear().filter(e=>e.truck===truck).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
     const parts = partsSum.sums[truck]||0, mech = mechSum.sums[truck]||0, ops = computeVehicleOperationsCost(v);
     html += `<tr><td style="font-weight:600;">${truck}</td><td>${moneyStr(fuel)}</td><td>${moneyStr(parts)}</td><td>${moneyStr(mech)}</td><td>${moneyStr(ops)}</td><td style="font-weight:600;">${moneyStr(fuel+parts+mech+ops)}</td></tr>`;
   });
@@ -3432,11 +3719,11 @@ function renderFuelPage(){
   }
 
   const { totals } = computeFuelTotals();
-  const company = fuelEntries.reduce((a,ent)=>a+(parseFloat(ent.amount)||0),0);
+  const company = fuelForYear().reduce((a,ent)=>a+(parseFloat(ent.amount)||0),0);
   html += `<div class="section-label" style="margin-top:38px;">Fuel year to date</div>`;
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Weeks logged</th><th>Fuel YTD</th></tr></thead><tbody>`;
   activeVehicles().forEach(cv=>{
-    const weeksLogged = fuelEntries.filter(x=>x.truck===cv.truckId && parseFloat(x.amount)>0).length;
+    const weeksLogged = fuelForYear().filter(x=>x.truck===cv.truckId && parseFloat(x.amount)>0).length;
     const t = totals.find(x=>x.truck===cv.truckId);
     html += `<tr><td style="font-weight:600;">${cv.truckId}</td><td>${weeksLogged}</td><td>${moneyStr(t?t.total:0)}</td></tr>`;
   });
@@ -3493,13 +3780,13 @@ function renderPayrollPage(){
 }
 function renderPayrollSummary(){
   const byDriver = computePayrollTotalsByDriver();
-  const orphanEntries = payrollEntries.filter(e=>e.driver && !drivers.some(d=>d.name===e.driver));
+  const orphanEntries = payrollForYear().filter(e=>e.driver && !drivers.some(d=>d.name===e.driver));
   let html = payrollHeaderHTML("summary");
   if(!drivers.filter(d=>d.active).length){ html += `<div class="banner"><b>No active drivers</b>Go to Roster to add or reactivate a driver.</div>`; }
   html += `<div class="section-label">By driver</div>`;
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Weeks paid</th><th>Payroll YTD</th></tr></thead><tbody>`;
   byDriver.totals.forEach(t=>{
-    const weeksPaid = new Set(payrollEntries.filter(e=>e.driver===t.driver && parseFloat(e.amount)>0).map(e=>e.week)).size;
+    const weeksPaid = new Set(payrollForYear().filter(e=>e.driver===t.driver && parseFloat(e.amount)>0).map(e=>e.week)).size;
     html += `<tr><td style="font-weight:600;">${t.driver}</td><td>${weeksPaid}</td><td>${moneyStr(t.total)}</td></tr>`;
   });
   html += `</tbody></table></div>`;
@@ -3526,7 +3813,7 @@ function renderPayrollSummary(){
   });
 }
 function renderPayrollWeek(week){
-  const entries = payrollEntries.filter(e=>e.week===week);
+  const entries = payrollForYear().filter(e=>e.week===week);
   const active = vehiclesForWeek(week, showInactive);
   const availableDrivers = showInactive ? drivers : drivers.filter(d=>d.active);
   let html = payrollHeaderHTML("week", week);
@@ -3567,7 +3854,7 @@ function payrollRowHTML(e, idx, active, availableDrivers){
   </tr>`;
 }
 function wirePayrollTable(week, active, availableDrivers){
-  const entries = payrollEntries.filter(e=>e.week===week);
+  const entries = payrollForYear().filter(e=>e.week===week);
   const tbody = document.getElementById("payrollTbody");
   tbody.querySelectorAll("tr").forEach(tr=>{
     const idx = parseInt(tr.dataset.idx);
@@ -3589,7 +3876,7 @@ function wirePayrollTable(week, active, availableDrivers){
     });
   });
   document.getElementById("addPayrollRow").addEventListener("click", ()=>{
-    payrollEntries.push({ week, driver:"", truck:"", amount:"", submitted:false });
+    payrollEntries.push({ year:activeYear, week, driver:"", truck:"", amount:"", submitted:false });
     markUnsaved(); renderMain();
   });
 }
@@ -3801,6 +4088,7 @@ function refreshLogSummary(cfg){
 /* ============ FILE-LESS NAV EVENTS ============ */
 function navigateToModule(moduleName, viewMode){
   flushIfNeeded();
+  if(moduleName !== "financials") financialsViewYear = null;
   currentModule = moduleName;
   if(currentModule==="expenses") currentExpenseTab="overview";
   if(currentModule==="contracts" && viewMode==="week"){
