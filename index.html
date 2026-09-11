@@ -338,7 +338,9 @@ const sb = (SUPABASE_URL.startsWith("http")) ? supabase.createClient(SUPABASE_UR
    Every week is identified by (year, week) together, never week alone. */
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const FIRST_YEAR = 2026;
-const LAST_YEAR = 2031;
+/* No fixed ceiling - always looks 5 years past whatever "today" actually is,
+   recalculated live, so the app never needs a code update as years pass. */
+function lastSupportedYear(){ return new Date().getFullYear() + 5; }
 
 /* The Sunday that starts Week 1 of a given year. */
 function firstSundayOfYear(year){
@@ -371,7 +373,7 @@ function weekDateRangeLabelFor(year, week){
 /* Which (year, week) does a given date fall in? */
 function yearWeekForDate(d){
   const t = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-  for(let y=LAST_YEAR; y>=FIRST_YEAR; y--){
+  for(let y=lastSupportedYear(); y>=FIRST_YEAR; y--){
     const start = firstSundayOfYear(y).getTime();
     if(t >= start){
       const w = Math.floor((t - start)/(7*86400000)) + 1;
@@ -418,8 +420,8 @@ let yearRecords = [];
 function yearRecord(y){ return yearRecords.find(r=>r.year===y) || null; }
 function isYearClosed(y){ const r = yearRecord(y); return !!(r && r.closedAt); }
 function latestOpenYear(){
-  for(let y=FIRST_YEAR; y<=LAST_YEAR; y++){ if(!isYearClosed(y)) return y; }
-  return LAST_YEAR;
+  for(let y=FIRST_YEAR; y<=lastSupportedYear(); y++){ if(!isYearClosed(y)) return y; }
+  return lastSupportedYear();
 }
 let ledgerMetricSel = {};
 function isMobile(){ return window.innerWidth <= 760; }
@@ -589,6 +591,72 @@ function computeOperationsCostTotal(){
   return total;
 }
 
+/* Truck ROI / payback tracking. Only computed for trucks with trackRoi set -
+   for everything else this returns null and the profile page simply doesn't
+   show the section. Walks week by week from the truck's first active week
+   forward (across years if needed), using TRUE per-truck numbers: that
+   truck's own contracts, fuel, and the payroll entries actually assigned to
+   it - not company-wide totals. Vehicle-level annual costs (insurance,
+   registration, 2290, inspection) aren't date-stamped to a specific week,
+   so they're intentionally left out of the weekly payback timeline; they're
+   still fully counted in the regular Operations totals elsewhere. */
+function computeTruckROI(v){
+  if(!v.trackRoi) return null;
+  const purchasePrice = parseFloat(v.purchasePrice)||0;
+  const acquisitionTotal = (v.acquisitionCosts||[]).reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
+  const startYear = v.addedYear || FIRST_YEAR;
+  const startWeek = v.addedWeek || 1;
+  const cutoff = weekSundayFor(startYear, startWeek).getTime();
+
+  const allLogs = [...partsLog, ...mechanicLog, ...maintenanceLog].filter(e=>e.truck===v.truckId && e.date);
+  const preServiceExpenses = allLogs.filter(e=>Date.parse(e.date) < cutoff).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  const totalInvestment = purchasePrice + acquisitionTotal + preServiceExpenses;
+
+  const prevActive = activeYear;
+  let cumulative = 0, paybackYear = null, paybackWeek = null;
+  const recentWeeks = [];
+  const endYear = Math.max(activeYear, startYear);
+
+  for(let y=startYear; y<=endYear; y++){
+    setActiveYear(y);
+    const lastW = (y===activeYear) ? Math.min(currentWeekNumber(), WEEKS.length) : WEEKS.length;
+    const firstW = (y===startYear) ? startWeek : 1;
+    for(let w=firstW; w<=lastW; w++){
+      const sun = weekSundayFor(y,w), sat = new Date(sun); sat.setUTCDate(sun.getUTCDate()+6);
+      const sunT = sun.getTime(), satT = sat.getTime()+86399999;
+      const ce = contractsForYear(y).find(x=>x.week===w && x.truck===v.truckId);
+      const row = ce ? computeRow(v.truckId, ce) : {contractRate:0, totalAcc:0};
+      const gross = row.contractRate + row.totalAcc;
+      const fuel = fuelForYear(y).filter(x=>x.week===w && x.truck===v.truckId).reduce((a,x)=>a+(parseFloat(x.amount)||0),0);
+      const partsAndMech = allLogs.filter(e=>{ const t=Date.parse(e.date); return t>=sunT && t<=satT; }).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+      const pay = payrollForYear(y).filter(x=>x.week===w && x.truck===v.truckId).reduce((a,x)=>a+(parseFloat(x.amount)||0),0);
+      const netThisWeek = gross - fuel - partsAndMech - pay;
+      cumulative += netThisWeek;
+      recentWeeks.push({ year:y, week:w, net:netThisWeek, cumulative });
+      if(paybackWeek===null && totalInvestment>0 && cumulative >= totalInvestment){ paybackYear=y; paybackWeek=w; }
+    }
+  }
+  setActiveYear(prevActive);
+
+  const recovered = Math.min(Math.max(cumulative,0), totalInvestment);
+  const remaining = Math.max(0, totalInvestment - cumulative);
+  const percent = totalInvestment>0 ? Math.min(100, Math.round((recovered/totalInvestment)*100)) : 0;
+  // Pace uses the truck's last 12 weeks that actually have logged activity,
+  // not the last 12 calendar weeks - which could be empty if data entry is
+  // simply behind, and would otherwise wrongly zero out the pace.
+  const activeWeeks = recentWeeks.filter(x=>x.net!==0);
+  const tail = activeWeeks.slice(-12);
+  const pace = tail.length ? tail.reduce((a,x)=>a+x.net,0)/tail.length : 0;
+  const weeksToGo = (paybackWeek===null && pace>0) ? Math.ceil(remaining/pace) : null;
+
+  return {
+    purchasePrice, acquisitionTotal, preServiceExpenses, totalInvestment,
+    cumulative, recovered, remaining, percent,
+    paidOff: paybackWeek!==null, paybackYear, paybackWeek,
+    pace, weeksToGo,
+    weeksTracked: recentWeeks.length
+  };
+}
 function computeVehicleOperationsCost(v){
   let total = parseFloat(v.inspectionCost)||0;
   total += parseFloat(v.registrationCost)||0;
@@ -1003,6 +1071,7 @@ async function saveAll(){
       form2290_expiration: v.hvut2290Expiration || null, form2290_cost: v.hvut2290Cost!==""&&v.hvut2290Cost!=null?parseFloat(v.hvut2290Cost):null, form2290_completed: !!v.hvut2290Completed, form2290_receipt_path: v.hvut2290ReceiptPath || null,
       inspection_document_path: v.inspectionDocumentPath || null, registration_document_path: v.registrationDocumentPath || null,
       purchase_price: v.purchasePrice!==""&&v.purchasePrice!=null?parseFloat(v.purchasePrice):null,
+      added_year: v.addedYear || FIRST_YEAR, track_roi: !!v.trackRoi, acquisition_costs: JSON.stringify(v.acquisitionCosts||[]),
       insurance_monthly_cost: v.insuranceMonthlyCost!==""&&v.insuranceMonthlyCost!=null?parseFloat(v.insuranceMonthlyCost):null,
       has_bobtail_insurance: !!v.hasBobtailInsurance, bobtail_insurance_cost: v.bobtailInsuranceCost!==""&&v.bobtailInsuranceCost!=null?parseFloat(v.bobtailInsuranceCost):null
     }));
@@ -1069,6 +1138,7 @@ async function loadAll(){
       hvut2290Expiration:r.form2290_expiration||"", hvut2290Cost:r.form2290_cost??"", hvut2290Completed:!!r.form2290_completed, hvut2290ReceiptPath:r.form2290_receipt_path||"",
       inspectionDocumentPath:r.inspection_document_path||"", registrationDocumentPath:r.registration_document_path||"",
       purchasePrice:r.purchase_price??"",
+      addedYear:r.added_year||FIRST_YEAR, trackRoi:!!r.track_roi, acquisitionCosts:(()=>{ try{ return JSON.parse(r.acquisition_costs||"[]"); }catch(e){ return []; } })(),
       insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??""
     }));
     drivers = (drv.data||[]).map(r=>({
@@ -2513,7 +2583,7 @@ function paperworkStatus(d){
   return missing.length ? "Missing " + missing.join(", ") : "Complete";
 }
 
-let newTruckDraft = { id:"", vin:"", plate:"", price:"", week: WEEKS[0] };
+let newTruckDraft = { id:"", vin:"", plate:"", price:"", trackRoi:false, week: WEEKS[0] };
 /* ============ FINANCIALS (year close / archive) ============ */
 let financialsViewYear = null; // null = year list, otherwise a year's page
 
@@ -2550,7 +2620,7 @@ function computeOperationsBreakdown(){
 function renderFinancialsPage(){
   if(financialsViewYear !== null){ renderYearPage(financialsViewYear); return; }
   const years = [];
-  for(let y=FIRST_YEAR; y<=LAST_YEAR; y++){
+  for(let y=FIRST_YEAR; y<=lastSupportedYear(); y++){
     const rec = yearRecord(y);
     const closed = !!(rec && rec.closedAt);
     const hasData = contractsEntries.some(e=>entryYear(e)===y) || fuelEntries.some(e=>entryYear(e)===y) || payrollEntries.some(e=>entryYear(e)===y);
@@ -2746,9 +2816,11 @@ function renderFleetPage(){
     <div class="field" style="min-width:210px;"><label>VIN</label><input type="text" id="newTruckVin" placeholder="17 characters" value="${newTruckDraft.vin}"></div>
     <div class="field" style="min-width:150px;"><label>Licence plate</label><input type="text" id="newTruckPlate" placeholder="TX 0A-0000" value="${newTruckDraft.plate}"></div>
     <div class="field" style="min-width:150px;"><label>Purchase price</label><input type="text" inputmode="decimal" id="newTruckPrice" placeholder="0.00" value="${newTruckDraft.price||''}"></div>
+    <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; padding-bottom:9px;"><input type="checkbox" id="newTruckTrackRoi" ${newTruckDraft.trackRoi?'checked':''}> Track ROI for this unit</label>
     ${weekRailHTML(newTruckDraft.week, "newTruckWeek", {label:"Running from week"})}
     <button class="btn-blue" id="addVehicleBtn">+ Add Truck</button>
-  </div>`;
+  </div>
+  <p class="hint" style="margin-top:6px;">Only check "Track ROI" for units where you know the real purchase price and can log costs from the start - payback tracking won't be accurate for units already in service before this app.</p>`;
 
   if(inactiveV.length){
     html += `<div class="section-label">Inactive trucks</div>`;
@@ -2802,6 +2874,7 @@ document.getElementById("newTruckId").addEventListener("input", e=>{ newTruckDra
   document.getElementById("newTruckVin").addEventListener("input", e=>{ newTruckDraft.vin = e.target.value; });
   document.getElementById("newTruckPlate").addEventListener("input", e=>{ newTruckDraft.plate = e.target.value; });
   document.getElementById("newTruckPrice").addEventListener("input", e=>{ newTruckDraft.price = e.target.value; });
+  document.getElementById("newTruckTrackRoi").addEventListener("change", e=>{ newTruckDraft.trackRoi = e.target.checked; });
   wireWeekRail("newTruckWeek", newTruckDraft.week, w=>{ newTruckDraft.week = w; renderMain(); });
   document.getElementById("addVehicleBtn").addEventListener("click", ()=>{
     const id = newTruckDraft.id.trim();
@@ -2812,8 +2885,8 @@ document.getElementById("newTruckId").addEventListener("input", e=>{ newTruckDra
     if(!id){ showAppToast("Enter a truck ID first.", "warning"); return; }
     if(vehicleExists(id)){ showAppToast("Truck " + id + " is already on the roster.", "warning"); return; }
     if(!vin || !plate){ showAppToast("Enter the VIN and the licence plate before adding the truck.", "warning"); return; }
-    vehicles.push({ truckId:id, addedWeek:wk, active:true, vin, plate, purchasePrice:price });
-    newTruckDraft = { id:"", vin:"", plate:"", price:"", week: WEEKS[0] };
+    vehicles.push({ truckId:id, addedWeek:wk, addedYear:activeYear, active:true, vin, plate, purchasePrice:price, trackRoi:newTruckDraft.trackRoi, acquisitionCosts:[] });
+    newTruckDraft = { id:"", vin:"", plate:"", price:"", trackRoi:false, week: WEEKS[0] };
     markUnsaved(); renderMain();
     showAppToast("Truck " + id + " added to the roster.", "success");
   });
@@ -2924,12 +2997,48 @@ function renderProfile(overlay, kind, id){
         <h1 style="font-size:clamp(28px,4vw,40px); font-weight:800; margin:0; letter-spacing:-0.01em;">Truck ${id}</h1>
         <span class="tag ${v.active?'tag-neutral':'tag-accent'}">${v.active?'Active':'Inactive'}</span>
       </div>
-      <p style="max-width:62ch; font-size:13px; color:var(--text-muted); margin:8px 0 22px;">VIN ${v.vin||'not recorded'} &middot; plate ${v.plate||'not recorded'} &middot; running since week ${v.addedWeek}${driverNames.length?' &middot; driven by '+driverNames.join(', '):''}${v.purchasePrice?' &middot; initial investment '+M(parseFloat(v.purchasePrice)):''}</p>
+      <p style="max-width:62ch; font-size:13px; color:var(--text-muted); margin:8px 0 22px;">VIN ${v.vin||'not recorded'} &middot; plate ${v.plate||'not recorded'} &middot; running since ${v.addedYear||FIRST_YEAR} week ${v.addedWeek}${driverNames.length?' &middot; driven by '+driverNames.join(', '):''}</p>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%,200px),1fr)); border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
         <div style="padding:16px 18px; border-right:1px solid var(--border);"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Gross YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(contracts+acc)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Contracts ${M(contracts)} &middot; acc ${M(acc)}</div></div>
         <div style="padding:16px 18px; border-right:1px solid var(--border);"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Expenses YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(exp)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Fuel ${M(fuel)} &middot; parts ${M(parts)}</div></div>
         <div style="padding:16px 18px;"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Net YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(contracts+acc-exp-pay)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">After driver pay</div></div>
       </div>
+      ${(()=>{
+        const roi = computeTruckROI(v);
+        if(!roi) return "";
+        let h = `<div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Investment &amp; payback</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
+        h += `<div style="overflow-x:auto; margin-bottom:16px;"><table class="logtable"><thead><tr><th>Purchase price</th><th>Acquisition costs</th><th>Pre-service expenses</th><th>Total invested</th></tr></thead><tbody>
+          <tr><td>${M(roi.purchasePrice)}</td><td>${M(roi.acquisitionTotal)}</td><td>${M(roi.preServiceExpenses)}</td><td style="font-weight:600;">${M(roi.totalInvestment)}</td></tr>
+        </tbody></table></div>`;
+        h += `<div style="border:1px solid var(--border); height:26px; position:relative; margin-bottom:8px;"><div style="position:absolute; inset:0; width:${roi.percent}%; background:var(--blue-pale); border-right:2px solid var(--blue);"></div><div style="position:relative; height:100%; display:flex; align-items:center; padding:0 12px; font-size:12px; font-weight:600;">${roi.percent}% recovered</div></div>`;
+        if(roi.paidOff){
+          h += `<p style="font-size:13px;">Paid for itself in <b>${roi.paybackYear} Week ${roi.paybackWeek}</b>.</p>`;
+        } else if(roi.totalInvestment<=0){
+          h += `<p class="hint">Enter a purchase price to start tracking payback.</p>`;
+        } else if(roi.pace>0){
+          h += `<p class="hint">${M(roi.recovered)} recovered of ${M(roi.totalInvestment)} - ${M(roi.remaining)} left. At the recent pace of ${M(roi.pace)}/week, on track in about ${roi.weeksToGo} more weeks.</p>`;
+        } else {
+          h += `<p class="hint">${M(roi.recovered)} recovered of ${M(roi.totalInvestment)} - not enough recent activity yet to project a payback date.</p>`;
+        }
+        h += `<div style="display:flex; align-items:baseline; gap:12px; margin:26px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Acquisition costs</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
+        h += `<div style="overflow-x:auto;"><table class="logtable" id="acqCostsTable"><thead><tr><th>Description</th><th>Amount</th><th></th></tr></thead><tbody>`;
+        (v.acquisitionCosts||[]).forEach((c,i)=>{
+          h += `<tr><td>${c.description||''}</td><td>${M(parseFloat(c.amount)||0)}</td><td><button class="acq-cost-delete" data-idx="${i}" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td></tr>`;
+        });
+        h += `</tbody></table></div>`;
+        h += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+          <input class="input" id="acqCostDesc" type="text" placeholder="Description" style="flex:2; min-width:160px;">
+          <input class="input" id="acqCostAmount" type="text" inputmode="decimal" placeholder="Amount" style="flex:1; min-width:100px;">
+          <button class="btn-blue btn-sm" id="acqCostAddBtn">+ Add cost</button>
+        </div>`;
+        return h;
+      })()}
+      <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Driver history</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>
+      ${(()=>{
+        const rows = payrollForYear().filter(e=>e.truck===id && e.driver).slice().sort((a,b)=>b.week-a.week);
+        if(!rows.length) return `<div class="hint">No payroll logged against this truck yet.</div>`;
+        return `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Week</th><th>Dates</th><th>Driver</th><th>Paid</th></tr></thead><tbody>${rows.map(e=>`<tr><td style="font-weight:600;">Week ${e.week}</td><td>${weekDateRangeLabel(e.week)}</td><td>${e.driver}</td><td>${M(parseFloat(e.amount)||0)}</td></tr>`).join("")}</tbody></table></div>`;
+      })()}
       <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Files on record</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${files.filter(x=>x.status==='On file').length} of ${files.length} on file</div></div>
       <div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Document</th><th>What it covers</th><th>Status</th><th></th></tr></thead><tbody>
         ${files.map((f,i)=>`<tr><td style="font-weight:600;">${f.kind}</td><td style="color:var(--text-muted);">${f.desc}</td><td><span class="tag ${f.cls}">${f.status}</span></td><td><button class="btn-ghost btn-sm profile-doc-action" data-file-idx="${i}">${f.action}</button></td></tr>`).join("")}
@@ -2982,6 +3091,27 @@ function renderProfile(overlay, kind, id){
   }
   overlay.innerHTML = html;
   document.getElementById("profileBackBtn").addEventListener("click", closeProfile);
+  const acqAddBtn = document.getElementById("acqCostAddBtn");
+  if(acqAddBtn) acqAddBtn.addEventListener("click", ()=>{
+    const desc = document.getElementById("acqCostDesc").value.trim();
+    const amt = document.getElementById("acqCostAmount").value.trim();
+    if(!desc || !amt){ showAppToast("Enter both a description and an amount.", "warning"); return; }
+    const vIdx = vehicles.findIndex(x=>x.truckId===id);
+    if(vIdx<0) return;
+    if(!vehicles[vIdx].acquisitionCosts) vehicles[vIdx].acquisitionCosts = [];
+    vehicles[vIdx].acquisitionCosts.push({ description:desc, amount:amt });
+    markUnsaved();
+    renderProfile(overlay, kind, id);
+  });
+  overlay.querySelectorAll(".acq-cost-delete").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const vIdx = vehicles.findIndex(x=>x.truckId===id);
+      if(vIdx<0) return;
+      vehicles[vIdx].acquisitionCosts.splice(parseInt(btn.dataset.idx),1);
+      markUnsaved();
+      renderProfile(overlay, kind, id);
+    });
+  });
   overlay.querySelectorAll(".profile-doc-action").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const f = profileFilesRef[parseInt(btn.dataset.fileIdx)];
@@ -4142,17 +4272,27 @@ authSubmitBtn.addEventListener("click", async ()=>{
 async function showApp(userId){
   currentUserId=userId; authScreen.style.display="none"; appRoot.style.display="flex";
   const w=document.getElementById("autosaveWatermark"); if(w) w.style.display="flex";
+  registerServiceWorker();
+  await loadAll(); // sets the active year and rebuilds WEEKS first
   try{
     const saved = localStorage.getItem("fleethub_navstate");
     if(saved){
       const state = JSON.parse(saved);
       if(state.currentModule) currentModule = state.currentModule;
       if(state.currentExpenseTab) currentExpenseTab = state.currentExpenseTab;
-      if(state.currentView) currentView = state.currentView;
+      if(state.currentView){
+        // Only restore a week if it actually exists in the now-settled WEEKS
+        // list for the active year - otherwise fall back to the summary view
+        // instead of silently landing on an unrelated week.
+        if(state.currentView.type==="week" && !WEEKS.includes(state.currentView.week)){
+          currentView = {type:"summary"};
+        } else {
+          currentView = state.currentView;
+        }
+      }
     }
   } catch(e){ console.warn("Could not restore last page:", e); }
-  registerServiceWorker();
-  await loadAll(); renderMain();
+  renderMain();
 }
 function showAuth(){ appRoot.style.display="none"; authScreen.style.display="block"; const w=document.getElementById("autosaveWatermark"); if(w) w.style.display="none"; }
 
