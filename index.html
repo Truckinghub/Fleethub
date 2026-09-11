@@ -2586,6 +2586,10 @@ function paperworkStatus(d){
 let newTruckDraft = { id:"", vin:"", plate:"", price:"", trackRoi:false, week: WEEKS[0] };
 /* ============ FINANCIALS (year close / archive) ============ */
 let financialsViewYear = null; // null = year list, otherwise a year's page
+/* Remembers the last specific week viewed on Contracts, independent of
+   whatever else got visited in between - currentView itself gets
+   overwritten by every other page, so it can't be relied on for this. */
+let lastContractsWeek = null;
 
 /* Totals for one specific year, computed by temporarily scoping to it. */
 function yearTotals(y){
@@ -4219,10 +4223,13 @@ function refreshLogSummary(cfg){
 function navigateToModule(moduleName, viewMode){
   flushIfNeeded();
   if(moduleName !== "financials") financialsViewYear = null;
+  // Leaving Contracts while on a specific week - remember it for next time.
+  if(currentModule==="contracts" && currentView.type==="week") lastContractsWeek = currentView.week;
   currentModule = moduleName;
   if(currentModule==="expenses") currentExpenseTab="overview";
   if(currentModule==="contracts" && viewMode==="week"){
-    currentView = (currentView.type==="week") ? currentView : { type:"week", week:WEEKS[0] };
+    const fallbackWeek = (lastContractsWeek!=null && WEEKS.includes(lastContractsWeek)) ? lastContractsWeek : WEEKS[0];
+    currentView = (currentView.type==="week") ? currentView : { type:"week", week:fallbackWeek };
   } else {
     currentView = {type:"summary"};
   }
