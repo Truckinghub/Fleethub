@@ -609,8 +609,12 @@ function computeTruckROI(v){
   const cutoff = weekSundayFor(startYear, startWeek).getTime();
 
   const allLogs = [...partsLog, ...mechanicLog, ...maintenanceLog].filter(e=>e.truck===v.truckId && e.date);
+  const preServicePartsTotal = partsLog.filter(e=>e.truck===v.truckId && e.date && Date.parse(e.date)<cutoff).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
+  const preServiceMechanicTotal = mechanicLog.filter(e=>e.truck===v.truckId && e.date && Date.parse(e.date)<cutoff).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
   const preServiceExpenses = allLogs.filter(e=>Date.parse(e.date) < cutoff).reduce((a,e)=>a+(parseFloat(e.amount)||0),0);
-  const totalInvestment = purchasePrice + acquisitionTotal + preServiceExpenses;
+  const registrationCost = parseFloat(v.registrationCost)||0;
+  const inspectionCost = parseFloat(v.inspectionCost)||0;
+  const totalInvestment = purchasePrice + acquisitionTotal + preServiceExpenses + registrationCost + inspectionCost;
 
   const prevActive = activeYear;
   let cumulative = 0, paybackYear = null, paybackWeek = null;
@@ -650,7 +654,8 @@ function computeTruckROI(v){
   const weeksToGo = (paybackWeek===null && pace>0) ? Math.ceil(remaining/pace) : null;
 
   return {
-    purchasePrice, acquisitionTotal, preServiceExpenses, totalInvestment,
+    purchasePrice, acquisitionTotal, preServiceExpenses, preServicePartsTotal, preServiceMechanicTotal,
+    registrationCost, inspectionCost, totalInvestment,
     cumulative, recovered, remaining, percent,
     paidOff: paybackWeek!==null, paybackYear, paybackWeek,
     pace, weeksToGo,
@@ -1071,7 +1076,7 @@ async function saveAll(){
       form2290_expiration: v.hvut2290Expiration || null, form2290_cost: v.hvut2290Cost!==""&&v.hvut2290Cost!=null?parseFloat(v.hvut2290Cost):null, form2290_completed: !!v.hvut2290Completed, form2290_receipt_path: v.hvut2290ReceiptPath || null,
       inspection_document_path: v.inspectionDocumentPath || null, registration_document_path: v.registrationDocumentPath || null,
       purchase_price: v.purchasePrice!==""&&v.purchasePrice!=null?parseFloat(v.purchasePrice):null,
-      added_year: v.addedYear || FIRST_YEAR, track_roi: !!v.trackRoi, acquisition_costs: JSON.stringify(v.acquisitionCosts||[]),
+      added_year: v.addedYear || FIRST_YEAR, track_roi: !!v.trackRoi, acquisition_costs: JSON.stringify(v.acquisitionCosts||[]), acquisition_closed: v.trackRoi ? !!v.acquisitionClosed : true,
       insurance_monthly_cost: v.insuranceMonthlyCost!==""&&v.insuranceMonthlyCost!=null?parseFloat(v.insuranceMonthlyCost):null,
       has_bobtail_insurance: !!v.hasBobtailInsurance, bobtail_insurance_cost: v.bobtailInsuranceCost!==""&&v.bobtailInsuranceCost!=null?parseFloat(v.bobtailInsuranceCost):null
     }));
@@ -1138,7 +1143,7 @@ async function loadAll(){
       hvut2290Expiration:r.form2290_expiration||"", hvut2290Cost:r.form2290_cost??"", hvut2290Completed:!!r.form2290_completed, hvut2290ReceiptPath:r.form2290_receipt_path||"",
       inspectionDocumentPath:r.inspection_document_path||"", registrationDocumentPath:r.registration_document_path||"",
       purchasePrice:r.purchase_price??"",
-      addedYear:r.added_year||FIRST_YEAR, trackRoi:!!r.track_roi, acquisitionCosts:(()=>{ try{ return JSON.parse(r.acquisition_costs||"[]"); }catch(e){ return []; } })(),
+      addedYear:r.added_year||FIRST_YEAR, trackRoi:!!r.track_roi, acquisitionCosts:(()=>{ try{ return JSON.parse(r.acquisition_costs||"[]"); }catch(e){ return []; } })(), acquisitionClosed:r.acquisition_closed==null?true:!!r.acquisition_closed,
       insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??""
     }));
     drivers = (drv.data||[]).map(r=>({
@@ -2889,7 +2894,7 @@ document.getElementById("newTruckId").addEventListener("input", e=>{ newTruckDra
     if(!id){ showAppToast("Enter a truck ID first.", "warning"); return; }
     if(vehicleExists(id)){ showAppToast("Truck " + id + " is already on the roster.", "warning"); return; }
     if(!vin || !plate){ showAppToast("Enter the VIN and the licence plate before adding the truck.", "warning"); return; }
-    vehicles.push({ truckId:id, addedWeek:wk, addedYear:activeYear, active:true, vin, plate, purchasePrice:price, trackRoi:newTruckDraft.trackRoi, acquisitionCosts:[] });
+    vehicles.push({ truckId:id, addedWeek:wk, addedYear:activeYear, active:true, vin, plate, purchasePrice:price, trackRoi:newTruckDraft.trackRoi, acquisitionCosts:[], acquisitionClosed:!newTruckDraft.trackRoi });
     newTruckDraft = { id:"", vin:"", plate:"", price:"", trackRoi:false, week: WEEKS[0] };
     markUnsaved(); renderMain();
     showAppToast("Truck " + id + " added to the roster.", "success");
@@ -3010,9 +3015,16 @@ function renderProfile(overlay, kind, id){
       ${(()=>{
         const roi = computeTruckROI(v);
         if(!roi) return "";
+        const vIdx = vehicles.indexOf(v);
         let h = `<div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Investment &amp; payback</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
-        h += `<div style="overflow-x:auto; margin-bottom:16px;"><table class="logtable"><thead><tr><th>Purchase price</th><th>Acquisition costs</th><th>Pre-service expenses</th><th>Total invested</th></tr></thead><tbody>
-          <tr><td>${M(roi.purchasePrice)}</td><td>${M(roi.acquisitionTotal)}</td><td>${M(roi.preServiceExpenses)}</td><td style="font-weight:600;">${M(roi.totalInvestment)}</td></tr>
+        if(v.acquisitionClosed){
+          h += `<div class="banner soon" style="margin-bottom:16px;"><b>Acquisition closed</b>Truck ${v.truckId} went into service ${v.addedYear} week ${v.addedWeek}. Costs logged from that point on are regular expenses, not acquisition.</div>`;
+        } else {
+          h += `<div class="banner" style="border-top-color:var(--blue); margin-bottom:16px;"><b>Acquisition open</b>Contracts can't be logged for this truck until acquisition is closed out.</div>`;
+          h += `<button class="btn-blue btn-sm" id="closeAcquisitionBtn" style="margin-bottom:20px;">Close acquisition &amp; put Truck ${v.truckId} into service</button>`;
+        }
+        h += `<div style="overflow-x:auto; margin-bottom:16px;"><table class="logtable"><thead><tr><th>Purchase price</th><th>Parts</th><th>Mechanic</th><th>Registration</th><th>Inspection</th><th>General</th><th>Total invested</th></tr></thead><tbody>
+          <tr><td>${M(roi.purchasePrice)}</td><td>${M(roi.preServicePartsTotal)}</td><td>${M(roi.preServiceMechanicTotal)}</td><td>${M(parseFloat(v.registrationCost)||0)}</td><td>${M(parseFloat(v.inspectionCost)||0)}</td><td>${M(roi.acquisitionTotal)}</td><td style="font-weight:600;">${M(roi.totalInvestment)}</td></tr>
         </tbody></table></div>`;
         h += `<div style="border:1px solid var(--border); height:26px; position:relative; margin-bottom:8px;"><div style="position:absolute; inset:0; width:${roi.percent}%; background:var(--blue-pale); border-right:2px solid var(--blue);"></div><div style="position:relative; height:100%; display:flex; align-items:center; padding:0 12px; font-size:12px; font-weight:600;">${roi.percent}% recovered</div></div>`;
         if(roi.paidOff){
@@ -3024,17 +3036,29 @@ function renderProfile(overlay, kind, id){
         } else {
           h += `<p class="hint">${M(roi.recovered)} recovered of ${M(roi.totalInvestment)} - not enough recent activity yet to project a payback date.</p>`;
         }
-        h += `<div style="display:flex; align-items:baseline; gap:12px; margin:26px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Acquisition costs</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
-        h += `<div style="overflow-x:auto;"><table class="logtable" id="acqCostsTable"><thead><tr><th>Description</th><th>Amount</th><th></th></tr></thead><tbody>`;
-        (v.acquisitionCosts||[]).forEach((c,i)=>{
-          h += `<tr><td>${c.description||''}</td><td>${M(parseFloat(c.amount)||0)}</td><td><button class="acq-cost-delete" data-idx="${i}" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td></tr>`;
-        });
-        h += `</tbody></table></div>`;
-        h += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-          <input class="input" id="acqCostDesc" type="text" placeholder="Description" style="flex:2; min-width:160px;">
-          <input class="input" id="acqCostAmount" type="text" inputmode="decimal" placeholder="Amount" style="flex:1; min-width:100px;">
-          <button class="btn-blue btn-sm" id="acqCostAddBtn">+ Add cost</button>
-        </div>`;
+        if(!v.acquisitionClosed){
+          h += `<div style="display:flex; align-items:baseline; gap:12px; margin:26px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Log an acquisition cost</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>`;
+          h += `<p class="hint" style="margin-bottom:12px;">Parts and Mechanic entries also show up on their own pages, same as any other receipt. Registration and Inspection also update the Docket cost fields. General is for anything that doesn't fit those, like towing or a title fee.</p>`;
+          h += `<div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="field" style="min-width:150px;"><label>Category</label><select id="acqCostCategory">
+              <option value="parts">Parts</option>
+              <option value="mechanic">Mechanic</option>
+              <option value="registration">Registration</option>
+              <option value="inspection">Inspection</option>
+              <option value="general">General</option>
+            </select></div>
+            <div class="field" id="acqCostDescWrap" style="flex:2; min-width:160px;"><label>Description</label><input class="input" id="acqCostDesc" type="text" placeholder="e.g. Steer tires"></div>
+            <div class="field" style="min-width:120px;"><label>Amount</label><input class="input" id="acqCostAmount" type="text" inputmode="decimal" placeholder="0.00"></div>
+            <button class="btn-blue btn-sm" id="acqCostAddBtn" style="height:36px;">+ Log cost</button>
+          </div>`;
+          if((v.acquisitionCosts||[]).length){
+            h += `<div style="overflow-x:auto; margin-top:18px;"><table class="logtable" id="acqCostsTable"><thead><tr><th>General costs</th><th>Amount</th><th></th></tr></thead><tbody>`;
+            v.acquisitionCosts.forEach((c,i)=>{
+              h += `<tr><td>${c.description||''}</td><td>${M(parseFloat(c.amount)||0)}</td><td><button class="acq-cost-delete" data-idx="${i}" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></td></tr>`;
+            });
+            h += `</tbody></table></div>`;
+          }
+        }
         return h;
       })()}
       <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Driver history</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>
@@ -3097,15 +3121,37 @@ function renderProfile(overlay, kind, id){
   document.getElementById("profileBackBtn").addEventListener("click", closeProfile);
   const acqAddBtn = document.getElementById("acqCostAddBtn");
   if(acqAddBtn) acqAddBtn.addEventListener("click", ()=>{
+    const category = document.getElementById("acqCostCategory").value;
     const desc = document.getElementById("acqCostDesc").value.trim();
     const amt = document.getElementById("acqCostAmount").value.trim();
-    if(!desc || !amt){ showAppToast("Enter both a description and an amount.", "warning"); return; }
+    if(!amt || isNaN(parseFloat(amt))){ showAppToast("Enter an amount.", "warning"); return; }
+    if((category==="parts"||category==="mechanic"||category==="general") && !desc){ showAppToast("Enter a description.", "warning"); return; }
     const vIdx = vehicles.findIndex(x=>x.truckId===id);
     if(vIdx<0) return;
-    if(!vehicles[vIdx].acquisitionCosts) vehicles[vIdx].acquisitionCosts = [];
-    vehicles[vIdx].acquisitionCosts.push({ description:desc, amount:amt });
+    const todayStr = new Date().toISOString().slice(0,10);
+    if(category==="parts"){
+      partsLog.push({ truck:id, date:todayStr, description:desc, amount:amt, receiptPath:"", submitted:true });
+      showAppToast("Logged to Parts as well as this truck's acquisition.", "success");
+    } else if(category==="mechanic"){
+      mechanicLog.push({ truck:id, date:todayStr, description:desc, amount:amt, receiptPath:"", submitted:true });
+      showAppToast("Logged to Mechanic as well as this truck's acquisition.", "success");
+    } else if(category==="registration"){
+      vehicles[vIdx].registrationCost = String((parseFloat(vehicles[vIdx].registrationCost)||0) + parseFloat(amt));
+      showAppToast("Added to this truck's Registration cost on Docket.", "success");
+    } else if(category==="inspection"){
+      vehicles[vIdx].inspectionCost = String((parseFloat(vehicles[vIdx].inspectionCost)||0) + parseFloat(amt));
+      showAppToast("Added to this truck's Inspection cost on Docket.", "success");
+    } else {
+      if(!vehicles[vIdx].acquisitionCosts) vehicles[vIdx].acquisitionCosts = [];
+      vehicles[vIdx].acquisitionCosts.push({ description:desc, amount:amt });
+    }
     markUnsaved();
     renderProfile(overlay, kind, id);
+  });
+  const acqCategorySel = document.getElementById("acqCostCategory");
+  if(acqCategorySel) acqCategorySel.addEventListener("change", ()=>{
+    const descWrap = document.getElementById("acqCostDescWrap");
+    if(descWrap) descWrap.style.display = (acqCategorySel.value==="registration"||acqCategorySel.value==="inspection") ? "none" : "";
   });
   overlay.querySelectorAll(".acq-cost-delete").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -3115,6 +3161,18 @@ function renderProfile(overlay, kind, id){
       markUnsaved();
       renderProfile(overlay, kind, id);
     });
+  });
+  const closeAcqBtn = document.getElementById("closeAcquisitionBtn");
+  if(closeAcqBtn) closeAcqBtn.addEventListener("click", ()=>{
+    if(!confirm(`Close acquisition for Truck ${id}? This truck's first active week will be set to right now (${activeYear} week ${currentWeekNumber()}), and you'll be able to start logging its contracts.`)) return;
+    const vIdx = vehicles.findIndex(x=>x.truckId===id);
+    if(vIdx<0) return;
+    vehicles[vIdx].acquisitionClosed = true;
+    vehicles[vIdx].addedYear = activeYear;
+    vehicles[vIdx].addedWeek = currentWeekNumber();
+    markUnsaved();
+    renderProfile(overlay, kind, id);
+    showAppToast(`Truck ${id} is now in service.`, "success");
   });
   overlay.querySelectorAll(".profile-doc-action").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -3184,6 +3242,7 @@ function renderContractsPage(){
   const d = getContractEntry(week, truck);
   const row = computeRow(truck, d);
   const locked = !!d.submitted;
+  const roiGated = v.trackRoi && !v.acquisitionClosed;
 
   html += `<div style="display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; padding:22px 0 14px;">
     <div><div class="hint" style="text-transform:uppercase; letter-spacing:.14em; font-size:10px;">Truck</div>
@@ -3207,7 +3266,9 @@ function renderContractsPage(){
   });
   html += `</div>`;
 
-  if(locked){
+  if(roiGated){
+    html += `<div class="banner" style="border-top-color:var(--blue);"><b>Acquisition still open for Truck ${truck}</b>This truck is tracking ROI and its acquisition window hasn't been closed yet, so its first contract week can't be logged. Close acquisition on the truck's profile (Roster) when it's ready to go into service.</div>`;
+  } else if(locked){
     const readback = [
       { label:"Contract ID", value:d.contractId||'-' },
       { label:"Block rate", value:d.blockRate?moneyStr(parseFloat(d.blockRate)):'-' },
