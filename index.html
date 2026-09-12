@@ -297,7 +297,7 @@
   </div>
 </header>
 <div class="tab-nav" id="hamburgerMenu">
-  <button data-module="contracts" data-view-mode="summary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 9v12"></path></svg>Ledger</button>
+  <button data-module="contracts" data-view-mode="summary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 9v12"></path></svg>Hub</button>
   <button data-module="contracts" data-view-mode="week"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 3h9l5 5v13H5z"></path><path d="M14 3v5h5"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>Contracts</button>
   <button data-module="payroll"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M2 6h20v12H2z"></path><path d="M2 10h20"></path><path d="M6 14h4"></path></svg>Payroll</button>
   <button data-module="expenses"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 2h14v20l-3.5-2-3.5 2-3.5-2L5 22z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg>Expenses</button>
@@ -310,7 +310,7 @@
   <main id="mainArea"></main>
 </div>
 <div class="bottom-nav" id="bottomNav">
-  <button data-module="contracts" data-view-mode="summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 9v12"></path></svg><span>Ledger</span></button>
+  <button data-module="contracts" data-view-mode="summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 9v12"></path></svg><span>Hub</span></button>
   <button data-module="contracts" data-view-mode="week"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 3h9l5 5v13H5z"></path><path d="M14 3v5h5"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg><span>Contracts</span></button>
   <button data-module="payroll"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M2 6h20v12H2z"></path><path d="M2 10h20"></path><path d="M6 14h4"></path></svg><span>Payroll</span></button>
   <button data-module="expenses"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 2h14v20l-3.5-2-3.5 2-3.5-2L5 22z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path></svg><span>Expenses</span></button>
@@ -390,7 +390,7 @@ let activeYear = FIRST_YEAR;
 let WEEKS = buildWeekList(activeYear);
 function weekSunday(week){ return weekSundayFor(activeYear, week); }
 function weekDateRangeLabel(week){ return weekDateRangeLabelFor(activeYear, week); }
-function setActiveYear(y){ activeYear = y; WEEKS = buildWeekList(y); }
+function setActiveYear(y){ activeYear = y; WEEKS = buildWeekList(y); iftaData = getOrCreateIftaRecord(y); }
 function groupWeeksByMonth(){
   const groups=[]; let current=null;
   WEEKS.forEach(w=>{
@@ -408,7 +408,28 @@ let vehicles = [];   // {truckId, addedWeek, active, inspectionExpiration, inspe
                       //  insuranceMonthlyCost, hasBobtailInsurance, bobtailInsuranceCost}
 let drivers = [];    // {name, active, licenseExpiration, licenseCompleted, licenseDocumentPath,
                       //  medicalCardExpiration, medicalCardCompleted, medicalCardDocumentPath, w9DocumentPath}
-let iftaData = { year: 2026, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Completed:false, q2Completed:false, q3Completed:false, q4Completed:false };
+let iftaRecords = [];
+/* ============ TASKS (Hub) ============
+   Personal notes/reminders, grouped into three fixed lists (Parts,
+   Mechanic, To Do), optionally tagged to a truck. Checking one off moves
+   it into that list's "Done today" section rather than deleting it
+   outright - so it's still visible to double-check, but out of the way.
+   Anything still marked done from a PRIOR day is purged the next time the
+   page renders, which is what gives "resets every midnight" without
+   needing an actual running timer in the background. */
+let tasks = [];
+function todayDateStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function purgeStaleDoneTasks(){
+  const today = todayDateStr();
+  tasks = tasks.filter(t => !(t.done && t.doneAt !== today));
+}
+let taskIdCounter = 1;
+function getOrCreateIftaRecord(year){
+  let r = iftaRecords.find(x=>x.year===year);
+  if(!r){ r = { year, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Completed:false, q2Completed:false, q3Completed:false, q4Completed:false }; iftaRecords.push(r); }
+  return r;
+}
+let iftaData = getOrCreateIftaRecord(FIRST_YEAR);
 let contractsEntries = [];
 let fuelEntries = [];
 let payrollEntries = [];
@@ -427,6 +448,7 @@ let ledgerMetricSel = {};
 function isMobile(){ return window.innerWidth <= 760; }
 let ledgerMobileTruckIdx = 0;
 let partsLog = [], mechanicLog = [], maintenanceLog = [];
+let tollsLog = []; // {year, month(1-12), truck, amount} - monthly cadence, variable amount (unlike Parking, which is flat recurring)
 
 let currentModule = "contracts";
 let currentExpenseTab = "overview";
@@ -586,9 +608,13 @@ function computeOperationsCostTotal(){
     total += parseFloat(v.hvut2290Cost)||0;
     total += (parseFloat(v.insuranceMonthlyCost)||0) * 12;
     if(v.hasBobtailInsurance) total += (parseFloat(v.bobtailInsuranceCost)||0) * 12;
+    total += (parseFloat(v.parkingMonthlyCost)||0) * 12;
   });
   total += (parseFloat(iftaData.q1Cost)||0) + (parseFloat(iftaData.q2Cost)||0) + (parseFloat(iftaData.q3Cost)||0) + (parseFloat(iftaData.q4Cost)||0);
   return total;
+}
+function computeTollsTotalForTruck(truckId, y){
+  return tollsLog.filter(t=>t.year===(y??activeYear) && t.truck===truckId).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
 }
 
 /* Truck ROI / payback tracking. Only computed for trucks with trackRoi set -
@@ -668,6 +694,7 @@ function computeVehicleOperationsCost(v){
   total += parseFloat(v.hvut2290Cost)||0;
   total += (parseFloat(v.insuranceMonthlyCost)||0) * 12;
   if(v.hasBobtailInsurance) total += (parseFloat(v.bobtailInsuranceCost)||0) * 12;
+  total += (parseFloat(v.parkingMonthlyCost)||0) * 12;
   return total;
 }
 
@@ -682,7 +709,7 @@ function computeDashboardYTD(){
     const truck = v.truckId;
     const ytdContracts = contracts.totals[i].grossContracts;
     const ytdAccessories = contracts.totals[i].grossAcc;
-    const ytdExpenses = (fuel.totals[i].total||0) + (parts.sums[truck]||0) + (mechanic.sums[truck]||0) + computeVehicleOperationsCost(v);
+    const ytdExpenses = (fuel.totals[i].total||0) + (parts.sums[truck]||0) + (mechanic.sums[truck]||0) + computeVehicleOperationsCost(v) + computeTollsTotalForTruck(truck);
     const ytdPayroll = payroll.totals[i].total;
     const grossYTD = ytdContracts + ytdAccessories;
     const netYTD = grossYTD - ytdExpenses - ytdPayroll;
@@ -691,7 +718,7 @@ function computeDashboardYTD(){
 
   const companyYtdContracts = contracts.company.grossContracts;
   const companyYtdAccessories = contracts.company.grossAcc;
-  const companyYtdExpenses = fuel.company + parts.grand + mechanic.grand + computeOperationsCostTotal();
+  const companyYtdExpenses = fuel.company + parts.grand + mechanic.grand + computeOperationsCostTotal() + computeTollsTotal();
   const companyYtdPayroll = payroll.company;
   const companyGrossYTD = companyYtdContracts + companyYtdAccessories;
   const companyNetYTD = companyGrossYTD - companyYtdExpenses - companyYtdPayroll;
@@ -1078,13 +1105,15 @@ async function saveAll(){
       purchase_price: v.purchasePrice!==""&&v.purchasePrice!=null?parseFloat(v.purchasePrice):null,
       added_year: v.addedYear || FIRST_YEAR, track_roi: !!v.trackRoi, acquisition_costs: JSON.stringify(v.acquisitionCosts||[]), acquisition_closed: v.trackRoi ? !!v.acquisitionClosed : true,
       insurance_monthly_cost: v.insuranceMonthlyCost!==""&&v.insuranceMonthlyCost!=null?parseFloat(v.insuranceMonthlyCost):null,
-      has_bobtail_insurance: !!v.hasBobtailInsurance, bobtail_insurance_cost: v.bobtailInsuranceCost!==""&&v.bobtailInsuranceCost!=null?parseFloat(v.bobtailInsuranceCost):null
+      has_bobtail_insurance: !!v.hasBobtailInsurance, bobtail_insurance_cost: v.bobtailInsuranceCost!==""&&v.bobtailInsuranceCost!=null?parseFloat(v.bobtailInsuranceCost):null,
+      parking_monthly_cost: v.parkingMonthlyCost!==""&&v.parkingMonthlyCost!=null?parseFloat(v.parkingMonthlyCost):null
     }));
     const driverRows = drivers.map(d=>({
       user_id:currentUserId, name:d.name, active:d.active, license_number: d.licenseNumber || null,
       license_expiration: d.licenseExpiration || null, license_completed: !!d.licenseCompleted, license_document_path: d.licenseDocumentPath || null,
       medical_card_expiration: d.medicalCardExpiration || null, medical_card_completed: !!d.medicalCardCompleted, medical_card_document_path: d.medicalCardDocumentPath || null,
-      w9_document_path: d.w9DocumentPath || null
+      w9_document_path: d.w9DocumentPath || null,
+      pay_rate_per_block: d.payRatePerBlock!==""&&d.payRatePerBlock!=null?parseFloat(d.payRatePerBlock):null
     }));
     const contractRows = contractsEntries.map(e=>({
       user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, contract_id:e.contractId||null,
@@ -1098,13 +1127,15 @@ async function saveAll(){
     const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
     const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
-    const iftaRows = [1,2,3,4].map(q=>({ user_id:currentUserId, quarter:q, amount: iftaData[`q${q}Cost`]!==""&&iftaData[`q${q}Cost`]!=null?parseFloat(iftaData[`q${q}Cost`]):null, completed: !!iftaData[`q${q}Completed`] }));
-    const yearRows = yearRecords.map(r=>({ user_id:currentUserId, year:r.year, closed_at:r.closedAt||null, closed_by:r.closedBy||null }));
+    const iftaRows = iftaRecords.flatMap(rec => [1,2,3,4].map(q=>({ user_id:currentUserId, year:rec.year, quarter:q, amount: rec[`q${q}Cost`]!==""&&rec[`q${q}Cost`]!=null?parseFloat(rec[`q${q}Cost`]):null, completed: !!rec[`q${q}Completed`] })));
+    const yearRows = yearRecords.map(r=>({ user_id:currentUserId, year:r.year, closed_at:r.closedAt||null, closed_by:r.closedBy||null, excel_snapshot_path:r.excelSnapshotPath||null, pdf_snapshot_path:r.pdfSnapshotPath||null }));
+    const taskRows = tasks.map(t=>({ user_id:currentUserId, task_id:t.id, text:t.text, list:t.list, truck:t.truck||null, due_date:t.dueDate||null, done:!!t.done, done_at:t.doneAt||null }));
+    const tollsRows = tollsLog.map(t=>({ user_id:currentUserId, year:t.year, month:t.month, truck:t.truck||null, amount: t.amount!==""&&t.amount!=null?parseFloat(t.amount):null, submitted:!!t.submitted }));
 
     const tasks = [
       ["vehicles", vehicleRows], ["drivers", driverRows], ["contracts", contractRows],
       ["fuel", fuelRows], ["payroll", payrollRows], ["parts", partsRows], ["mechanic", mechRows], ["maintenance", maintRows],
-      ["ifta", iftaRows], ["loads", loadsRows], ["years", yearRows]
+      ["ifta", iftaRows], ["loads", loadsRows], ["years", yearRows], ["tasks", taskRows], ["tolls", tollsRows]
     ];
     for(const [table, rows] of tasks){
       const { error: delErr } = await sb.from(table).delete().eq("user_id", currentUserId);
@@ -1126,15 +1157,18 @@ async function loadAll(){
   if(!sb) return;
   setStatus("Loading...");
   try{
-    const [veh, drv, c, f, p, parts, mech, maint, iftaRes, loadsRes, yearsRes] = await Promise.all([
+    const [veh, drv, c, f, p, parts, mech, maint, iftaRes, loadsRes, yearsRes, tasksRes, tollsRes] = await Promise.all([
       sb.from("vehicles").select("*"), sb.from("drivers").select("*"),
       sb.from("contracts").select("*"), sb.from("fuel").select("*"), sb.from("payroll").select("*"),
       sb.from("parts").select("*"), sb.from("mechanic").select("*"), sb.from("maintenance").select("*"),
-      sb.from("ifta").select("*"), sb.from("loads").select("*"), sb.from("years").select("*"),
+      sb.from("ifta").select("*"), sb.from("loads").select("*"), sb.from("years").select("*"), sb.from("tasks").select("*"), sb.from("tolls").select("*"),
     ]);
-    [veh,drv,c,f,p,parts,mech,maint,iftaRes,loadsRes,yearsRes].forEach(r=>{ if(r.error) throw r.error; });
-    yearRecords = (yearsRes.data||[]).map(r=>({ year:r.year, closedAt:r.closed_at||null, closedBy:r.closed_by||null }));
+    [veh,drv,c,f,p,parts,mech,maint,iftaRes,loadsRes,yearsRes,tasksRes,tollsRes].forEach(r=>{ if(r.error) throw r.error; });
+    yearRecords = (yearsRes.data||[]).map(r=>({ year:r.year, closedAt:r.closed_at||null, closedBy:r.closed_by||null, excelSnapshotPath:r.excel_snapshot_path||null, pdfSnapshotPath:r.pdf_snapshot_path||null }));
     setActiveYear(latestOpenYear());
+    tasks = (tasksRes.data||[]).map(r=>({ id:r.task_id, text:r.text||"", list:r.list||"todo", truck:r.truck||null, dueDate:r.due_date||null, done:!!r.done, doneAt:r.done_at||null }));
+    tollsLog = (tollsRes.data||[]).map(r=>({ year:r.year??FIRST_YEAR, month:r.month||null, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
+    taskIdCounter = tasks.length ? Math.max(...tasks.map(t=>t.id))+1 : 1;
 
     vehicles = (veh.data||[]).map(r=>({
       truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false, vin:r.vin||"", plate:r.plate||"",
@@ -1144,13 +1178,13 @@ async function loadAll(){
       inspectionDocumentPath:r.inspection_document_path||"", registrationDocumentPath:r.registration_document_path||"",
       purchasePrice:r.purchase_price??"",
       addedYear:r.added_year||FIRST_YEAR, trackRoi:!!r.track_roi, acquisitionCosts:(()=>{ try{ return JSON.parse(r.acquisition_costs||"[]"); }catch(e){ return []; } })(), acquisitionClosed:r.acquisition_closed==null?true:!!r.acquisition_closed,
-      insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??""
+      insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??"", parkingMonthlyCost:r.parking_monthly_cost??""
     }));
     drivers = (drv.data||[]).map(r=>({
       name:r.name, active:r.active!==false, licenseNumber:r.license_number||"",
       licenseExpiration:r.license_expiration||"", licenseCompleted:!!r.license_completed, licenseDocumentPath:r.license_document_path||"",
       medicalCardExpiration:r.medical_card_expiration||"", medicalCardCompleted:!!r.medical_card_completed, medicalCardDocumentPath:r.medical_card_document_path||"",
-      w9DocumentPath:r.w9_document_path||""
+      w9DocumentPath:r.w9_document_path||"", payRatePerBlock:r.pay_rate_per_block??""
     }));
     contractsEntries = (c.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"", submitted:r.submitted!==false }));
     fuelEntries = (f.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, amount:r.amount??"", submitted:r.submitted!==false }));
@@ -1161,8 +1195,14 @@ async function loadAll(){
     maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", receiptPath:r.receipt_path||"", submitted: r.submitted!==false }));
 
     const iftaRows = iftaRes.data||[];
-    iftaData = { year: 2026, q1Cost:"", q2Cost:"", q3Cost:"", q4Cost:"", q1Completed:false, q2Completed:false, q3Completed:false, q4Completed:false };
-    iftaRows.forEach(r=>{ if(r.quarter>=1 && r.quarter<=4){ iftaData[`q${r.quarter}Cost`] = r.amount??""; iftaData[`q${r.quarter}Completed`] = !!r.completed; } });
+    iftaRecords = [];
+    iftaRows.forEach(r=>{
+      if(r.quarter<1 || r.quarter>4) return;
+      const y = r.year ?? FIRST_YEAR; // rows saved before this fix have no year - treat as FIRST_YEAR
+      const rec = getOrCreateIftaRecord(y);
+      rec[`q${r.quarter}Cost`] = r.amount??"";
+      rec[`q${r.quarter}Completed`] = !!r.completed;
+    });
 
     if(vehicles.length===0){
       const seen = {};
@@ -1681,9 +1721,27 @@ async function uploadReceiptImage(canvas){
   if(!sb || !currentUserId) return null;
   try{
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.85);
-    const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+    const path = `${currentUserId}/${new Date().getFullYear()}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
     const progress = showProgressToast("Uploading document...");
     const { error } = await sb.storage.from("receipts").upload(path, blob, { contentType: "image/jpeg" });
+    if(error){ console.error("Receipt upload failed:", error); progress.done("Upload failed", "error"); return null; }
+    progress.done("Document uploaded", "success");
+    return path;
+  } catch(e){
+    console.error("Receipt upload failed:", e);
+    return null;
+  }
+}
+/* Uploads a real digital PDF as-is - its actual bytes, not a rendered
+   image of page one. Used whenever the scanned file already had a usable
+   text layer, so nothing is lost (multi-page content, real text, exact
+   file) the way it would be by flattening it into a canvas snapshot. */
+async function uploadOriginalPdfFile(file){
+  if(!sb || !currentUserId) return null;
+  try{
+    const path = `${currentUserId}/${new Date().getFullYear()}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.pdf`;
+    const progress = showProgressToast("Uploading document...");
+    const { error } = await sb.storage.from("receipts").upload(path, file, { contentType: "application/pdf" });
     if(error){ console.error("Receipt upload failed:", error); progress.done("Upload failed", "error"); return null; }
     progress.done("Document uploaded", "success");
     return path;
@@ -1856,7 +1914,9 @@ async function runOcrOnPages(pages, cfg, scanBtn, originalText, selectedTruck){
         const result = await window.Tesseract.recognize(page.canvas, "eng");
         combinedText += result.data.text + "\n";
       }
-      const path = await uploadReceiptImage(page.canvas);
+      const path = page.originalFile
+        ? await uploadOriginalPdfFile(page.originalFile)
+        : await uploadReceiptImage(page.canvas);
       if(path) receiptPaths.push(path);
     }
     const parsed = parseReceiptText(combinedText);
@@ -1904,7 +1964,7 @@ async function scanReceiptForLog(cfg, mode){
         if(textLayer && textLayer.replace(/\s/g,"").length > 20){
           // Real digital PDF with an actual text layer - use it directly, no OCR, no corner-adjust needed
           // (a rendered PDF page is already a clean rectangle, unlike a photo of a physical receipt).
-          capturedPages.push({ canvas: pageImg, knownText: textLayer });
+          capturedPages.push({ canvas: pageImg, knownText: textLayer, originalFile: file });
         } else {
           // Scanned/image-only PDF (no usable text layer) - treat like a photo: adjust corners, then OCR.
           const cropped = await openCornerAdjustOverlay(pageImg);
@@ -2061,6 +2121,7 @@ const EXPENSE_TAB_TITLES = {
   parts: ["Parts", "Purchased per truck"],
   mechanic: ["Mechanic", "Repairs paid per truck"],
   operations: ["Operations cost", "Fixed annual cost"],
+  tolls: ["Tolls", "Logged monthly, per truck"],
   receipts: ["Receipts", "Scanned from parts and mechanic"]
 };
 function expenseHeaderHTML(tabKey, week){
@@ -2232,6 +2293,7 @@ function renderMain(){
     if(currentExpenseTab==="mechanic"){ renderLogPage({ key:"mechanic", title:"Mechanic / Repair Log",
       colHeaders:["Date Paid","Description of Repair","Amount Paid"], fieldOrder:["date","description","amount"], currency:true, summaryType:"sum", summaryLabel:"YTD Mechanic", companyLabel:"MECHANIC YTD", submitMode:true, allowDocs:true }); return; }
     if(currentExpenseTab==="receipts"){ renderReceiptsPage(); return; }
+    if(currentExpenseTab==="tolls"){ renderTollsPage(); return; }
     if(currentExpenseTab==="operations"){ renderOperationsCostPage(); return; }
   }
   if(currentModule==="payroll"){ renderPayrollPage(); return; }
@@ -2380,6 +2442,19 @@ function renderCompliancePage(){
       </tr>`;
     });
     html += `</tbody></table></div>`;
+
+    html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Parking</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Flat monthly, per truck</div></div>`;
+    html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th style="width:30%;">Truck</th><th style="width:35%;">Monthly</th><th style="width:35%;">Yearly total</th></tr></thead><tbody>`;
+    activeVehicles().forEach(v=>{
+      const idx = vehicles.indexOf(v);
+      const yearly = (parseFloat(v.parkingMonthlyCost)||0)*12;
+      html += `<tr>
+        <td style="font-weight:600;">${v.truckId}</td>
+        <td><input class="input parking-monthly" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.parkingMonthlyCost||''}"></td>
+        <td style="font-weight:600;">${moneyStr(yearly)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
   }
 
   if(currentDocketTab==="ifta"){
@@ -2452,6 +2527,15 @@ function wireCompliancePage(){
       vehicles[idx].insuranceMonthlyCost = el.value;
       markUnsaved();
       updateInsuranceRowTotals(idx);
+    });
+  });
+  mainArea.querySelectorAll(".parking-monthly").forEach(el=>{
+    el.addEventListener("input", ()=>{
+      const idx = parseInt(el.dataset.vehicleIdx);
+      vehicles[idx].parkingMonthlyCost = el.value;
+      markUnsaved();
+      const row = el.closest("tr");
+      if(row) row.querySelectorAll("td")[2].textContent = moneyStr((parseFloat(el.value)||0)*12);
     });
   });
   mainArea.querySelectorAll(".insurance-bobtail-cost").forEach(el=>{
@@ -2591,6 +2675,8 @@ function paperworkStatus(d){
 let newTruckDraft = { id:"", vin:"", plate:"", price:"", trackRoi:false, week: WEEKS[0] };
 /* ============ FINANCIALS (year close / archive) ============ */
 let financialsViewYear = null; // null = year list, otherwise a year's page
+let currentFinancialsTab = "overview";
+let financialsCollapsed = {}; // which category rows are expanded, by key
 /* Remembers the last specific week viewed on Contracts, independent of
    whatever else got visited in between - currentView itself gets
    overwritten by every other page, so it can't be relied on for this. */
@@ -2625,9 +2711,182 @@ function computeOperationsBreakdown(){
   const ifta = [1,2,3,4].reduce((a,q)=>a+(parseFloat(iftaData[`q${q}Cost`])||0),0);
   return { insurance, registration, inspection, hvut, ifta, total: insurance+registration+inspection+hvut+ifta };
 }
+function computeParkingTotal(){
+  return activeVehicles().reduce((a,v)=>a+(parseFloat(v.parkingMonthlyCost)||0)*12, 0);
+}
+function computeTollsTotal(y){
+  return tollsLog.filter(t=>t.year===(y??activeYear)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+}
 
 function renderFinancialsPage(){
   if(financialsViewYear !== null){ renderYearPage(financialsViewYear); return; }
+  let html = pageHeaderHTML("Financials", "Every dollar in one place &middot; categorized &middot; year-end records");
+  const tabs = [["overview","Overview"],["bytruck","By Truck"],["bydriver","By Driver"],["roi","ROI"],["years","Years"]];
+  html += `<div class="subtabs">` + tabs.map(([k,label])=>`<button data-fin-tab="${k}" class="${currentFinancialsTab===k?'active':''}">${label}</button>`).join("") + `</div>`;
+
+  if(currentFinancialsTab==="overview") html += renderFinancialsOverviewHTML();
+  else if(currentFinancialsTab==="bytruck") html += renderFinancialsByTruckHTML();
+  else if(currentFinancialsTab==="bydriver") html += renderFinancialsByDriverHTML();
+  else if(currentFinancialsTab==="roi") html += renderFinancialsRoiHTML();
+  else if(currentFinancialsTab==="years") html += renderFinancialsYearsHTML();
+
+  mainArea.innerHTML = html;
+  mainArea.querySelectorAll("[data-fin-tab]").forEach(b=>{
+    b.addEventListener("click", ()=>{ currentFinancialsTab = b.dataset.finTab; renderMain(); });
+  });
+  wireFinancialsPage();
+}
+
+/* ---- Overview: the headline strip plus every category, collapsed by
+   default so the page reads at a glance, expandable for full detail. ---- */
+function renderFinancialsOverviewHTML(){
+  const { perTruck, company } = computeDashboardYTD();
+  const ops = computeOperationsBreakdown();
+  let html = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); border-top: 2px solid var(--charcoal); border-bottom: 1px solid var(--charcoal); margin-top:22px;">
+    <div style="padding: 18px 20px; border-right: 1px solid var(--border);"><div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Net YTD</div><div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(22px, 3vw, 32px); margin-top: 8px; color: var(--blue-700);">${moneyStr(company.netYTD)}</div></div>
+    <div style="padding: 18px 20px; border-right: 1px solid var(--border);"><div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Gross</div><div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(18px, 2.3vw, 24px); margin-top: 8px;">${moneyStr(company.grossYTD)}</div></div>
+    <div style="padding: 18px 20px; border-right: 1px solid var(--border);"><div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Expenses</div><div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(18px, 2.3vw, 24px); margin-top: 8px;">${moneyStr(company.ytdExpenses)}</div></div>
+    <div style="padding: 18px 20px;"><div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Payroll</div><div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(18px, 2.3vw, 24px); margin-top: 8px;">${moneyStr(company.ytdPayroll)}</div></div>
+  </div>`;
+
+  const fuelTotal = computeFuelTotals().company;
+  const partsTotal = computeLogSummary(partsLog,"sum").company;
+  const mechTotal = computeLogSummary(mechanicLog,"sum").company;
+
+  const categories = [
+    { key:"contracts", label:"Contracts", value:company.ytdContracts },
+    { key:"accessories", label:"Accessories", value:company.ytdAccessories },
+    { key:"fuel", label:"Fuel", value:fuelTotal },
+    { key:"parts", label:"Parts", value:partsTotal },
+    { key:"mechanic", label:"Mechanic", value:mechTotal },
+    { key:"tolls", label:"Tolls", value:computeTollsTotal() },
+    { key:"parking", label:"Parking", value:computeParkingTotal() },
+    { key:"operations", label:"Operations", value:ops.total, expandable:true },
+  ];
+
+  html += `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;"><h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">By category</h2><div style="flex: 1; height: 1px; background: var(--border);"></div></div>`;
+  categories.forEach(c=>{
+    const isOpen = !!financialsCollapsed[c.key];
+    html += `<div style="border-bottom:1px solid var(--border);">
+      <div class="fin-cat-row" data-cat="${c.key}" style="display:flex; align-items:center; justify-content:space-between; padding:13px 4px; cursor:${c.expandable?'pointer':'default'};">
+        <div style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:14px;">${c.expandable?`<span style="font-size:11px; color:var(--text-muted);">${isOpen?'&#9662;':'&#9656;'}</span>`:''}${c.label}</div>
+        <div style="font-family:'Archivo',sans-serif; font-weight:700; font-size:16px;">${moneyStr(c.value)}</div>
+      </div>`;
+    if(c.expandable && isOpen){
+      html += `<div style="padding:0 4px 14px 20px;">
+        <table class="logtable"><tbody>
+          <tr><td>Insurance</td><td style="text-align:right;">${moneyStr(ops.insurance)}</td></tr>
+          <tr><td>Registration</td><td style="text-align:right;">${moneyStr(ops.registration)}</td></tr>
+          <tr><td>Inspections</td><td style="text-align:right;">${moneyStr(ops.inspection)}</td></tr>
+          <tr><td>2290 (HVUT)</td><td style="text-align:right;">${moneyStr(ops.hvut)}</td></tr>
+          <tr><td>IFTA</td><td style="text-align:right;">${moneyStr(ops.ifta)}</td></tr>
+        </tbody></table>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+  return html;
+}
+
+/* ---- By Truck: the exact metric-chip cards that used to live on Hub,
+   moved here since they're financial, not operational-glance content. ---- */
+function renderFinancialsByTruckHTML(){
+  const { perTruck } = computeDashboardYTD();
+  if(!vehicles.length){
+    return `<div style="border: 1px solid var(--border); border-top: 2px solid var(--blue); padding: 18px 20px; margin-top:22px;">
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 16px; margin-bottom: 4px;">No trucks on the roster yet</div>
+      <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 12px;">Add your first truck and driver on Roster to see per-truck financials here.</p>
+      <button class="btn btn-blue" id="openRosterBtn">Open Roster</button>
+    </div>`;
+  }
+  const truckDefs = (t) => [
+    { k:"net", label:"NET", note:"Gross less every truck expense", value:t.netYTD },
+    { k:"gross", label:"GROSS", note:"Contracts plus accessories", value:t.grossYTD },
+    { k:"contracts", label:"CONTRACTS", note:"Block rate \u00d7 blocks", value:t.ytdContracts },
+    { k:"acc", label:"ACC", note:"Fuel surcharge and tolls", value:t.ytdAccessories },
+    { k:"exp", label:"EXP", note:"Fuel, parts, mechanic, operations", value:t.ytdExpenses },
+  ];
+  const truckCardHTML = (t) => {
+    const defs = truckDefs(t);
+    const sel = ledgerMetricSel[t.truck] || "net";
+    const def = defs.find(x=>x.k===sel) || defs[0];
+    return `<div style="border: 1px solid var(--border); border-top: 2px solid var(--charcoal); padding: 15px 17px 0; min-width: 0; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span class="truck-num-open" data-truck="${t.truck}" style="background: transparent; border: 0; padding: 0; cursor: pointer; font-family: 'Archivo',sans-serif; font-weight: 800; font-size: 19px; color: var(--charcoal); border-bottom: 2px solid var(--blue);">${t.truck}</span>
+        <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-left: auto;">${def.label}</div>
+      </div>
+      <div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.01em; margin: 14px 0 5px; overflow-wrap: anywhere;">${moneyStr(def.value)}</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">${def.note}</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: auto -17px 0; border-top: 1px solid var(--border);">
+        ${defs.map(c=>`<button type="button" class="ledger-metric-chip" data-truck="${t.truck}" data-metric="${c.k}" style="position: relative; background: transparent; border: 0; border-right: 1px solid var(--border); cursor: pointer; padding: 9px 8px; font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: ${c.k===sel?'var(--blue-700)':'var(--text-muted)'}; white-space: nowrap; border-bottom: 1px solid var(--border);">${c.label}</button>`).join("")}
+      </div>
+    </div>`;
+  };
+  let html = `<div style="margin-top:22px;">`;
+  if(isMobile()){
+    const mIdx = Math.min(ledgerMobileTruckIdx, perTruck.length-1);
+    html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+      <select id="ledgerMobileTruckSelect" class="input" style="flex:1;">
+        ${perTruck.map((t,i)=>`<option value="${i}" ${i===mIdx?'selected':''}>Truck ${t.truck}</option>`).join("")}
+      </select>
+    </div>`;
+    html += truckCardHTML(perTruck[mIdx]);
+  } else {
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 18px;">`;
+    perTruck.forEach(t=>{ html += truckCardHTML(t); });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+/* ---- By Driver: per-driver payroll totals, YTD. ---- */
+function renderFinancialsByDriverHTML(){
+  const byDriver = computePayrollTotalsByDriver();
+  let html = `<div style="margin-top:22px;"><div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Weeks paid</th><th>Paid YTD</th></tr></thead><tbody>`;
+  if(!byDriver.totals.length) html += `<tr><td colspan="3" class="hint">No active drivers yet.</td></tr>`;
+  byDriver.totals.forEach(t=>{
+    const weeksPaid = new Set(payrollForYear().filter(e=>e.driver===t.driver && parseFloat(e.amount)>0).map(e=>e.week)).size;
+    html += `<tr><td style="font-weight:600;">${t.driver}</td><td>${weeksPaid}</td><td>${moneyStr(t.total)}</td></tr>`;
+  });
+  html += `</tbody></table></div>
+  <div style="display: grid; grid-template-columns: 1fr auto; border-top: 1px solid var(--charcoal); border-bottom: 1px solid var(--charcoal); margin-top:2px;">
+    <div style="padding: 13px 16px; font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;">Payroll YTD</div>
+    <div style="padding: 13px 16px; font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 17px;">${moneyStr(byDriver.company)}</div>
+  </div></div>`;
+  return html;
+}
+
+/* ---- ROI: every ROI-tracked truck compared in one table - the thing
+   that didn't exist anywhere before, since payback status previously
+   only lived on each truck's own profile page separately. ---- */
+function renderFinancialsRoiHTML(){
+  const tracked = vehicles.filter(v=>v.trackRoi);
+  let html = `<div style="margin-top:22px;">`;
+  if(!tracked.length){
+    html += `<div class="hint">No trucks are tracking ROI yet. Check "Track ROI" when adding a truck on Roster.</div>`;
+    return html + `</div>`;
+  }
+  html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck</th><th>Invested</th><th>Recovered</th><th>Progress</th><th>Status</th></tr></thead><tbody>`;
+  tracked.forEach(v=>{
+    const roi = computeTruckROI(v);
+    if(!roi) return;
+    const statusText = roi.paidOff
+      ? `Paid off ${roi.paybackYear} W${roi.paybackWeek}`
+      : (roi.pace>0 ? `~${roi.weeksToGo} weeks to go` : 'Not enough data yet');
+    html += `<tr>
+      <td style="font-weight:600;">${v.truckId}</td>
+      <td>${moneyStr(roi.totalInvestment)}</td>
+      <td>${moneyStr(roi.recovered)}</td>
+      <td style="min-width:140px;"><div style="border:1px solid var(--border); height:18px; position:relative;"><div style="position:absolute; inset:0; width:${roi.percent}%; background:var(--blue-pale); border-right:2px solid var(--blue);"></div><div style="position:relative; height:100%; display:flex; align-items:center; padding:0 8px; font-size:10px; font-weight:600;">${roi.percent}%</div></div></td>
+      <td><span class="tag ${roi.paidOff?'tag-neutral':'tag-accent'}">${statusText}</span></td>
+    </tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+  return html;
+}
+
+function renderFinancialsYearsHTML(){
   const years = [];
   for(let y=FIRST_YEAR; y<=lastSupportedYear(); y++){
     const rec = yearRecord(y);
@@ -2635,8 +2894,7 @@ function renderFinancialsPage(){
     const hasData = contractsEntries.some(e=>entryYear(e)===y) || fuelEntries.some(e=>entryYear(e)===y) || payrollEntries.some(e=>entryYear(e)===y);
     if(y<=activeYear || closed || hasData) years.push({ y, closed, rec });
   }
-  let html = pageHeaderHTML("Financials", "Year-end close &middot; archives &middot; records");
-  html += `<div style="display:flex; align-items:baseline; gap:12px; margin:30px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Years</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${years.length} on record</div></div>`;
+  let html = `<div style="display:flex; align-items:baseline; gap:12px; margin:22px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Years</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${years.length} on record</div></div>`;
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Year</th><th>Status</th><th>Gross</th><th>Expenses</th><th>Net</th><th></th></tr></thead><tbody>`;
   years.slice().reverse().forEach(({y, closed, rec})=>{
     const t = yearTotals(y);
@@ -2657,9 +2915,29 @@ function renderFinancialsPage(){
   });
   html += `</tbody></table></div>`;
   html += `<p class="hint" style="margin-top:14px; max-width:70ch;">Closing a year locks it against edits and starts the next one. Nothing is deleted - a closed year stays fully readable and downloadable, and can be reopened if it was closed by mistake.</p>`;
-  mainArea.innerHTML = html;
+  return html;
+}
+
+function wireFinancialsPage(){
   mainArea.querySelectorAll("[data-open-year]").forEach(b=>b.addEventListener("click", ()=>{ financialsViewYear = parseInt(b.dataset.openYear); renderMain(); }));
   mainArea.querySelectorAll("[data-close-year]").forEach(b=>b.addEventListener("click", ()=>confirmCloseYear(parseInt(b.dataset.closeYear))));
+  const rosterBtn = document.getElementById("openRosterBtn");
+  if(rosterBtn) rosterBtn.addEventListener("click", ()=>{ currentModule="fleet"; currentView={type:"summary"}; renderMain(); });
+  mainArea.querySelectorAll(".fin-cat-row").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const cat = el.dataset.cat;
+      financialsCollapsed[cat] = !financialsCollapsed[cat];
+      renderMain();
+    });
+  });
+  mainArea.querySelectorAll(".truck-num-open").forEach(el=>{
+    el.addEventListener("click", ()=>{ currentModule="contracts"; currentView={type:"week", week:currentWeekNumber()}; renderMain(); });
+  });
+  mainArea.querySelectorAll(".ledger-metric-chip").forEach(el=>{
+    el.addEventListener("click", ()=>{ ledgerMetricSel[el.dataset.truck] = el.dataset.metric; renderMain(); });
+  });
+  const mobileTruckSelect = document.getElementById("ledgerMobileTruckSelect");
+  if(mobileTruckSelect) mobileTruckSelect.addEventListener("change", ()=>{ ledgerMobileTruckIdx = parseInt(mobileTruckSelect.value); renderMain(); });
 }
 
 /* Typed confirmation - deliberately high friction for a once-a-year action. */
@@ -2689,11 +2967,98 @@ function confirmCloseYear(y){
   });
 }
 
+/* ---- Frozen year-close snapshots ----
+   Generated once, at the moment a year closes, and stored permanently in
+   Supabase Storage. Downloading a closed year always returns exactly what
+   existed the day it was closed - not a live regeneration - which is the
+   whole point of a snapshot for tax/audit purposes. Regenerated only if
+   the year is reopened and closed again. */
+function buildYearSnapshotPdfBytes(y){
+  const t = yearTotals(y);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:"pt", format:"letter" });
+  const margin = 48;
+  let cy = margin;
+  const pageW = doc.internal.pageSize.getWidth();
+  const line = (text, size, bold)=>{
+    doc.setFontSize(size); doc.setFont(undefined, bold?"bold":"normal");
+    doc.text(text, margin, cy); cy += size*1.5;
+  };
+  const row = (label, value)=>{
+    doc.setFontSize(11); doc.setFont(undefined,"normal");
+    doc.text(label, margin, cy);
+    doc.text(value, pageW-margin, cy, { align:"right" });
+    cy += 16;
+  };
+  const rule = ()=>{ doc.setDrawColor(180); doc.line(margin, cy, pageW-margin, cy); cy += 14; };
+  const ensureRoom = (needed)=>{ if(cy + needed > doc.internal.pageSize.getHeight()-margin){ doc.addPage(); cy = margin; } };
+
+  line(`FleetHub - ${y} Year Summary`, 20, true);
+  line(`Closed ${todayLongLabel()} - frozen record, not a live regeneration`, 9, false);
+  cy += 10; rule();
+
+  line("Year totals", 13, true); cy += 4;
+  row("Contracts", moneyStr(t.company.ytdContracts));
+  row("Accessories", moneyStr(t.company.ytdAccessories));
+  row("Gross", moneyStr(t.company.grossYTD));
+  row("Expenses", moneyStr(t.company.ytdExpenses));
+  row("Payroll", moneyStr(t.company.ytdPayroll));
+  row("Net", moneyStr(t.company.netYTD));
+  cy += 8; rule();
+
+  ensureRoom(120);
+  line("Operations breakdown", 13, true); cy += 4;
+  row("Insurance", moneyStr(t.ops.insurance));
+  row("Registration", moneyStr(t.ops.registration));
+  row("Inspections", moneyStr(t.ops.inspection));
+  row("2290 (HVUT)", moneyStr(t.ops.hvut));
+  row("IFTA", moneyStr(t.ops.ifta));
+  cy += 8; rule();
+
+  ensureRoom(40 + t.perTruck.length*16);
+  line("By truck", 13, true); cy += 4;
+  t.perTruck.forEach(tr=>{ ensureRoom(16); row(`Truck ${tr.truck} - Net`, moneyStr(tr.netYTD)); });
+  cy += 8; rule();
+
+  ensureRoom(40 + t.drivers.rows.length*16);
+  line("By driver", 13, true); cy += 4;
+  if(!t.drivers.rows.length){ doc.setFontSize(10); doc.text("No payroll recorded.", margin, cy); cy += 16; }
+  t.drivers.rows.forEach(d=>{ ensureRoom(16); row(`${d.driver} - ${d.weeksPaid} week${d.weeksPaid===1?'':'s'}`, moneyStr(d.total)); });
+
+  return doc.output("arraybuffer");
+}
+
+async function generateAndStoreYearSnapshot(y){
+  if(!sb || !currentUserId) return { excelPath:null, pdfPath:null };
+  const prevYear = activeYear;
+  setActiveYear(y);
+  let excelPath = null, pdfPath = null;
+  try{
+    const excelBytes = buildWorkbookBytes();
+    excelPath = `${currentUserId}/year-${y}-snapshot.xlsx`;
+    const { error: excelErr } = await sb.storage.from("receipts").upload(excelPath, new Blob([excelBytes]), { contentType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", upsert:true });
+    if(excelErr){ console.error("Excel snapshot upload failed:", excelErr); excelPath = null; }
+  } catch(e){ console.error("Excel snapshot build failed:", e); }
+  try{
+    await ensureJsPdfLoaded();
+    const pdfBytes = buildYearSnapshotPdfBytes(y);
+    pdfPath = `${currentUserId}/year-${y}-snapshot.pdf`;
+    const { error: pdfErr } = await sb.storage.from("receipts").upload(pdfPath, new Blob([pdfBytes], {type:"application/pdf"}), { contentType:"application/pdf", upsert:true });
+    if(pdfErr){ console.error("PDF snapshot upload failed:", pdfErr); pdfPath = null; }
+  } catch(e){ console.error("PDF snapshot build failed:", e); }
+  setActiveYear(prevYear);
+  return { excelPath, pdfPath };
+}
+
 async function closeYear(y){
   let rec = yearRecord(y);
   if(!rec){ rec = { year:y, closedAt:null, closedBy:null }; yearRecords.push(rec); }
+  showAppToast(`Building the frozen ${y} snapshot...`, "info");
+  const { excelPath, pdfPath } = await generateAndStoreYearSnapshot(y);
   rec.closedAt = new Date().toISOString();
   rec.closedBy = currentUserId || null;
+  rec.excelSnapshotPath = excelPath;
+  rec.pdfSnapshotPath = pdfPath;
   // Make sure the next year has an open record so it becomes the active year.
   if(!yearRecord(y+1)) yearRecords.push({ year:y+1, closedAt:null, closedBy:null });
   setActiveYear(y+1);
@@ -2734,6 +3099,7 @@ function renderYearPage(y){
 
   html += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
     <button class="btn-blue btn-sm" id="yearExportBtn">Download ${y} spreadsheet</button>
+    ${(closed && rec.pdfSnapshotPath) ? `<button class="btn-ghost btn-sm" id="yearExportPdfBtn">Download ${y} PDF summary</button>` : ''}
     ${closed ? `<button class="btn-ghost btn-sm" id="yearReopenBtn" style="margin-left:auto; color:var(--blue-700); border-color:var(--blue);">Reopen year</button>` : ''}
   </div>`;
 
@@ -2789,10 +3155,22 @@ function renderYearPage(y){
 
   mainArea.innerHTML = html;
   document.getElementById("yearBackBtn").addEventListener("click", ()=>{ financialsViewYear = null; renderMain(); });
-  document.getElementById("yearExportBtn").addEventListener("click", ()=>{
+  document.getElementById("yearExportBtn").addEventListener("click", async ()=>{
+    if(closed && rec.excelSnapshotPath){
+      const url = await getReceiptSignedUrl(rec.excelSnapshotPath);
+      if(url){ const a = document.createElement("a"); a.href = url; a.download = `FleetHub_${y}.xlsx`; a.click(); return; }
+      showAppToast("Couldn't fetch the frozen snapshot - regenerating from current data instead.", "warning");
+    }
+    // No stored snapshot (active year, or a year closed before this feature existed) - regenerate live.
     const prevY = activeYear; setActiveYear(y);
     exportExcel();
     setActiveYear(prevY);
+  });
+  const pdfBtn = document.getElementById("yearExportPdfBtn");
+  if(pdfBtn) pdfBtn.addEventListener("click", async ()=>{
+    const url = await getReceiptSignedUrl(rec.pdfSnapshotPath);
+    if(!url){ showAppToast("Couldn't fetch the PDF snapshot.", "error"); return; }
+    const a = document.createElement("a"); a.href = url; a.download = `FleetHub_${y}_summary.pdf`; a.click();
   });
   const reopenBtn = document.getElementById("yearReopenBtn");
   if(reopenBtn) reopenBtn.addEventListener("click", ()=>{
@@ -3105,6 +3483,12 @@ function renderProfile(overlay, kind, id){
         <div style="padding:16px 18px; border-right:1px solid var(--border);"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Paid YTD</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${M(total)}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">${wks.length} week${wks.length===1?'':'s'} paid</div></div>
         <div style="padding:16px 18px;"><div style="font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted);">Paperwork</div><div style="font-family:'Archivo',sans-serif; font-weight:800; font-size:clamp(19px,2.4vw,26px); margin-top:8px;">${files.every(x=>x.status==='On file')?'Complete':'Incomplete'}</div><div style="font-size:11px; color:var(--text-muted); margin-top:6px;">${files.filter(x=>x.status==='On file').length} of 3 on file</div></div>
       </div>
+      <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Pay rate</h2><div style="flex:1; height:1px; background:var(--border);"></div></div>
+      <div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap;">
+        <div class="field" style="min-width:160px;"><label>Pay rate per block</label><input class="input" id="driverPayRateInput" type="text" inputmode="decimal" value="${dr.payRatePerBlock||''}" placeholder="0.00"></div>
+        <button class="btn-blue btn-sm" id="driverPayRateSaveBtn" style="height:36px;">Save rate</button>
+      </div>
+      <p class="hint" style="margin-top:8px; max-width:60ch;">Used to suggest a payroll amount from that week's block count. Changing this only affects future weeks - payroll already logged keeps whatever rate was in effect at the time.</p>
       <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Files on record</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${files.filter(x=>x.status==='On file').length} of 3 on file</div></div>
       <div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Document</th><th>What it covers</th><th>Status</th><th></th></tr></thead><tbody>
         ${files.map((f,i)=>`<tr><td style="font-weight:600;">${f.kind}</td><td style="color:var(--text-muted);">${f.desc}</td><td><span class="tag ${f.cls}">${f.status}</span></td><td><button class="btn-ghost btn-sm profile-doc-action" data-file-idx="${i}">${f.action}</button></td></tr>`).join("")}
@@ -3173,6 +3557,15 @@ function renderProfile(overlay, kind, id){
     markUnsaved();
     renderProfile(overlay, kind, id);
     showAppToast(`Truck ${id} is now in service.`, "success");
+  });
+  const payRateSaveBtn = document.getElementById("driverPayRateSaveBtn");
+  if(payRateSaveBtn) payRateSaveBtn.addEventListener("click", ()=>{
+    const val = document.getElementById("driverPayRateInput").value.trim();
+    const dIdx = drivers.findIndex(x=>x.name===id);
+    if(dIdx<0) return;
+    drivers[dIdx].payRatePerBlock = val;
+    markUnsaved();
+    showAppToast("Pay rate saved. Applies to future weeks only.", "success");
   });
   overlay.querySelectorAll(".profile-doc-action").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -3495,39 +3888,16 @@ function ledgerChipsHTML(t){
 }
 
 function renderDashboard(){
-  const { perTruck, company } = computeDashboardYTD();
+  purgeStaleDoneTasks();
   const alerts = computeNeedsAttention();
   const overdueCount = alerts.filter(a=>a.overdue).length;
-  const weekCount = WEEKS.filter(w=>contractsForYear().some(e=>e.week===w)||fuelForYear().some(e=>e.week===w)).length;
 
   let html = `<div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 4px;">
-    <h1 style="font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -0.005em;">Ledger</h1>
-    <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap;">Year to date &middot; ${weekCount} week${weekCount===1?'':'s'} entered</div>
+    <h1 style="font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -0.005em;">Hub</h1>
+    <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap;">${todayLongLabel()}</div>
   </div>`;
 
-  if(!isMobile()){
-  html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); border-top: 1px solid var(--charcoal); border-bottom: 1px solid var(--charcoal); color: var(--charcoal);">
-    <div style="padding: 18px 20px; border-right: 1px solid var(--text-muted); min-width: 0;">
-      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Net YTD</div>
-      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(24px, 3.4vw, 40px); overflow-wrap: anywhere; letter-spacing: -0.01em; margin-top: 8px; color: var(--blue-700);">${moneyStr(company.netYTD)}</div>
-    </div>
-    <div style="padding: 18px 20px; border-right: 1px solid var(--text-muted);">
-      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Gross</div>
-      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(18px, 2.3vw, 24px); letter-spacing: 0; margin-top: 8px; overflow-wrap: anywhere;">${moneyStr(company.grossYTD)}</div>
-      <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Contracts ${moneyStr(company.ytdContracts)} &middot; Acc ${moneyStr(company.ytdAccessories)}</div>
-    </div>
-    <div style="padding: 18px 20px; border-right: 1px solid var(--text-muted);">
-      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Expenses</div>
-      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(18px, 2.3vw, 24px); letter-spacing: 0; margin-top: 8px; overflow-wrap: anywhere;">${moneyStr(company.ytdExpenses)}</div>
-      <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Fuel, parts, mechanic, operations</div>
-    </div>
-    <div style="padding: 18px 20px;">
-      <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">Payroll</div>
-      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: clamp(18px, 2.3vw, 24px); letter-spacing: 0; margin-top: 8px; overflow-wrap: anywhere;">${moneyStr(company.ytdPayroll)}</div>
-      <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">${activeDrivers().length} drivers paid</div>
-    </div>
-  </div>`;
-  }
+  html += renderTasksSectionHTML();
 
   html += `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
     <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Needs attention</h2>
@@ -3558,84 +3928,13 @@ function renderDashboard(){
     html += `<div style="border: 1px solid var(--border); border-top: 2px solid var(--blue); padding: 16px 18px; font-size: 13px; color: var(--text-muted);">Nothing overdue and nothing due in the next 30 days. Fuel is logged for every truck this week.</div>`;
   }
 
-  html += `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
-    <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">By truck</h2>
-    <div style="flex: 1; height: 1px; background: var(--border);"></div>
-  </div>`;
-
-  if(!vehicles.length){
-    html += `<div style="border: 1px solid var(--border); border-top: 2px solid var(--blue); padding: 18px 20px;">
-      <div style="font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 16px; margin-bottom: 4px;">No trucks on the roster yet</div>
-      <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 12px;">Add your first truck and driver and the ledger fills itself in as you log weeks.</p>
-      <button class="btn btn-blue" id="openRosterBtn">Open Roster</button>
-    </div>`;
-  } else {
-    const truckDefs = (t) => [
-      { k:"net", label:"NET", note:"Gross less every truck expense", value:t.netYTD },
-      { k:"gross", label:"GROSS", note:"Contracts plus accessories", value:t.grossYTD },
-      { k:"contracts", label:"CONTRACTS", note:"Block rate \u00d7 blocks", value:t.ytdContracts },
-      { k:"acc", label:"ACC", note:"Fuel surcharge and tolls", value:t.ytdAccessories },
-      { k:"exp", label:"EXP", note:"Fuel, parts, mechanic, operations", value:t.ytdExpenses },
-    ];
-    const truckCardHTML = (t) => {
-      const defs = truckDefs(t);
-      const sel = ledgerMetricSel[t.truck] || "net";
-      const def = defs.find(x=>x.k===sel) || defs[0];
-      return `<div style="border: 1px solid var(--border); border-top: 2px solid var(--charcoal); padding: 15px 17px 0; min-width: 0; display: flex; flex-direction: column;">
-        <div style="display: flex; align-items: baseline; gap: 10px;">
-          <span class="truck-num-open" data-truck="${t.truck}" style="background: transparent; border: 0; padding: 0; cursor: pointer; font-family: 'Archivo',sans-serif; font-weight: 800; font-size: 19px; color: var(--charcoal); border-bottom: 2px solid var(--blue);">${t.truck}</span>
-          <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-left: auto;">${def.label}</div>
-        </div>
-        <div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.01em; margin: 14px 0 5px; overflow-wrap: anywhere;">${moneyStr(def.value)}</div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">${def.note}</div>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: auto -17px 0; border-top: 1px solid var(--border);">
-          ${defs.map(c=>`<button type="button" class="ledger-metric-chip" data-truck="${t.truck}" data-metric="${c.k}" style="position: relative; background: transparent; border: 0; border-right: 1px solid var(--border); cursor: pointer; padding: 9px 8px; font-family: 'Archivo',sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: ${c.k===sel?'var(--blue-700)':'var(--text-muted)'}; white-space: nowrap; border-bottom: 1px solid var(--border);">${c.label}</button>`).join("")}
-        </div>
-      </div>`;
-    };
-
-    if(isMobile()){
-      const mIdx = Math.min(ledgerMobileTruckIdx, perTruck.length-1);
-      html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-        <select id="ledgerMobileTruckSelect" class="input" style="flex:1;">
-          ${perTruck.map((t,i)=>`<option value="${i}" ${i===mIdx?'selected':''}>Truck ${t.truck}</option>`).join("")}
-        </select>
-      </div>`;
-      html += truckCardHTML(perTruck[mIdx]);
-    } else {
-      html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 18px;">`;
-      perTruck.forEach(t=>{ html += truckCardHTML(t); });
-      html += `</div>`;
-    }
-
-    html += `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
-      <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Entire fleet</h2>
-      <div style="flex: 1; height: 1px; background: var(--border);"></div>
-      <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted);">Payroll counts once, company-wide</div>
-    </div>`;
-    const fleetCells = [
-      { label:"Contracts", value:company.ytdContracts },
-      { label:"Accessories", value:company.ytdAccessories },
-      { label:"Gross", value:company.grossYTD },
-      { label:"Expenses", value:company.ytdExpenses },
-      { label:"Payroll", value:company.ytdPayroll },
-      { label:"Net", value:company.netYTD },
-    ];
-    html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr)); border-top: 2px solid var(--charcoal); border-bottom: 1px solid var(--charcoal);">`;
-    fleetCells.forEach(c=>{
-      html += `<div style="padding: 14px 16px; border-right: 1px solid var(--border); min-width: 0;">
-        <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted);">${c.label}</div>
-        <div style="font-family: 'Archivo',sans-serif; font-weight: 800; font-size: clamp(17px, 2.1vw, 21px); margin-top: 7px; overflow-wrap: anywhere;">${moneyStr(c.value)}</div>
-      </div>`;
-    });
-    html += `</div>`;
-  }
+  html += renderCalendarSectionHTML();
 
   mainArea.innerHTML = html;
+  wireTasksSection();
+  wireCalendarSection();
   const docketBtn = document.getElementById("openDocketBtn");
   if(docketBtn) docketBtn.addEventListener("click", ()=>{ currentModule="compliance"; currentView={type:"summary"}; renderMain(); });
-  const rosterBtn = document.getElementById("openRosterBtn");
-  if(rosterBtn) rosterBtn.addEventListener("click", ()=>{ currentModule="fleet"; currentView={type:"summary"}; renderMain(); });
   mainArea.querySelectorAll(".link-nav").forEach(el=>{
     el.addEventListener("click", ()=>{
       const nav = el.dataset.nav;
@@ -3644,14 +3943,191 @@ function renderDashboard(){
       renderMain();
     });
   });
-  mainArea.querySelectorAll(".truck-num-open").forEach(el=>{
-    el.addEventListener("click", ()=>{ currentModule="contracts"; currentView={type:"week", week:currentWeekNumber()}; renderMain(); });
+}
+function todayLongLabel(){
+  const now = new Date();
+  return `${MONTH_NAMES[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+}
+
+const TASK_LISTS = [["parts","Parts"],["mechanic","Mechanic"],["todo","To Do"]];
+function renderTasksSectionHTML(){
+  let html = `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
+    <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Tasks</h2>
+    <div style="flex: 1; height: 1px; background: var(--border);"></div>
+  </div>`;
+
+  const truckOptions = activeVehicles().map(v=>`<option value="${v.truckId}">Truck ${v.truckId}</option>`).join("");
+  html += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+    <input class="input" id="taskCaptureInput" type="text" placeholder="Add a note..." style="flex:2; min-width:200px;">
+    <select class="input" id="taskCaptureList" style="flex:0 0 auto; min-width:110px;">
+      <option value="parts">Parts</option>
+      <option value="mechanic">Mechanic</option>
+      <option value="todo">To Do</option>
+    </select>
+    <select class="input" id="taskCaptureTruck" style="flex:0 0 auto; min-width:130px;">
+      <option value="">No truck</option>
+      ${truckOptions}
+    </select>
+    <input class="input" id="taskCaptureDueDate" type="date" style="flex:0 0 auto; min-width:150px;" title="Due date (optional)">
+    <button class="btn-blue btn-sm" id="taskCaptureAddBtn" style="height:36px;">Add</button>
+  </div>`;
+
+  TASK_LISTS.forEach(([key,label])=>{
+    const active = tasks.filter(t=>t.list===key && !t.done);
+    const doneToday = tasks.filter(t=>t.list===key && t.done && t.doneAt===todayDateStr());
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--blue-700); border-bottom:1px solid var(--charcoal); padding-bottom:6px; margin-bottom:2px;">${label}</div>`;
+    if(!active.length && !doneToday.length){
+      html += `<div class="hint" style="padding:10px 0;">Nothing here yet.</div>`;
+    }
+    active.forEach(t=>{
+      html += `<div class="task-row" data-task-id="${t.id}" style="display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
+        <div class="task-checkbox" data-task-id="${t.id}" style="width:18px; height:18px; border:1.5px solid var(--charcoal); flex-shrink:0; margin-top:2px; cursor:pointer;"></div>
+        <div style="flex:1; font-size:14px;">${t.text}${t.truck?`<span style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; background:var(--blue-pale); color:var(--blue-700); padding:2px 8px; margin-left:8px;">${t.truck}</span>`:''}${t.dueDate?`<span class="hint" style="margin-left:8px;">Due ${dueLabel(t.dueDate)}</span>`:''}</div>
+        <div class="task-delete" data-task-id="${t.id}" style="color:var(--text-muted); cursor:pointer; padding:0 4px;">&times;</div>
+      </div>`;
+    });
+    if(doneToday.length){
+      html += `<div class="task-done-toggle" data-list="${key}" style="font-size:11px; color:var(--text-muted); cursor:pointer; padding:8px 0 4px; user-select:none;">Done today (${doneToday.length}) &#9656;</div>
+        <div class="task-done-group" data-list="${key}" style="display:none;">`;
+      doneToday.forEach(t=>{
+        html += `<div class="task-row" data-task-id="${t.id}" style="display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
+          <div class="task-checkbox done" data-task-id="${t.id}" style="width:18px; height:18px; border:1.5px solid var(--blue); background:var(--blue); flex-shrink:0; margin-top:2px; cursor:pointer;"></div>
+          <div style="flex:1; font-size:14px; text-decoration:line-through; color:var(--text-muted);">${t.text}${t.truck?`<span style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; background:var(--blue-pale); color:var(--blue-700); padding:2px 8px; margin-left:8px;">${t.truck}</span>`:''}</div>
+          <div class="task-delete" data-task-id="${t.id}" style="color:var(--text-muted); cursor:pointer; padding:0 4px;">&times;</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
   });
-  mainArea.querySelectorAll(".ledger-metric-chip").forEach(el=>{
-    el.addEventListener("click", ()=>{ ledgerMetricSel[el.dataset.truck] = el.dataset.metric; renderMain(); });
+  return html;
+}
+
+function wireTasksSection(){
+  document.getElementById("taskCaptureAddBtn").addEventListener("click", ()=>{
+    const input = document.getElementById("taskCaptureInput");
+    const text = input.value.trim();
+    if(!text){ showAppToast("Type a note first.", "warning"); return; }
+    const list = document.getElementById("taskCaptureList").value;
+    const truck = document.getElementById("taskCaptureTruck").value || null;
+    const dueDate = document.getElementById("taskCaptureDueDate").value || null;
+    tasks.push({ id: taskIdCounter++, text, list, truck, dueDate, done:false, doneAt:null });
+    markUnsaved();
+    renderMain();
   });
-  const mobileTruckSelect = document.getElementById("ledgerMobileTruckSelect");
-  if(mobileTruckSelect) mobileTruckSelect.addEventListener("change", ()=>{ ledgerMobileTruckIdx = parseInt(mobileTruckSelect.value); renderMain(); });
+  const captureInput = document.getElementById("taskCaptureInput");
+  if(captureInput) captureInput.addEventListener("keydown", e=>{
+    if(e.key==="Enter") document.getElementById("taskCaptureAddBtn").click();
+  });
+  mainArea.querySelectorAll(".task-checkbox").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const t = tasks.find(x=>x.id===parseInt(el.dataset.taskId));
+      if(!t) return;
+      t.done = !t.done;
+      t.doneAt = t.done ? todayDateStr() : null;
+      markUnsaved();
+      renderMain();
+    });
+  });
+  mainArea.querySelectorAll(".task-delete").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      tasks = tasks.filter(x=>x.id!==parseInt(el.dataset.taskId));
+      markUnsaved();
+      renderMain();
+    });
+  });
+  mainArea.querySelectorAll(".task-done-toggle").forEach(el=>{
+    const listKey = el.dataset.list;
+    const count = tasks.filter(t=>t.list===listKey && t.done && t.doneAt===todayDateStr()).length;
+    el.addEventListener("click", ()=>{
+      const group = mainArea.querySelector(`.task-done-group[data-list="${listKey}"]`);
+      if(!group) return;
+      const nowShowing = group.style.display === "none";
+      group.style.display = nowShowing ? "block" : "none";
+      el.innerHTML = `Done today (${count}) ${nowShowing ? "&#9662;" : "&#9656;"}`;
+    });
+  });
+}
+
+/* ============ CALENDAR (Hub) ============
+   A plain month grid, navigable, showing two kinds of dots: compliance
+   due-dates pulled straight from Docket (nothing to enter separately -
+   the same expirations already tracked there), and any of your own
+   to-do due-dates. Deliberately at the bottom of Hub, since Tasks and
+   Needs Attention are the higher-priority, more-frequently-used parts
+   of the page. */
+let calendarViewMonth = new Date().getMonth();
+let calendarViewYearNum = new Date().getFullYear();
+function calendarDueItemsForMonth(y, m){
+  // m is 0-indexed (JS Date convention)
+  const items = [];
+  complianceAlertItems().forEach(it=>{
+    if(!it.date || it.completed) return;
+    const d = new Date(it.date+"T00:00:00");
+    if(d.getFullYear()===y && d.getMonth()===m) items.push({ day:d.getDate(), label:`${it.item} - ${it.subject}`, kind:"due" });
+  });
+  [1,2,3,4].forEach(q=>{
+    const qd = {1:`${y}-03-31`,2:`${y}-06-30`,3:`${y}-09-30`,4:`${y}-12-31`}[q];
+    const rec = iftaRecords.find(r=>r.year===y);
+    if(rec && rec[`q${q}Completed`]) return;
+    const d = new Date(qd+"T00:00:00");
+    if(d.getFullYear()===y && d.getMonth()===m) items.push({ day:d.getDate(), label:`IFTA Q${q}`, kind:"due" });
+  });
+  tasks.filter(t=>t.dueDate && !t.done).forEach(t=>{
+    const d = new Date(t.dueDate+"T00:00:00");
+    if(d.getFullYear()===y && d.getMonth()===m) items.push({ day:d.getDate(), label:t.text, kind:"todo" });
+  });
+  return items;
+}
+function renderCalendarSectionHTML(){
+  const y = calendarViewYearNum, m = calendarViewMonth;
+  const items = calendarDueItemsForMonth(y, m);
+  const firstDow = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear()===y && today.getMonth()===m;
+
+  let html = `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
+    <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Calendar</h2>
+    <div style="flex: 1; height: 1px; background: var(--border);"></div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button type="button" id="calPrevBtn" style="background:transparent; border:1px solid var(--input-border); width:26px; height:26px; cursor:pointer; font-size:13px;">&larr;</button>
+      <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); white-space:nowrap;">${MONTH_NAMES[m]} ${y}</div>
+      <button type="button" id="calNextBtn" style="background:transparent; border:1px solid var(--input-border); width:26px; height:26px; cursor:pointer; font-size:13px;">&rarr;</button>
+    </div>
+  </div>`;
+
+  html += `<div style="display:grid; grid-template-columns:repeat(7,1fr); border-top:2px solid var(--charcoal); border-left:1px solid var(--border);">`;
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{
+    html += `<div style="padding:7px 0; text-align:center; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); border-right:1px solid var(--border); border-bottom:1px solid var(--charcoal);">${d}</div>`;
+  });
+  for(let i=0;i<firstDow;i++) html += `<div style="min-height:64px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:repeating-linear-gradient(135deg, transparent, transparent 6px, var(--border) 6px, var(--border) 7px);"></div>`;
+  for(let day=1; day<=daysInMonth; day++){
+    const dayItems = items.filter(it=>it.day===day);
+    const isToday = isCurrentMonth && today.getDate()===day;
+    html += `<div style="min-height:64px; padding:6px 8px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); font-size:12px;">
+      <div style="font-weight:600; ${isToday?'background:var(--charcoal); color:#fff; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;':''}">${day}</div>
+      ${dayItems.map(it=>`<div style="font-size:9px; margin-top:3px; padding:1px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${it.kind==='due'?'var(--blue-pale)':'#e8e5e1'}; color:${it.kind==='due'?'var(--blue-700)':'var(--charcoal)'};" title="${it.label}">${it.label}</div>`).join("")}
+    </div>`;
+  }
+  html += `</div>`;
+  html += `<p class="hint" style="margin-top:10px;">Rust items are compliance due-dates from Docket. Grey items are your own to-do due-dates.</p>`;
+  return html;
+}
+function wireCalendarSection(){
+  const prevBtn = document.getElementById("calPrevBtn");
+  const nextBtn = document.getElementById("calNextBtn");
+  if(prevBtn) prevBtn.addEventListener("click", ()=>{
+    calendarViewMonth--;
+    if(calendarViewMonth<0){ calendarViewMonth=11; calendarViewYearNum--; }
+    renderMain();
+  });
+  if(nextBtn) nextBtn.addEventListener("click", ()=>{
+    calendarViewMonth++;
+    if(calendarViewMonth>11){ calendarViewMonth=0; calendarViewYearNum++; }
+    renderMain();
+  });
 }
 
 /* ============ EXPENSES / FUEL ============ */
@@ -3695,6 +4171,71 @@ function renderExpensesOverview(){
   mainArea.querySelectorAll(".expense-cell").forEach(c=>{ c.addEventListener("click", ()=>{ currentExpenseTab=c.dataset.tab; currentView={type:"summary"}; renderMain(); }); });
 }
 
+/* Tolls: monthly cadence, but a genuinely variable amount each time (unlike
+   Parking, which is a flat recurring number set once). Mirrors the same
+   select/select/amount/submit-lock pattern already used on Payroll. */
+function renderTollsPage(){
+  const entries = tollsLog.filter(t=>t.year===activeYear);
+  let html = expenseHeaderHTML("tolls");
+  html += subtabsHTML();
+  const active = activeVehicles();
+  if(!active.length){
+    html += `<div class="banner"><b>No active trucks</b>Go to Roster to add or reactivate one.</div>`;
+    mainArea.innerHTML = html; wireSubtabs(); return;
+  }
+  html += `<div style="overflow-x:auto; margin-top:22px;"><table class="logtable"><thead><tr><th>Month</th><th>Truck</th><th>Amount</th><th></th></tr></thead><tbody id="tollsTbody">`;
+  entries.forEach((t,idx)=>{ html += tollsRowHTML(t, idx, active); });
+  html += `</tbody></table></div><div class="addrow-wrap"><button class="btn-blue btn-sm" id="addTollsRow">+ Add entry</button></div>`;
+  mainArea.innerHTML = html;
+  wireSubtabs();
+  wireTollsTable(active);
+}
+function tollsRowHTML(t, idx, active){
+  if(t.submitted){
+    return `<tr data-idx="${idx}">
+      <td style="font-weight:600;">${MONTH_NAMES[t.month-1]}</td>
+      <td>${t.truck?('Truck '+t.truck):'-'}</td>
+      <td>${moneyStr(parseFloat(t.amount)||0)}</td>
+      <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-ghost btn-sm tl-edit">Edit</button><button class="tl-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
+    </tr>`;
+  }
+  const monthOptions = MONTH_NAMES.map((mn,i)=>`<option value="${i+1}" ${t.month===i+1?'selected':''}>${mn}</option>`).join("");
+  const truckOptions = active.map(v=>`<option value="${v.truckId}" ${t.truck===v.truckId?'selected':''}>${v.truckId}</option>`).join("");
+  return `<tr data-idx="${idx}">
+    <td><select class="tl-month"><option value="">-</option>${monthOptions}</select></td>
+    <td><select class="tl-truck"><option value="">-</option>${truckOptions}</select></td>
+    <td><input class="tl-amount" type="text" inputmode="decimal" value="${t.amount||''}"></td>
+    <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-blue btn-sm tl-save">Save</button><button class="tl-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
+  </tr>`;
+}
+function wireTollsTable(active){
+  const entries = tollsLog.filter(t=>t.year===activeYear);
+  const tbody = document.getElementById("tollsTbody");
+  tbody.querySelectorAll("tr").forEach(tr=>{
+    const idx = parseInt(tr.dataset.idx);
+    const monthEl = tr.querySelector(".tl-month"), truckEl = tr.querySelector(".tl-truck"), amountEl = tr.querySelector(".tl-amount");
+    if(monthEl) monthEl.addEventListener("change", e=>{ entries[idx].month=parseInt(e.target.value)||null; markUnsaved(); });
+    if(truckEl) truckEl.addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); });
+    if(amountEl) amountEl.addEventListener("input", e=>{ entries[idx].amount=e.target.value; markUnsaved(); });
+    const saveEl = tr.querySelector(".tl-save");
+    if(saveEl) saveEl.addEventListener("click", ()=>{
+      if(!entries[idx].month || !entries[idx].truck || !String(entries[idx].amount||"").trim()){ showAppToast("Pick a month, a truck, and enter an amount before saving.", "warning"); return; }
+      entries[idx].submitted = true; markUnsaved(); renderMain();
+    });
+    const editEl = tr.querySelector(".tl-edit");
+    if(editEl) editEl.addEventListener("click", ()=>{ entries[idx].submitted=false; renderMain(); });
+    tr.querySelector(".tl-delete").addEventListener("click", ()=>{
+      const globalIdx = tollsLog.indexOf(entries[idx]);
+      if(globalIdx>=0) tollsLog.splice(globalIdx,1);
+      markUnsaved(); renderMain();
+    });
+  });
+  document.getElementById("addTollsRow").addEventListener("click", ()=>{
+    tollsLog.push({ year:activeYear, month:null, truck:"", amount:"", submitted:false });
+    markUnsaved(); renderMain();
+  });
+}
+
 function renderOperationsCostPage(){
   let html = expenseHeaderHTML("operations");
   html += subtabsHTML();
@@ -3725,7 +4266,7 @@ function renderOperationsCostPage(){
 }
 
 function subtabsHTML(){
-  const tabs=[["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"],["operations","Operations Cost"],["receipts","Receipts"]];
+  const tabs=[["overview","Overview"],["fuel","Fuel"],["parts","Parts"],["mechanic","Mechanic"],["tolls","Tolls"],["operations","Operations Cost"],["receipts","Receipts"]];
   const exportBtn = `<button type="button" id="expensesExportBtn" style="display:inline-flex; align-items:center; gap:8px; background:transparent; border:0; border-left:1px solid var(--border); padding:9px 15px; font-size:12px; font-weight:600; letter-spacing:.05em; color:var(--charcoal);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3v12"></path><path d="M7 11l5 5 5-5"></path><path d="M4 20h16"></path></svg>Export report</button>`;
   return `<div class="subtabs">` + tabs.map(([k,label])=>`<button data-tab="${k}" class="${currentExpenseTab===k?'active':''}">${label}</button>`).join("") + exportBtn + `</div>`;
 }
@@ -3766,12 +4307,16 @@ async function renderReceiptsPage(){
   wireSubtabs();
 
   receipts.forEach(async (r, idx) => {
-    const url = await getReceiptSignedUrl(r.receiptPath);
     const thumb = document.getElementById(`receiptThumb-${idx}`);
     if(!thumb) return;
-    if(url){
-      thumb.innerHTML = `<img src="${url}" style="max-width:100%; max-height:150px; pointer-events:none;">`;
+    const firstPath = (r.receiptPath||"").split(",")[0];
+    const isPdf = /\.pdf$/i.test(firstPath);
+    if(!isPdf){
+      const url = await getReceiptSignedUrl(firstPath);
+      if(url) thumb.innerHTML = `<img src="${url}" style="max-width:100%; max-height:150px; pointer-events:none;">`;
     }
+    // PDFs keep the document-icon placeholder already in the markup - opening
+    // the real preview modal (which renders PDFs inline) is one click away.
     thumb.addEventListener("click", ()=>{
       const sourceArray = r.logType==="Parts" ? partsLog : mechanicLog;
       openDocumentPreviewModal(r.receiptPath, ()=>{ sourceArray[r._idx].receiptPath=""; markUnsaved(); renderMain(); });
@@ -4044,9 +4589,23 @@ function payrollRowHTML(e, idx, active, availableDrivers){
   return `<tr data-idx="${idx}">
     <td><select class="pr-driver"><option value="">-</option>${orphanDriverOption}${driverOptions}</select></td>
     <td><select class="pr-truck"><option value="">-</option>${orphanTruckOption}${truckOptions}</select></td>
-    <td><input class="pr-amount" type="text" inputmode="decimal" value="${e.amount||''}"></td>
+    <td><input class="pr-amount" type="text" inputmode="decimal" value="${e.amount||''}"><div class="hint pr-suggestion" style="margin-top:4px;"></div></td>
     <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-blue btn-sm pr-save">Save</button><button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
   </tr>`;
+}
+/* Suggests blocks x the driver's fixed rate for this exact truck/week,
+   using that week's own contract entry - not a guess. Never overwrites
+   anything the user already typed; just offers it as one click to accept. */
+function payrollSuggestionFor(week, driverName, truckId){
+  if(!driverName || !truckId) return null;
+  const driver = drivers.find(d=>d.name===driverName);
+  const rate = driver ? parseFloat(driver.payRatePerBlock) : NaN;
+  if(!rate || isNaN(rate)) return null;
+  const ce = contractsForYear().find(x=>x.week===week && x.truck===truckId);
+  if(!ce) return null;
+  const blocks = parseInt(ce.numBlocks)||0;
+  if(!blocks) return null;
+  return { amount: blocks*rate, blocks, rate };
 }
 function wirePayrollTable(week, active, availableDrivers){
   const entries = payrollForYear().filter(e=>e.week===week);
@@ -4054,9 +4613,24 @@ function wirePayrollTable(week, active, availableDrivers){
   tbody.querySelectorAll("tr").forEach(tr=>{
     const idx = parseInt(tr.dataset.idx);
     const driverEl = tr.querySelector(".pr-driver"), truckEl = tr.querySelector(".pr-truck"), amountEl = tr.querySelector(".pr-amount");
-    if(driverEl) driverEl.addEventListener("change", e=>{ entries[idx].driver=e.target.value; markUnsaved(); });
-    if(truckEl) truckEl.addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); });
+    const suggestEl = tr.querySelector(".pr-suggestion");
+    const refreshSuggestion = ()=>{
+      if(!suggestEl) return;
+      const sug = payrollSuggestionFor(week, entries[idx].driver, entries[idx].truck);
+      suggestEl.innerHTML = sug
+        ? `Suggested: <span class="pr-suggestion-apply" style="color:var(--blue-700); text-decoration:underline; cursor:pointer; font-weight:600;">${moneyStr(sug.amount)}</span> (${sug.blocks} block${sug.blocks===1?'':'s'} &times; ${moneyStr(sug.rate)}/block)`
+        : "";
+      const applyEl = suggestEl.querySelector(".pr-suggestion-apply");
+      if(applyEl) applyEl.addEventListener("click", ()=>{
+        amountEl.value = sug.amount;
+        entries[idx].amount = String(sug.amount);
+        markUnsaved();
+      });
+    };
+    if(driverEl) driverEl.addEventListener("change", e=>{ entries[idx].driver=e.target.value; markUnsaved(); refreshSuggestion(); });
+    if(truckEl) truckEl.addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); refreshSuggestion(); });
     if(amountEl) amountEl.addEventListener("input", e=>{ entries[idx].amount=e.target.value; markUnsaved(); });
+    refreshSuggestion();
     const saveEl = tr.querySelector(".pr-save");
     if(saveEl) saveEl.addEventListener("click", ()=>{
       if(!entries[idx].driver || !String(entries[idx].amount||"").trim()){ showAppToast("Pick a driver and enter an amount before saving.", "warning"); return; }
