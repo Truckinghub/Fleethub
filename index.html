@@ -6,7 +6,7 @@
 <title>FleetHub - Fleet Records, All In One Place</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23f4f3f1'/%3E%3Ctext x='20' y='26' text-anchor='middle' font-family='Arial' font-weight='800' font-size='23' letter-spacing='-1' fill='%23201e1d'%3EFH%3C/text%3E%3Crect x='0' y='31' width='40' height='3' fill='%23b3421f'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#f4f3f1">
+<meta name="theme-color" content="#f4f3f1" id="themeColorMeta">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -21,6 +21,16 @@
     --charcoal:#201e1d; --charcoal-light:#2d2b2b; --blue:#b3421f; --blue-light:#ff9783;
     --blue-pale:#f7ece7; --copper:#b3421f; --bg:#f4f3f1; --card:#ffffff; --border:#cfcbc6;
     --text-muted:#6b6660; --danger:#ae1800; --blue-700:#8a3115; --input-border:#c4bfb9; --neutral-500:#98938c;
+  }
+  /* Dark mode: essentially the two primary tokens swapped (the light bg becomes
+     the dark-mode text color, and vice versa) rather than a whole new palette -
+     keeps everything else (spacing, borders, the flush-on-page philosophy)
+     completely unchanged, just the tone flipped. Rust brightens slightly since
+     the original reads a little muddy against a dark background. */
+  .dark-mode{
+    --charcoal:#f2efe9; --charcoal-light:#e5e1d9; --blue:#d9663a; --blue-light:#ffb59a;
+    --blue-pale:#3a2a20; --copper:#d9663a; --bg:#1c1a17; --card:#28251f; --border:#4a453d;
+    --text-muted:#a39c8f; --danger:#e2603c; --blue-700:#e8875f; --input-border:#4a453d; --neutral-500:#8b8478;
   }
   *{box-sizing:border-box; border-radius:0 !important;}
   input[type="checkbox"]{accent-color:var(--blue); width:18px; height:18px;}
@@ -57,6 +67,10 @@
   .hamburger-wrap{display:none;}
   .hamburger-menu{display:none;}
   .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; flex-shrink:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow-x:auto; overflow-y:visible;}
+  .toggle-switch{width:46px; height:26px; background:transparent; border:1.5px solid var(--charcoal); padding:2px; cursor:pointer; position:relative;}
+  .toggle-switch .toggle-knob{display:block; width:18px; height:18px; background:var(--charcoal); transition:transform .15s;}
+  .toggle-switch.on{border-color:var(--blue); background:var(--blue-pale);}
+  .toggle-switch.on .toggle-knob{background:var(--blue); transform:translateX(18px);}
   .bottom-nav{display:none;}
   .tab-nav button{position:relative; display:flex; align-items:center; gap:7px; background:transparent; border:0; cursor:pointer; padding:13px 15px; color:var(--charcoal); font-weight:600; font-size:12px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;}
   .tab-nav button:hover{color:var(--blue); opacity:1;}
@@ -175,6 +189,12 @@
   #statusToast.visible{opacity:1;}
 
   @media (max-width: 760px){
+    /* Tasks capture bar: full-width stacked fields instead of trying to fit
+       everything in a row - avoids both the rigid min-widths and the fact
+       that <input type="date"> often ignores width constraints on iOS. */
+    #taskCaptureInput, #taskCaptureList, #taskCaptureTruck, #taskCaptureDueDate, #taskCaptureAddBtn{
+      flex:1 1 100% !important; width:100%; min-width:0 !important;
+    }
     .tab-nav{display:none;}
     .bottom-nav{display:flex; position:fixed; left:0; right:0; bottom:0; z-index:900; background:var(--bg); border-top:2px solid var(--charcoal); padding-bottom:env(safe-area-inset-bottom, 0); overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;}
     .bottom-nav button{flex:0 0 auto; min-width:74px; display:flex; flex-direction:column; align-items:center; gap:3px; background:transparent; border:0; border-right:1px solid var(--border); padding:8px 6px 7px; font-size:10px; font-weight:600; letter-spacing:.02em; color:var(--text-muted); min-height:52px;}
@@ -277,7 +297,6 @@
         <div class="field"><label>Password</label><input type="password" id="authPassword" autocomplete="current-password"></div>
         <button class="btn-blue primary" id="authSubmitBtn">Sign In</button>
         <div class="auth-error" id="authError"></div>
-        <div class="auth-toggle" id="authToggle">Don't have an account? <a id="authToggleLink">Sign up</a></div>
       </div>
     </div>
   </div>
@@ -292,8 +311,26 @@
   </svg>
   <div class="titles"><div class="name">FLEETHUB</div><div class="sub">Transport management, kept on one screen</div></div>
   </div>
-  <div class="toolbar">
-    <button class="btn-ghost btn-sm" data-action="signout">Sign out</button>
+  <div class="toolbar" style="position:relative;">
+    <button id="settingsMenuBtn" class="btn-ghost btn-sm" title="Settings" style="padding:9px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+    <div id="settingsMenuPanel" style="display:none; position:absolute; right:0; top:calc(100% + 6px); background:var(--bg); border:1px solid var(--charcoal); min-width:270px; z-index:500;">
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em;"><span id="settingsAutosaveDot" style="width:6px; height:6px; background:var(--text-muted); flex-shrink:0;"></span><span id="settingsAutosaveText">Autosaved</span></div>
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <span style="display:flex; align-items:center; gap:8px; font-size:13px;"><svg id="darkModeIconMoon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg><svg id="darkModeIconSun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" style="display:none;"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>Dark mode</span>
+        <button type="button" id="darkModeToggle" class="toggle-switch"><span class="toggle-knob"></span></button>
+      </div>
+      <div style="border-bottom:1px solid var(--border);">
+        <button type="button" id="notifSettingsToggleBtn" style="display:flex; align-items:center; justify-content:space-between; width:100%; background:transparent; border:0; padding:12px 16px; font-size:13px; cursor:pointer; font-family:inherit; color:var(--charcoal);">
+          <span>Notifications</span>
+          <span id="notifSettingsCaret" style="font-size:11px; color:var(--text-muted);">&#9656;</span>
+        </button>
+        <div id="notifSettingsBody" style="display:none; padding:0 16px 14px;">
+          <div id="notifCategoryList" style="display:flex; flex-direction:column; gap:9px; margin-bottom:4px;"></div>
+          <div id="notifStatusLineSettings" class="hint" style="margin-top:8px;"></div>
+        </div>
+      </div>
+      <button type="button" data-action="signout" style="display:block; width:100%; text-align:left; background:transparent; border:0; padding:12px 16px; font-size:13px; font-weight:600; cursor:pointer;">Sign out</button>
+    </div>
   </div>
 </header>
 <div class="tab-nav" id="hamburgerMenu">
@@ -414,15 +451,14 @@ let iftaRecords = [];
    Mechanic, To Do), optionally tagged to a truck. Checking one off moves
    it into that list's "Done today" section rather than deleting it
    outright - so it's still visible to double-check, but out of the way.
-   Anything still marked done from a PRIOR day is purged the next time the
-   page renders, which is what gives "resets every midnight" without
-   needing an actual running timer in the background. */
+   Anything done on a PRIOR day simply stops appearing in the normal Hub
+   list (the render filters below already only show active tasks and
+   today's completions) - the row itself is never deleted, it stays in
+   the database permanently and becomes viewable by clicking that day on
+   the Calendar instead. */
 let tasks = [];
 function todayDateStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function purgeStaleDoneTasks(){
-  const today = todayDateStr();
-  tasks = tasks.filter(t => !(t.done && t.doneAt !== today));
-}
+function tasksCompletedOn(dateStr){ return tasks.filter(t => t.done && t.doneAt === dateStr); }
 let taskIdCounter = 1;
 function getOrCreateIftaRecord(year){
   let r = iftaRecords.find(x=>x.year===year);
@@ -1049,6 +1085,10 @@ function setStatus(msg){
   const el = document.getElementById("statusToast");
   el.textContent = msg;
   el.classList.toggle("visible", !!msg);
+  const settingsText = document.getElementById("settingsAutosaveText");
+  const settingsDot = document.getElementById("settingsAutosaveDot");
+  if(settingsText) settingsText.textContent = msg || "Autosaved";
+  if(settingsDot) settingsDot.style.background = msg ? "var(--blue)" : "var(--text-muted)";
 }
 
 /* In-app toast notifications - replaces native browser alert() popups so messages
@@ -2019,6 +2059,74 @@ async function registerServiceWorker(){
   catch(e){ console.warn("Service worker registration failed:", e); return null; }
 }
 
+/* Which kinds of push notifications exist. Each category can be turned on
+   or off independently - checking a box is what actually creates the
+   subscription if one doesn't exist yet, so there's no separate master
+   switch to manage alongside these. */
+const NOTIF_CATEGORIES = [
+  ["weekly", "Weekly reminder to log the week"],
+  ["fuel", "Fuel missing warning"],
+  ["compliance", "Compliance due-dates (registration, inspection, 2290, insurance, CDL, medical)"],
+  ["ifta", "IFTA due-dates"],
+  ["tasks", "Task due-dates"],
+];
+const DEFAULT_NOTIF_CATEGORIES = { weekly:true, fuel:true, compliance:true, ifta:true, tasks:true };
+
+async function getNotificationCategories(){
+  if(!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if(!reg) return null;
+  const sub = await reg.pushManager.getSubscription();
+  if(!sub || !sb || !currentUserId) return null;
+  const { data } = await sb.from("push_subscriptions").select("categories").eq("user_id", currentUserId).eq("endpoint", sub.endpoint).maybeSingle();
+  return (data && data.categories) ? data.categories : { ...DEFAULT_NOTIF_CATEGORIES };
+}
+async function setNotificationCategory(key, enabled){
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && await reg.pushManager.getSubscription();
+  if(!sub){
+    // No subscription yet - checking a box is what creates one.
+    const ok = await enablePushNotifications();
+    if(!ok) return false;
+  }
+  const freshReg = await navigator.serviceWorker.getRegistration();
+  const freshSub = freshReg && await freshReg.pushManager.getSubscription();
+  if(!freshSub || !sb || !currentUserId) return false;
+  const current = await getNotificationCategories() || { ...DEFAULT_NOTIF_CATEGORIES };
+  current[key] = enabled;
+  await sb.from("push_subscriptions").update({ categories: current }).eq("user_id", currentUserId).eq("endpoint", freshSub.endpoint);
+  return true;
+}
+function notifCategoryListHTML(prefs){
+  return NOTIF_CATEGORIES.map(([key,label])=>`
+    <label style="display:flex; align-items:flex-start; gap:9px; font-size:12px; cursor:pointer;">
+      <input type="checkbox" class="notif-category-cb" data-cat="${key}" ${prefs[key]?'checked':''} style="margin-top:2px;">
+      <span>${label}</span>
+    </label>`).join("");
+}
+async function refreshNotifCategoryUI(){
+  const body = document.getElementById("notifCategoryList");
+  const statusLine = document.getElementById("notifStatusLineSettings");
+  if(!body) return;
+  if(!("serviceWorker" in navigator) || !("PushManager" in window)){
+    body.innerHTML = "";
+    if(statusLine) statusLine.textContent = "Not supported in this browser.";
+    return;
+  }
+  const prefs = await getNotificationCategories();
+  const activePrefs = prefs || { ...DEFAULT_NOTIF_CATEGORIES };
+  body.innerHTML = notifCategoryListHTML(activePrefs);
+  body.querySelectorAll(".notif-category-cb").forEach(cb=>{
+    cb.addEventListener("change", async ()=>{
+      cb.disabled = true;
+      const ok = await setNotificationCategory(cb.dataset.cat, cb.checked);
+      cb.disabled = false;
+      if(!ok){ cb.checked = !cb.checked; showAppToast("Couldn't save that preference.", "error"); }
+      refreshNotifStatus();
+    });
+  });
+  if(statusLine) statusLine.textContent = prefs ? "" : "No subscription yet - check a box to turn reminders on.";
+}
 async function getPushSubscriptionStatus(){
   if(!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
   const reg = await navigator.serviceWorker.getRegistration();
@@ -2048,7 +2156,8 @@ async function enablePushNotifications(){
       await sb.from("push_subscriptions").delete().eq("user_id", currentUserId).eq("endpoint", subJson.endpoint);
       await sb.from("push_subscriptions").insert({
         user_id: currentUserId, endpoint: subJson.endpoint,
-        p256dh: subJson.keys.p256dh, auth: subJson.keys.auth
+        p256dh: subJson.keys.p256dh, auth: subJson.keys.auth,
+        categories: { ...DEFAULT_NOTIF_CATEGORIES }
       });
     }
     return true;
@@ -2847,7 +2956,7 @@ function renderFinancialsByDriverHTML(){
   if(!byDriver.totals.length) html += `<tr><td colspan="3" class="hint">No active drivers yet.</td></tr>`;
   byDriver.totals.forEach(t=>{
     const weeksPaid = new Set(payrollForYear().filter(e=>e.driver===t.driver && parseFloat(e.amount)>0).map(e=>e.week)).size;
-    html += `<tr><td style="font-weight:600;">${t.driver}</td><td>${weeksPaid}</td><td>${moneyStr(t.total)}</td></tr>`;
+    html += `<tr><td style="font-weight:600;"><span class="driver-num-open" data-driver="${t.driver}" style="cursor:pointer; color:var(--blue-700); text-decoration:underline;">${t.driver}</span></td><td>${weeksPaid}</td><td>${moneyStr(t.total)}</td></tr>`;
   });
   html += `</tbody></table></div>
   <div style="display: grid; grid-template-columns: 1fr auto; border-top: 1px solid var(--charcoal); border-bottom: 1px solid var(--charcoal); margin-top:2px;">
@@ -2931,7 +3040,10 @@ function wireFinancialsPage(){
     });
   });
   mainArea.querySelectorAll(".truck-num-open").forEach(el=>{
-    el.addEventListener("click", ()=>{ currentModule="contracts"; currentView={type:"week", week:currentWeekNumber()}; renderMain(); });
+    el.addEventListener("click", ()=>{ openProfile("truck", el.dataset.truck); });
+  });
+  mainArea.querySelectorAll(".driver-num-open").forEach(el=>{
+    el.addEventListener("click", ()=>{ openProfile("driver", el.dataset.driver); });
   });
   mainArea.querySelectorAll(".ledger-metric-chip").forEach(el=>{
     el.addEventListener("click", ()=>{ ledgerMetricSel[el.dataset.truck] = el.dataset.metric; renderMain(); });
@@ -3244,17 +3356,6 @@ function renderFleetPage(){
     html += `</tbody></table></div>`;
   }
 
-  html += `<div class="section-label">Reminders</div>
-    <div style="border-top:1px solid var(--charcoal); padding-top:16px; display:flex; align-items:baseline; flex-wrap:wrap; gap:16px 24px;">
-      <div style="flex:1; min-width:240px;">
-        <h3 style="margin:0 0 4px 0; font-weight:600; font-size:15px;">Push reminders</h3>
-        <p class="hint" style="margin:0;">A weekly nudge to log the week, plus a warning when a week is about to close with fuel missing.</p>
-      </div>
-      <button class="btn-blue btn-sm" id="enableNotifBtn">Turn on reminders</button>
-      <button class="btn-ghost btn-sm" id="disableNotifBtn">Turn off</button>
-    </div>
-    <div class="hint" id="notifStatus" style="margin-top:10px; text-transform:uppercase; letter-spacing:.08em; font-size:11px;"></div>`;
-
   mainArea.innerHTML = html;
 
 document.getElementById("newTruckId").addEventListener("input", e=>{ newTruckDraft.id = e.target.value; });
@@ -3304,23 +3405,12 @@ document.getElementById("newTruckId").addEventListener("input", e=>{ newTruckDra
   mainArea.querySelectorAll(".link-nav-driver").forEach(el=>{
     el.addEventListener("click", ()=>{ openProfile("driver", el.dataset.driver); });
   });
-
-  document.getElementById("enableNotifBtn").addEventListener("click", async ()=>{
-    const ok = await enablePushNotifications();
-    if(ok) refreshNotifStatus();
-  });
-  document.getElementById("disableNotifBtn").addEventListener("click", async ()=>{
-    await disablePushNotifications();
-    refreshNotifStatus();
-  });
-  refreshNotifStatus();
 }
 async function refreshNotifStatus(){
-  const el = document.getElementById("notifStatus");
-  if(!el) return;
   const status = await getPushSubscriptionStatus();
-  const labels = { unsupported:"NOT SUPPORTED IN THIS BROWSER", "not-registered":"REMINDERS ARE OFF", "not-subscribed":"REMINDERS ARE OFF", subscribed:"REMINDERS ARE ON FOR THIS DEVICE" };
-  el.textContent = labels[status] || "";
+  const labels = { unsupported:"Not supported in this browser.", "not-registered":"No subscription yet - check a box to turn reminders on.", "not-subscribed":"No subscription yet - check a box to turn reminders on.", subscribed:"" };
+  const el = document.getElementById("notifStatusLineSettings");
+  if(el) el.textContent = labels[status] || "";
 }
 
 /* ============ PROFILE (truck/driver detail overlay) ============ */
@@ -3888,7 +3978,6 @@ function ledgerChipsHTML(t){
 }
 
 function renderDashboard(){
-  purgeStaleDoneTasks();
   const alerts = computeNeedsAttention();
   const overdueCount = alerts.filter(a=>a.overdue).length;
 
@@ -3949,7 +4038,7 @@ function todayLongLabel(){
   return `${MONTH_NAMES[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
 }
 
-const TASK_LISTS = [["parts","Parts"],["mechanic","Mechanic"],["todo","To Do"]];
+const TASK_LISTS = [["todo","To Do"],["parts","Parts"],["mechanic","Mechanic"]];
 function renderTasksSectionHTML(){
   let html = `<div style="display: flex; align-items: baseline; gap: 12px; margin: 34px 0 12px;">
     <h2 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Tasks</h2>
@@ -3958,17 +4047,17 @@ function renderTasksSectionHTML(){
 
   const truckOptions = activeVehicles().map(v=>`<option value="${v.truckId}">Truck ${v.truckId}</option>`).join("");
   html += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
-    <input class="input" id="taskCaptureInput" type="text" placeholder="Add a note..." style="flex:2; min-width:200px;">
-    <select class="input" id="taskCaptureList" style="flex:0 0 auto; min-width:110px;">
+    <input class="input" id="taskCaptureInput" type="text" placeholder="Add a note..." style="flex:2; min-width:160px; max-width:100%;">
+    <select class="input" id="taskCaptureList" style="flex:0 0 auto; min-width:100px; max-width:100%;">
       <option value="parts">Parts</option>
       <option value="mechanic">Mechanic</option>
       <option value="todo">To Do</option>
     </select>
-    <select class="input" id="taskCaptureTruck" style="flex:0 0 auto; min-width:130px;">
+    <select class="input" id="taskCaptureTruck" style="flex:0 0 auto; min-width:110px; max-width:100%;">
       <option value="">No truck</option>
       ${truckOptions}
     </select>
-    <input class="input" id="taskCaptureDueDate" type="date" style="flex:0 0 auto; min-width:150px;" title="Due date (optional)">
+    <input class="input" id="taskCaptureDueDate" type="date" style="flex:0 0 auto; min-width:0; max-width:100%;" title="Due date (optional)">
     <button class="btn-blue btn-sm" id="taskCaptureAddBtn" style="height:36px;">Add</button>
   </div>`;
 
@@ -3983,7 +4072,7 @@ function renderTasksSectionHTML(){
     active.forEach(t=>{
       html += `<div class="task-row" data-task-id="${t.id}" style="display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
         <div class="task-checkbox" data-task-id="${t.id}" style="width:18px; height:18px; border:1.5px solid var(--charcoal); flex-shrink:0; margin-top:2px; cursor:pointer;"></div>
-        <div style="flex:1; font-size:14px;">${t.text}${t.truck?`<span style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; background:var(--blue-pale); color:var(--blue-700); padding:2px 8px; margin-left:8px;">${t.truck}</span>`:''}${t.dueDate?`<span class="hint" style="margin-left:8px;">Due ${dueLabel(t.dueDate)}</span>`:''}</div>
+        <div style="flex:1; font-size:14px;">${t.text}${t.truck?`<span class="task-truck-tag" data-truck="${t.truck}" style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; background:var(--blue-pale); color:var(--blue-700); padding:2px 8px; margin-left:8px; cursor:pointer;">${t.truck}</span>`:''}${t.dueDate?`<span class="hint" style="margin-left:8px;">Due ${dueLabel(t.dueDate)}</span>`:''}</div>
         <div class="task-delete" data-task-id="${t.id}" style="color:var(--text-muted); cursor:pointer; padding:0 4px;">&times;</div>
       </div>`;
     });
@@ -3993,7 +4082,7 @@ function renderTasksSectionHTML(){
       doneToday.forEach(t=>{
         html += `<div class="task-row" data-task-id="${t.id}" style="display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
           <div class="task-checkbox done" data-task-id="${t.id}" style="width:18px; height:18px; border:1.5px solid var(--blue); background:var(--blue); flex-shrink:0; margin-top:2px; cursor:pointer;"></div>
-          <div style="flex:1; font-size:14px; text-decoration:line-through; color:var(--text-muted);">${t.text}${t.truck?`<span style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; background:var(--blue-pale); color:var(--blue-700); padding:2px 8px; margin-left:8px;">${t.truck}</span>`:''}</div>
+          <div style="flex:1; font-size:14px; text-decoration:line-through; color:var(--text-muted);">${t.text}${t.truck?`<span class="task-truck-tag" data-truck="${t.truck}" style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; background:var(--blue-pale); color:var(--blue-700); padding:2px 8px; margin-left:8px; cursor:pointer;">${t.truck}</span>`:''}</div>
           <div class="task-delete" data-task-id="${t.id}" style="color:var(--text-muted); cursor:pointer; padding:0 4px;">&times;</div>
         </div>`;
       });
@@ -4035,6 +4124,12 @@ function wireTasksSection(){
       tasks = tasks.filter(x=>x.id!==parseInt(el.dataset.taskId));
       markUnsaved();
       renderMain();
+    });
+  });
+  mainArea.querySelectorAll(".task-truck-tag").forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      openProfile("truck", el.dataset.truck);
     });
   });
   mainArea.querySelectorAll(".task-done-toggle").forEach(el=>{
@@ -4106,9 +4201,14 @@ function renderCalendarSectionHTML(){
   for(let day=1; day<=daysInMonth; day++){
     const dayItems = items.filter(it=>it.day===day);
     const isToday = isCurrentMonth && today.getDate()===day;
-    html += `<div style="min-height:64px; padding:6px 8px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); font-size:12px;">
-      <div style="font-weight:600; ${isToday?'background:var(--charcoal); color:#fff; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;':''}">${day}</div>
-      ${dayItems.map(it=>`<div style="font-size:9px; margin-top:3px; padding:1px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${it.kind==='due'?'var(--blue-pale)':'#e8e5e1'}; color:${it.kind==='due'?'var(--blue-700)':'var(--charcoal)'};" title="${it.label}">${it.label}</div>`).join("")}
+    const cellDateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const completedCount = tasksCompletedOn(cellDateStr).length;
+    html += `<div class="cal-day-cell" data-date="${cellDateStr}" style="min-height:64px; min-width:0; overflow:hidden; padding:6px 8px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); font-size:12px; cursor:pointer;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:600; ${isToday?'background:var(--charcoal); color:#fff; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;':''}">${day}</div>
+        ${completedCount?`<span style="width:5px; height:5px; background:var(--blue); border-radius:50%; flex-shrink:0;" title="${completedCount} completed"></span>`:''}
+      </div>
+      ${dayItems.map(it=>`<div style="font-size:9px; margin-top:3px; padding:1px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; box-sizing:border-box; background:${it.kind==='due'?'var(--blue-pale)':'#e8e5e1'}; color:${it.kind==='due'?'var(--blue-700)':'var(--charcoal)'};" title="${it.label}">${it.label}</div>`).join("")}
     </div>`;
   }
   html += `</div>`;
@@ -4128,6 +4228,45 @@ function wireCalendarSection(){
     if(calendarViewMonth>11){ calendarViewMonth=0; calendarViewYearNum++; }
     renderMain();
   });
+  mainArea.querySelectorAll(".cal-day-cell").forEach(el=>{
+    el.addEventListener("click", ()=>{ openDayHistoryModal(el.dataset.date); });
+  });
+}
+/* Shows what tasks were completed on a given day - the browsable history
+   that replaces the old "done tasks just vanish" behavior. Nothing here
+   was ever deleted; this just surfaces what's already sitting in the
+   tasks array, filtered to that one date. */
+function openDayHistoryModal(dateStr){
+  const done = tasksCompletedOn(dateStr);
+  const d = new Date(dateStr+"T00:00:00");
+  const label = `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1500; display:flex; align-items:center; justify-content:center; padding:16px;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:#fff; padding:22px; max-width:440px; width:100%; max-height:80vh; display:flex; flex-direction:column;";
+
+  let html = `<h3 style="margin:0 0 4px 0; color:var(--charcoal); font-family:'Archivo',sans-serif;">${label}</h3>
+    <p class="hint" style="margin:0 0 14px;">${done.length} task${done.length===1?'':'s'} completed</p>
+    <div style="flex:1; overflow:auto; margin-bottom:14px;">`;
+  if(!done.length){
+    html += `<p class="hint">Nothing completed this day.</p>`;
+  } else {
+    const listLabels = { parts:"Parts", mechanic:"Mechanic", todo:"To Do" };
+    done.forEach(t=>{
+      html += `<div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;">
+        <span style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted);">${listLabels[t.list]||t.list}${t.truck?` &middot; Truck ${t.truck}`:''}</span>
+        <div style="margin-top:2px;">${t.text}</div>
+      </div>`;
+    });
+  }
+  html += `</div><button class="btn-ghost btn-sm" id="dayHistoryClose" style="background:var(--charcoal); color:#fff; align-self:flex-end;">Close</button>`;
+  box.innerHTML = html;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  const close = ()=>overlay.remove();
+  document.getElementById("dayHistoryClose").addEventListener("click", close);
+  overlay.addEventListener("click", (e)=>{ if(e.target===overlay) close(); });
 }
 
 /* ============ EXPENSES / FUEL ============ */
@@ -4835,6 +4974,13 @@ function wireLogTable(cfg){
     if(editBtn) editBtn.addEventListener("click", ()=>{ entries[idx].submitted = false; renderMain(); });
   });
   document.getElementById("addLogRow").addEventListener("click", ()=>{
+    if(cfg.submitMode){
+      const unfinished = entries.find(e=>!e.submitted);
+      if(unfinished){
+        showAppToast("Finish and save the current entry before adding another.", "warning");
+        return;
+      }
+    }
     const blank={truck:""}; blank[cfg.fieldOrder[0]]=""; blank[cfg.fieldOrder[1]]=""; blank[cfg.fieldOrder[2]]="";
     if(cfg.submitMode) blank.submitted = false;
     entries.push(blank); markUnsaved(); renderMain();
@@ -4877,6 +5023,51 @@ document.getElementById("brandHomeBtn").addEventListener("click", ()=>{
 });
 document.querySelectorAll('[data-action="export"]').forEach(b=>b.addEventListener("click", ()=>exportExcel()));
 document.querySelectorAll('[data-action="signout"]').forEach(b=>b.addEventListener("click", async ()=>{ flushIfNeeded(); await sb.auth.signOut(); }));
+
+/* ============ SETTINGS MENU ============ */
+const settingsMenuBtn = document.getElementById("settingsMenuBtn");
+const settingsMenuPanel = document.getElementById("settingsMenuPanel");
+settingsMenuBtn.addEventListener("click", (e)=>{
+  e.stopPropagation();
+  settingsMenuPanel.style.display = settingsMenuPanel.style.display==="none" ? "block" : "none";
+});
+document.addEventListener("click", (e)=>{
+  if(settingsMenuPanel.style.display==="block" && !settingsMenuPanel.contains(e.target) && e.target!==settingsMenuBtn){
+    settingsMenuPanel.style.display = "none";
+  }
+});
+
+/* ---- Dark mode ---- */
+function applyDarkModePreference(isDark){
+  document.body.classList.toggle("dark-mode", isDark);
+  const moon = document.getElementById("darkModeIconMoon"), sun = document.getElementById("darkModeIconSun");
+  if(moon) moon.style.display = isDark ? "none" : "";
+  if(sun) sun.style.display = isDark ? "" : "none";
+  const toggle = document.getElementById("darkModeToggle");
+  if(toggle) toggle.classList.toggle("on", isDark);
+  const themeMeta = document.getElementById("themeColorMeta");
+  if(themeMeta) themeMeta.setAttribute("content", isDark ? "#1c1a17" : "#f4f3f1");
+}
+(function initDarkMode(){
+  let saved = null;
+  try{ saved = localStorage.getItem("fleethub_dark_mode"); }catch(e){}
+  applyDarkModePreference(saved === "true");
+})();
+document.getElementById("darkModeToggle").addEventListener("click", ()=>{
+  const isDark = !document.body.classList.contains("dark-mode");
+  applyDarkModePreference(isDark);
+  try{ localStorage.setItem("fleethub_dark_mode", String(isDark)); }catch(e){}
+});
+
+document.getElementById("notifSettingsToggleBtn").addEventListener("click", ()=>{
+  const body = document.getElementById("notifSettingsBody");
+  const caret = document.getElementById("notifSettingsCaret");
+  const nowOpen = body.style.display === "none";
+  body.style.display = nowOpen ? "block" : "none";
+  caret.innerHTML = nowOpen ? "&#9662;" : "&#9656;";
+  if(nowOpen) refreshNotifCategoryUI();
+});
+
 hamburgerMenu.querySelectorAll("button[data-module]").forEach(b=>{
   b.addEventListener("click", ()=>navigateToModule(b.dataset.module, b.dataset.viewMode));
 });
@@ -4886,17 +5077,8 @@ bottomNav.querySelectorAll("button[data-module]").forEach(b=>{
 });
 
 /* ============ AUTH ============ */
-let authMode="signin";
 const authEmail=document.getElementById("authEmail"), authPassword=document.getElementById("authPassword");
 const authSubmitBtn=document.getElementById("authSubmitBtn"), authError=document.getElementById("authError");
-const authToggle=document.getElementById("authToggle"), authToggleLink=document.getElementById("authToggleLink");
-authToggleLink.addEventListener("click", ()=>{
-  authMode = authMode==="signin" ? "signup" : "signin";
-  authSubmitBtn.textContent = authMode==="signin" ? "Sign In" : "Create Account";
-  authToggle.innerHTML = authMode==="signin" ? `Don't have an account? <a id="authToggleLink">Sign up</a>` : `Already have an account? <a id="authToggleLink">Sign in</a>`;
-  document.getElementById("authToggleLink").addEventListener("click", ()=>authToggleLink.click());
-  authError.textContent="";
-});
 authSubmitBtn.addEventListener("click", async ()=>{
   if(!sb){ authError.textContent="Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"; return; }
   authError.textContent="";
@@ -4904,8 +5086,8 @@ authSubmitBtn.addEventListener("click", async ()=>{
   if(!email||!password){ authError.textContent="Enter both email and password."; return; }
   authSubmitBtn.disabled=true;
   try{
-    if(authMode==="signin"){ const {error}=await sb.auth.signInWithPassword({email,password}); if(error) throw error; }
-    else { const {error}=await sb.auth.signUp({email,password}); if(error) throw error; authError.style.color="#2A7A4E"; authError.textContent="Account created. Check your email to confirm, then sign in."; }
+    const {error}=await sb.auth.signInWithPassword({email,password});
+    if(error) throw error;
   } catch(e){ authError.style.color=""; authError.textContent = e.message||"Something went wrong."; }
   finally { authSubmitBtn.disabled=false; }
 });
