@@ -62,11 +62,16 @@ self.addEventListener("fetch", (event) => {
 });
 
 /* ---- Push notifications ----
-   icon/badge point at the app's own PWA icon (the same file referenced in
-   manifest.json) so real notifications show the FleetHub logo instead of
-   the browser's generic placeholder bell. If your icon file lives at a
-   different path than icons/icon-192.png, update ICON_PATH to match. */
+   icon is the full-color logo shown in the expanded notification view.
+   badge is specifically what Android's status bar uses, and it works
+   differently: Android ignores the actual colors and renders every
+   opaque pixel as a flat white silhouette, so badge needs its own
+   file - a transparent-background, white-only version of the mark -
+   rather than reusing the full-color icon (which was the actual cause
+   of the white-square icon: the full-color file's solid background
+   was being flattened into one big white block). */
 const ICON_PATH = "./icons/icon-192.png";
+const BADGE_PATH = "./icons/notification-badge.png";
 
 self.addEventListener("push", (event) => {
   let payload = {};
@@ -77,7 +82,7 @@ self.addEventListener("push", (event) => {
     body: payload.body || payload.message || "You have a reminder.",
     tag: payload.tag || "fleethub-reminder",
     icon: payload.icon || ICON_PATH,
-    badge: payload.badge || ICON_PATH,
+    badge: payload.badge || BADGE_PATH,
     data: { url: payload.url || "./" },
   };
   event.waitUntil(self.registration.showNotification(title, options));
