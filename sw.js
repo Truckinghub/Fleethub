@@ -80,7 +80,14 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "FleetHub";
   const options = {
     body: payload.body || payload.message || "You have a reminder.",
-    tag: payload.tag || "fleethub-reminder",
+    // Each notification gets its own tag by default, so a new one always
+    // shows as a separate notification instead of silently replacing
+    // whatever's already sitting there unread (which is what a single
+    // fixed tag causes - the previous fallback here was the actual bug
+    // behind "I can't get a second notification until I clear the first
+    // one"). A sender can still pass an explicit tag if it genuinely
+    // wants a later update to replace an earlier one.
+    tag: payload.tag || `fleethub-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
     icon: payload.icon || ICON_PATH,
     badge: payload.badge || BADGE_PATH,
     data: { url: payload.url || "./" },
