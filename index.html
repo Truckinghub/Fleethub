@@ -69,7 +69,7 @@
   .hamburger-wrap{display:none;}
   .hamburger-menu{display:none;}
   .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; flex-shrink:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow:visible;}
-  .toggle-switch{-webkit-appearance:none; appearance:none; box-sizing:border-box; position:relative; display:block; flex:0 0 38px !important; width:38px !important; height:22px !important; padding:0 !important; margin:0; background:var(--border); border:0; cursor:pointer; transition:background .15s; -webkit-tap-highlight-color:transparent;}
+  .toggle-switch{box-sizing:border-box; position:relative; display:block; flex:0 0 38px; width:38px; height:22px; padding:0; margin:0; background:var(--border); border:0; cursor:pointer; transition:background .15s; -webkit-tap-highlight-color:transparent; user-select:none;}
   .toggle-switch .toggle-knob{position:absolute; top:2px; left:2px; width:18px; height:18px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .15s;}
   .toggle-switch.on{background:var(--blue);}
   .toggle-switch.on .toggle-knob{transform:translateX(16px);}
@@ -335,8 +335,8 @@
     <div id="settingsMenuPanel" style="display:none; position:absolute; right:0; top:calc(100% + 6px); background:var(--bg); border:1px solid var(--charcoal); min-width:270px; z-index:500;">
       <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em;"><span id="settingsAutosaveDot" style="width:6px; height:6px; background:var(--text-muted); flex-shrink:0;"></span><span id="settingsAutosaveText">Autosaved</span></div>
       <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <span style="display:flex; align-items:center; gap:8px; font-size:13px;"><svg id="darkModeIconMoon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg><svg id="darkModeIconSun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" style="display:none;"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>Dark mode</span>
-        <button type="button" id="darkModeToggle" class="toggle-switch"><span class="toggle-knob"></span></button>
+        <span style="display:flex; align-items:center; gap:8px; font-size:13px;"><svg id="darkModeIconMoon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg><svg id="darkModeIconSun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" style="display:none;"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg><span id="darkModeLabel">Dark mode</span></span>
+        <div id="darkModeToggle" class="toggle-switch" role="switch" tabindex="0" aria-label="Toggle dark mode"><span class="toggle-knob"></span></div>
       </div>
       <div style="border-bottom:1px solid var(--border);">
         <button type="button" id="notifSettingsToggleBtn" style="display:flex; align-items:center; justify-content:space-between; width:100%; background:transparent; border:0; padding:12px 16px; font-size:13px; cursor:pointer; font-family:inherit; color:var(--charcoal);">
@@ -5190,6 +5190,8 @@ function applyDarkModePreference(isDark){
   const moon = document.getElementById("darkModeIconMoon"), sun = document.getElementById("darkModeIconSun");
   if(moon) moon.style.display = isDark ? "none" : "";
   if(sun) sun.style.display = isDark ? "" : "none";
+  const label = document.getElementById("darkModeLabel");
+  if(label) label.textContent = isDark ? "Light mode" : "Dark mode";
   const toggle = document.getElementById("darkModeToggle");
   if(toggle) toggle.classList.toggle("on", isDark);
   const themeMeta = document.getElementById("themeColorMeta");
@@ -5204,6 +5206,9 @@ document.getElementById("darkModeToggle").addEventListener("click", ()=>{
   const isDark = !document.body.classList.contains("dark-mode");
   applyDarkModePreference(isDark);
   try{ localStorage.setItem("fleethub_dark_mode", String(isDark)); }catch(e){}
+});
+document.getElementById("darkModeToggle").addEventListener("keydown", (e)=>{
+  if(e.key===" " || e.key==="Enter"){ e.preventDefault(); e.target.click(); }
 });
 
 document.getElementById("notifSettingsToggleBtn").addEventListener("click", ()=>{
