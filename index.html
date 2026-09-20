@@ -2155,7 +2155,7 @@ async function registerServiceWorker(){
 const NOTIF_CATEGORIES = [
   ["weekly", "Weekly reminder to log the week"],
   ["fuel", "Fuel missing warning"],
-  ["compliance", "Compliance due-dates (registration, inspection, 2290, insurance, CDL, medical)"],
+  ["compliance", "Compliance due-dates", "Registration, inspection, 2290, insurance, CDL, medical"],
   ["ifta", "IFTA due-dates"],
   ["tasks", "Task due-dates"],
 ];
@@ -2187,10 +2187,10 @@ async function setNotificationCategory(key, enabled){
   return true;
 }
 function notifCategoryListHTML(prefs){
-  return NOTIF_CATEGORIES.map(([key,label])=>`
+  return NOTIF_CATEGORIES.map(([key,label,detail])=>`
     <label style="display:flex; align-items:flex-start; gap:9px; font-size:12px; cursor:pointer;">
-      <input type="checkbox" class="notif-category-cb" data-cat="${key}" ${prefs[key]?'checked':''} style="margin-top:2px;">
-      <span>${label}</span>
+      <input type="checkbox" class="notif-category-cb" data-cat="${key}" ${prefs[key]?'checked':''} style="flex-shrink:0; width:15px; height:15px; margin:1px 0 0; padding:0;">
+      <span><span style="display:block;">${label}</span>${detail?`<span class="hint" style="display:block; margin-top:2px;">${detail}</span>`:''}</span>
     </label>`).join("");
 }
 async function refreshNotifCategoryUI(){
@@ -2203,8 +2203,24 @@ async function refreshNotifCategoryUI(){
     return;
   }
   const prefs = await getNotificationCategories();
-  const activePrefs = prefs || { ...DEFAULT_NOTIF_CATEGORIES };
-  body.innerHTML = notifCategoryListHTML(activePrefs);
+  if(!prefs){
+    // No real subscription exists - never show checked boxes for a subscription
+    // that doesn't actually exist. Show a plain "Turn on" step instead; the
+    // checkboxes only appear once there's something real for them to reflect.
+    body.innerHTML = `<button type="button" class="btn-blue btn-sm" id="notifTurnOnBtn">Turn on reminders</button>`;
+    if(statusLine) statusLine.textContent = "Off - not subscribed on this device.";
+    const btn = document.getElementById("notifTurnOnBtn");
+    if(btn) btn.addEventListener("click", async ()=>{
+      btn.disabled = true; btn.textContent = "Turning on...";
+      const ok = await enablePushNotifications();
+      btn.disabled = false;
+      if(!ok) btn.textContent = "Turn on reminders";
+      refreshNotifCategoryUI();
+      refreshNotifStatus();
+    });
+    return;
+  }
+  body.innerHTML = notifCategoryListHTML(prefs);
   body.querySelectorAll(".notif-category-cb").forEach(cb=>{
     cb.addEventListener("change", async ()=>{
       cb.disabled = true;
@@ -2214,7 +2230,7 @@ async function refreshNotifCategoryUI(){
       refreshNotifStatus();
     });
   });
-  if(statusLine) statusLine.textContent = prefs ? "" : "No subscription yet - check a box to turn reminders on.";
+  if(statusLine) statusLine.textContent = "On for this device.";
 }
 async function getPushSubscriptionStatus(){
   if(!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
@@ -2232,7 +2248,16 @@ async function enablePushNotifications(){
   try{
     const permission = await Notification.requestPermission();
     if(permission !== "granted"){ showAppToast("Notification permission was not granted.", "warning"); return false; }
-    const reg = await navigator.serviceWorker.ready;
+    // serviceWorker.ready never resolves if sw.js is missing or failed to register -
+    // without a timeout this would hang forever with no error, looking like nothing happened.
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject)=>setTimeout(()=>reject(new Error("timeout")), 8000))
+    ]).catch(()=>null);
+    if(!reg){
+      showAppToast("Couldn't enable reminders: sw.js isn't active. Confirm sw.js is uploaded next to index.html on the live site.", "error");
+      return false;
+    }
     let sub = await reg.pushManager.getSubscription();
     if(!sub){
       sub = await reg.pushManager.subscribe({
