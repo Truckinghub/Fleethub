@@ -2672,7 +2672,7 @@ function renderCompliancePage(){
       const idx = vehicles.indexOf(v);
       const yearly = (parseFloat(v.parkingMonthlyCost)||0)*12;
       html += `<tr>
-        <td style="font-weight:600;">${v.truckId}</td>
+        <td style="font-weight:600;">${entityLinkHTML("truck", v.truckId, v.truckId)}</td>
         <td><input class="input parking-monthly" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.parkingMonthlyCost||''}"></td>
         <td style="font-weight:600;">${moneyStr(yearly)}</td>
       </tr>`;
@@ -3098,7 +3098,7 @@ function renderFinancialsRoiHTML(){
       ? `Paid off ${roi.paybackYear} W${roi.paybackWeek}`
       : (roi.pace>0 ? `~${roi.weeksToGo} weeks to go` : 'Not enough data yet');
     html += `<tr>
-      <td style="font-weight:600;">${v.truckId}</td>
+      <td style="font-weight:600;">${entityLinkHTML("truck", v.truckId, v.truckId)}</td>
       <td>${moneyStr(roi.totalInvestment)}</td>
       <td>${moneyStr(roi.recovered)}</td>
       <td style="min-width:140px;"><div style="border:1px solid var(--border); height:18px; position:relative;"><div style="position:absolute; inset:0; width:${roi.percent}%; background:var(--blue-pale); border-right:2px solid var(--blue);"></div><div style="position:relative; height:100%; display:flex; align-items:center; padding:0 8px; font-size:10px; font-weight:600;">${roi.percent}%</div></div></td>
@@ -3440,7 +3440,7 @@ function renderFleetPage(){
     html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Truck ID</th><th>Ran from</th><th></th></tr></thead><tbody>`;
     inactiveV.forEach(v=>{
       const idx = vehicles.indexOf(v);
-      html += `<tr><td>${v.truckId}</td><td>Week ${v.addedWeek}</td><td><button class="btn-blue" data-reactivate-vehicle="${idx}">Activate</button></td></tr>`;
+      html += `<tr><td>${entityLinkHTML("truck", v.truckId, v.truckId)}</td><td>Week ${v.addedWeek}</td><td><button class="btn-blue" data-reactivate-vehicle="${idx}">Activate</button></td></tr>`;
     });
     html += `</tbody></table></div>`;
   }
@@ -3673,7 +3673,7 @@ function renderProfile(overlay, kind, id){
       ${(()=>{
         const rows = payrollForYear().filter(e=>e.truck===id && e.driver).slice().sort((a,b)=>b.week-a.week);
         if(!rows.length) return `<div class="hint">No payroll logged against this truck yet.</div>`;
-        return `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Week</th><th>Dates</th><th>Driver</th><th>Paid</th></tr></thead><tbody>${rows.map(e=>`<tr><td style="font-weight:600;">Week ${e.week}</td><td>${weekDateRangeLabel(e.week)}</td><td>${e.driver}</td><td>${M(parseFloat(e.amount)||0)}</td></tr>`).join("")}</tbody></table></div>`;
+        return `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Week</th><th>Dates</th><th>Driver</th><th>Paid</th></tr></thead><tbody>${rows.map(e=>`<tr><td style="font-weight:600;">Week ${e.week}</td><td>${weekDateRangeLabel(e.week)}</td><td>${drivers.some(d=>d.name===e.driver) ? entityLinkHTML("driver", e.driver) : e.driver}</td><td>${M(parseFloat(e.amount)||0)}</td></tr>`).join("")}</tbody></table></div>`;
       })()}
       <div style="display:flex; align-items:baseline; gap:12px; margin:34px 0 12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">Files on record</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">${files.filter(x=>x.status==='On file').length} of ${files.length} on file</div></div>
       <div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Document</th><th>What it covers</th><th>Status</th><th></th></tr></thead><tbody>
@@ -4523,7 +4523,7 @@ function renderOperationsCostPage(){
     const insYr = (parseFloat(v.insuranceMonthlyCost)||0)*12;
     const bobYr = v.hasBobtailInsurance ? (parseFloat(v.bobtailInsuranceCost)||0)*12 : 0;
     html += `<tr>
-      <td style="font-weight:600;">${v.truckId}</td>
+      <td style="font-weight:600;">${entityLinkHTML("truck", v.truckId, v.truckId)}</td>
       <td>${moneyStr(parseFloat(v.inspectionCost)||0)}</td>
       <td>${moneyStr(parseFloat(v.registrationCost)||0)}</td>
       <td>${moneyStr(parseFloat(v.hvut2290Cost)||0)}</td>
@@ -4806,7 +4806,7 @@ function renderPayrollSummary(){
   html += `<div style="overflow-x:auto;"><table class="logtable"><thead><tr><th>Driver</th><th>Weeks paid</th><th>Payroll YTD</th></tr></thead><tbody>`;
   byDriver.totals.forEach(t=>{
     const weeksPaid = new Set(payrollForYear().filter(e=>e.driver===t.driver && parseFloat(e.amount)>0).map(e=>e.week)).size;
-    html += `<tr><td style="font-weight:600;">${t.driver}</td><td>${weeksPaid}</td><td>${moneyStr(t.total)}</td></tr>`;
+    html += `<tr><td style="font-weight:600;">${entityLinkHTML("driver", t.driver)}</td><td>${weeksPaid}</td><td>${moneyStr(t.total)}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   html += `<div style="display:grid; grid-template-columns:1fr auto; border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);">
