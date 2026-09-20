@@ -15,6 +15,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
   :root{
+    color-scheme:light; --on-charcoal:#ffffff; --on-charcoal-muted:#cfcbc6; --field-bg:#ffffff; --tag-neutral-bg:#e8e5e1;
     /* Repurposed from the old palette (names kept so nothing else in the app needs to
        change) - now mapped to the Modernist design system: warm near-black text, a
        single burnt-orange accent, zero rounded corners, hairline dividers. */
@@ -28,6 +29,7 @@
      completely unchanged, just the tone flipped. Rust brightens slightly since
      the original reads a little muddy against a dark background. */
   .dark-mode{
+    color-scheme:dark; --on-charcoal:#1c1a17; --on-charcoal-muted:#4a453d; --field-bg:#211f1a; --tag-neutral-bg:#3a362f;
     --charcoal:#f2efe9; --charcoal-light:#e5e1d9; --blue:#d9663a; --blue-light:#ffb59a;
     --blue-pale:#3a2a20; --copper:#d9663a; --bg:#1c1a17; --card:#28251f; --border:#4a453d;
     --text-muted:#a39c8f; --danger:#e2603c; --blue-700:#e8875f; --input-border:#4a453d; --neutral-500:#8b8478;
@@ -46,7 +48,7 @@
   body{margin:0; font-family:'Archivo',system-ui,sans-serif; background:var(--bg); color:var(--charcoal); height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; font-variant-numeric:tabular-nums;}
   h1,h2,h3{font-family:'Archivo',system-ui,sans-serif;}
   header{background:var(--bg); color:var(--charcoal); display:flex; align-items:center; padding:14px clamp(16px,3vw,28px); gap:14px; flex-shrink:0; border-bottom:1px solid var(--border); position:relative; flex-wrap:wrap;}
-  header .logo-icon{width:34px;height:34px;flex-shrink:0;}
+  header .logo-icon{width:34px;height:34px;flex-shrink:0; color:var(--charcoal);}
   .brand-home{display:flex; align-items:center; gap:11px; cursor:pointer; opacity:1; transition:opacity .15s;}
   .brand-home:hover{opacity:.75;}
   header .titles{display:flex; flex-direction:column; line-height:1.2;}
@@ -54,7 +56,7 @@
   header .titles .sub{font-size:10px; color:var(--text-muted); letter-spacing:.14em; text-transform:uppercase; margin-top:2px;}
   header .titles .underline{display:none;}
   header .toolbar{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-  button{font-family:inherit; cursor:pointer; border:1px solid transparent; padding:9px 14px; font-size:13px; font-weight:600; transition:opacity .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
+  button{font-family:inherit; color:var(--charcoal); cursor:pointer; border:1px solid transparent; padding:9px 14px; font-size:13px; font-weight:600; transition:opacity .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
   button:hover{opacity:.88;} button:disabled{opacity:.4; cursor:not-allowed;}
   .btn-blue{background:var(--blue); color:#fff; border-color:var(--blue);}
   .btn-blue:hover{background:#8a3115; opacity:1;}
@@ -66,11 +68,11 @@
   .hamburger-btn{display:none;}
   .hamburger-wrap{display:none;}
   .hamburger-menu{display:none;}
-  .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; flex-shrink:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow-x:auto; overflow-y:visible;}
-  .toggle-switch{width:46px; height:26px; background:transparent; border:1.5px solid var(--charcoal); padding:2px; cursor:pointer; position:relative;}
-  .toggle-switch .toggle-knob{display:block; width:18px; height:18px; background:var(--charcoal); transition:transform .15s;}
+  .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; flex-shrink:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow:visible;}
+  .toggle-switch{position:relative; display:block; flex:0 0 44px; width:44px; height:24px; padding:0; background:transparent; border:1.5px solid var(--charcoal); cursor:pointer;}
+  .toggle-switch .toggle-knob{position:absolute; top:3px; left:3px; width:14px; height:14px; background:var(--charcoal); transition:transform .15s;}
   .toggle-switch.on{border-color:var(--blue); background:var(--blue-pale);}
-  .toggle-switch.on .toggle-knob{background:var(--blue); transform:translateX(18px);}
+  .toggle-switch.on .toggle-knob{background:var(--blue); transform:translateX(20px);}
   .bottom-nav{display:none;}
   .tab-nav button{position:relative; display:flex; align-items:center; gap:7px; background:transparent; border:0; cursor:pointer; padding:13px 15px; color:var(--charcoal); font-weight:600; font-size:12px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;}
   .tab-nav button:hover{color:var(--blue); opacity:1;}
@@ -88,21 +90,21 @@
   .section-label::after{content:""; flex:1; height:1px; background:var(--border);}
   .section-label.no-line::after{display:none;}
   .week-picker-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:20px;}
-  .week-picker-row select{padding:10px 12px; border:1px solid var(--border); border-top:2px solid var(--charcoal); background:#fff; font-size:14px; font-family:inherit; color:var(--charcoal); min-width:260px;}
+  .week-picker-row select{padding:10px 12px; border:1px solid var(--border); border-top:2px solid var(--charcoal); background:var(--field-bg); font-size:14px; font-family:inherit; color:var(--charcoal); min-width:260px;}
   .week-picker-row select:focus{outline:none; border-color:var(--blue);}
   .inactive-toggle{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted);}
   .cards{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:0;}
   .card{background:var(--card); border:1px solid var(--border); border-top:2px solid var(--charcoal); padding:16px 18px; box-shadow:none;}
   .card.company{background:var(--charcoal); border-color:var(--charcoal);}
-  .card.company h3, .card.company .label{color:#cfcbc6;} .card.company .big{color:#fff;} .card.company h3 .tag{background:var(--blue);}
+  .card.company h3, .card.company .label{color:var(--on-charcoal-muted);} .card.company .big{color:var(--on-charcoal);} .card.company h3 .tag{background:var(--blue);}
   .card.clickable{cursor:pointer; transition:background .15s;}
   .card.clickable:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent); box-shadow:none; transform:none;}
   .card h3{margin:0 0 12px 0; font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px;}
-  .card h3 .tag{background:var(--charcoal); color:#fff; font-size:10px; padding:3px 8px; letter-spacing:.06em; text-transform:uppercase;}
+  .card h3 .tag{background:var(--charcoal); color:var(--on-charcoal); font-size:10px; padding:3px 8px; letter-spacing:.06em; text-transform:uppercase;}
   .field{margin-bottom:10px;}
   .field label{display:block; font-size:12px; color:color-mix(in srgb, var(--charcoal) 70%, transparent); margin-bottom:5px;}
-  .field input, .field select{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal); min-height:36px;}
-  input.input, select.input, textarea.input{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:#fff; color:var(--charcoal); min-height:36px;}
+  .field input, .field select{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:var(--field-bg); color:var(--charcoal); min-height:36px;}
+  input.input, select.input, textarea.input{width:100%; padding:9px 10px; border:1px solid var(--input-border); font-size:14px; font-family:inherit; background:var(--field-bg); color:var(--charcoal); min-height:36px;}
   input.input:hover, select.input:hover, textarea.input:hover{border-color:var(--neutral-500);}
   .field input:hover, .field select:hover{border-color:var(--neutral-500);}
   .field input:focus, .field select:focus{outline:none; border-color:var(--blue);}
@@ -114,7 +116,7 @@
   .ytd-grid .metric{margin-bottom:0;}
   .summary-cards .card .big{font-size:20px; font-weight:600; color:var(--charcoal); margin:2px 0 0 0;}
   .summary-cards .card .big.negative{color:var(--danger);}
-  .summary-cards .card.company .big{color:#fff;}
+  .summary-cards .card.company .big{color:var(--on-charcoal);}
   .summary-cards .card.company .big.negative{color:#ff9783;}
   .summary-cards .card .label{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.1em;}
   .summary-cards .card.company .label{color:#b9b5b0;}
@@ -134,7 +136,7 @@
   table.logtable th{background:transparent; color:var(--text-muted); text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--charcoal); font-weight:600;}
   table.logtable td{padding:8px 10px; border-top:1px solid var(--border); vertical-align:middle;}
   table.logtable tbody tr:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent);}
-  table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--input-border); font-size:13px; font-family:inherit; background:#fff;}
+  table.logtable td input, table.logtable td select{width:100%; padding:6px 8px; border:1px solid var(--input-border); font-size:13px; font-family:inherit; background:var(--field-bg); color:var(--charcoal);}
   table.logtable td input:hover, table.logtable td select:hover{border-color:var(--neutral-500);}
   table.logtable td textarea.auto-expand{width:100%; padding:6px 8px; border:1px solid var(--border); font-size:13px; font-family:inherit; resize:none; overflow:hidden; min-height:32px; line-height:1.4;}
   table.logtable td input:focus, table.logtable td select:focus{outline:none; border-color:var(--blue);}
@@ -143,8 +145,8 @@
   .fleet-add-row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:flex-end;}
   .fleet-add-row .field{margin-bottom:0; flex:1; min-width:120px;}
   .tag{display:inline-flex; align-items:center; padding:3px 10px; font-size:11px; letter-spacing:.02em;}
-  .tag-accent{background:var(--blue-pale); color:#8a3115;}
-  .tag-neutral{background:#e8e5e1; color:var(--text-muted);}
+  .tag-accent{background:var(--blue-pale); color:var(--blue-700);}
+  .tag-neutral{background:var(--tag-neutral-bg); color:var(--text-muted);}
   .tag-outline{border:1px solid var(--blue); color:var(--blue); background:transparent;}
   .stat-strip{display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%,240px),1fr)); border-top:1px solid var(--charcoal); border-bottom:1px solid var(--charcoal);}
   .stat-strip .stat-cell{padding:18px 20px; border-right:1px solid var(--text-muted);}
@@ -181,7 +183,7 @@
   #autosaveWatermark .dot{width:4px; height:4px; background:var(--neutral-500);}
 
   #appToastContainer{position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:2000; display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:420px; padding:0 16px; pointer-events:none;}
-  .app-toast{background:var(--charcoal); color:#fff; padding:12px 16px; font-size:13px; box-shadow:none; opacity:0; transform:translateY(-10px); transition:opacity .25s, transform .25s; pointer-events:auto; max-width:100%; word-break:break-word;}
+  .app-toast{background:var(--charcoal); color:var(--on-charcoal); padding:12px 16px; font-size:13px; box-shadow:none; opacity:0; transform:translateY(-10px); transition:opacity .25s, transform .25s; pointer-events:auto; max-width:100%; word-break:break-word;}
   .app-toast.visible{opacity:1; transform:translateY(0);}
   .app-toast-success{background:#2A7A4E;}
   .app-toast-error{background:var(--danger);}
@@ -251,7 +253,7 @@
     .contract-chip{padding:10px 12px !important; font-size:12px !important;}
     #docPreviewActions button, .dialog-actions button{min-height:44px;}
     .week-picker-row select{min-width:0; width:100%;}
-    .tab-nav{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+    .tab-nav{overflow:visible;}
 
     .field input, .field select, table.logtable td input, table.logtable td select,
     .week-picker-row select, input[type="text"], input[type="number"], input[type="date"], input[type="email"], input[type="password"], select {
@@ -270,6 +272,20 @@
     table.logtable td{ padding:10px 12px; }
     [style*="gap:6px"]{ gap:12px !important; }
   }
+
+  /* ---- theme + layout fixes ---- */
+  input, select, textarea{font-family:inherit; color:var(--charcoal);}
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select, textarea{background:var(--field-bg);}
+  input[type="date"]{min-width:0;}
+  input:-webkit-autofill{-webkit-text-fill-color:var(--charcoal); box-shadow:0 0 0 100px var(--field-bg) inset;}
+  .expense-cell{display:block !important; width:100%; text-align:left !important; color:var(--charcoal);}
+  .expense-cell:hover{background:color-mix(in srgb, var(--charcoal) 4%, transparent) !important; opacity:1;}
+  .entity-link{color:var(--blue-700); text-decoration:underline; text-decoration-color:var(--blue); text-underline-offset:3px; cursor:pointer; font-weight:600;}
+  .entity-link:hover, .entity-link:focus-visible{color:var(--blue); outline:none;}
+  table.logtable-compliance td{overflow-wrap:anywhere;}
+  table.logtable-compliance td input.input, table.logtable-compliance td input[type="date"]{min-width:0; width:100%;}
+  #headerAutosave{margin-right:4px;}
+  @media (max-width:640px){ #headerAutosave{display:none !important;} }
 </style>
 </head>
 <body>
@@ -279,7 +295,7 @@
     <div class="auth-left">
       <div class="auth-left-logo">
         <svg width="30" height="30" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <text x="20" y="26" text-anchor="middle" font-family="Archivo" font-weight="800" font-size="25" letter-spacing="-0.5" fill="#201e1d">FH</text>
+          <text x="20" y="26" text-anchor="middle" font-family="Archivo" font-weight="800" font-size="25" letter-spacing="-0.5" fill="currentColor">FH</text>
           <rect x="0" y="31" width="40" height="2.6" fill="#b3421f"></rect>
         </svg>
         <span style="font-weight:600; font-size:16px; letter-spacing:.06em;">FLEETHUB</span>
@@ -306,12 +322,13 @@
 <header>
   <div class="brand-home" id="brandHomeBtn" title="Go to Dashboard">
   <svg class="logo-icon" width="34" height="34" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <text x="20" y="26" text-anchor="middle" font-family="Archivo" font-weight="800" font-size="25" letter-spacing="-0.5" fill="#201e1d">FH</text>
+    <text x="20" y="26" text-anchor="middle" font-family="Archivo" font-weight="800" font-size="25" letter-spacing="-0.5" fill="currentColor">FH</text>
     <rect x="0" y="31" width="40" height="2.6" fill="#b3421f"></rect>
   </svg>
   <div class="titles"><div class="name">FLEETHUB</div><div class="sub">Transport management, kept on one screen</div></div>
   </div>
   <div class="toolbar" style="position:relative;">
+    <span id="headerAutosave" title="Save status" style="display:inline-flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap;"><span id="headerAutosaveDot" style="width:6px; height:6px; background:var(--text-muted);"></span><span id="headerAutosaveText">Autosaved</span></span>
     <button id="settingsMenuBtn" class="btn-ghost btn-sm" title="Settings" style="padding:9px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
     <div id="settingsMenuPanel" style="display:none; position:absolute; right:0; top:calc(100% + 6px); background:var(--bg); border:1px solid var(--charcoal); min-width:270px; z-index:500;">
       <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em;"><span id="settingsAutosaveDot" style="width:6px; height:6px; background:var(--text-muted); flex-shrink:0;"></span><span id="settingsAutosaveText">Autosaved</span></div>
@@ -359,7 +376,7 @@
 </div>
 
 <div id="statusToast"></div>
-<div id="autosaveWatermark"><span class="dot"></span>Autosaved</div>
+
 <div id="appToastContainer"></div>
 
 <script>
@@ -1089,6 +1106,9 @@ function setStatus(msg){
   const settingsDot = document.getElementById("settingsAutosaveDot");
   if(settingsText) settingsText.textContent = msg || "Autosaved";
   if(settingsDot) settingsDot.style.background = msg ? "var(--blue)" : "var(--text-muted)";
+  const hT = document.getElementById("headerAutosaveText"), hD = document.getElementById("headerAutosaveDot");
+  if(hT) hT.textContent = msg || "Autosaved";
+  if(hD) hD.style.background = msg ? "var(--blue)" : "var(--text-muted)";
 }
 
 /* In-app toast notifications - replaces native browser alert() popups so messages
@@ -1819,7 +1839,7 @@ async function openDocumentPreviewModal(pathOrPaths, onDelete){
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1500; display:flex; align-items:center; justify-content:center; padding:16px;";
   const box = document.createElement("div");
-  box.style.cssText = "background:#fff; border-radius:12px; padding:20px; max-width:600px; width:100%; max-height:90vh; display:flex; flex-direction:column;";
+  box.style.cssText = "background:var(--bg); color:var(--charcoal); border-radius:12px; padding:20px; max-width:600px; width:100%; max-height:90vh; display:flex; flex-direction:column;";
 
   let previewHtml = `<h3 style="margin:0 0 12px 0; color:var(--charcoal);">Document Preview</h3><div style="flex:1; overflow:auto; margin-bottom:14px; max-height:65vh;">`;
   paths.forEach((p,i)=>{
@@ -1832,7 +1852,7 @@ async function openDocumentPreviewModal(pathOrPaths, onDelete){
   previewHtml += `</div><div id="docPreviewActions" style="display:flex; gap:8px; flex-wrap:wrap;">
     <button class="btn-blue btn-sm" id="docPreviewDownload">Download</button>
     <button class="btn-danger btn-sm" id="docPreviewDelete">Delete</button>
-    <button class="btn-ghost btn-sm" id="docPreviewClose" style="background:var(--charcoal); color:#fff; margin-left:auto;">Close</button>
+    <button class="btn-ghost btn-sm" id="docPreviewClose" style="background:var(--charcoal); color:var(--on-charcoal); margin-left:auto;">Close</button>
   </div>`;
   box.innerHTML = previewHtml;
   overlay.appendChild(box);
@@ -1855,7 +1875,7 @@ async function openDocumentPreviewModal(pathOrPaths, onDelete){
       <p style="color:var(--danger); font-weight:bold; margin:0 0 10px 0;">Delete this document? This cannot be undone.</p>
       <div style="display:flex; gap:8px;">
         <button class="btn-danger btn-sm" id="docPreviewDeleteConfirm">Yes, Delete</button>
-        <button class="btn-ghost btn-sm" id="docPreviewDeleteCancel" style="background:var(--charcoal); color:#fff;">Cancel</button>
+        <button class="btn-ghost btn-sm" id="docPreviewDeleteCancel" style="background:var(--charcoal); color:var(--on-charcoal);">Cancel</button>
       </div></div>`;
     document.getElementById("docPreviewDeleteConfirm").addEventListener("click", async ()=>{
       try{ if(sb) await sb.storage.from("receipts").remove(paths); } catch(e){ console.error(e); }
@@ -1880,7 +1900,7 @@ function promptVehicleSelection(){
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;";
     const box = document.createElement("div");
-    box.style.cssText = "background:#fff; border-radius:12px; padding:24px; max-width:340px; width:100%;";
+    box.style.cssText = "background:var(--bg); color:var(--charcoal); border-radius:12px; padding:24px; max-width:340px; width:100%;";
     const truckOptions = vehicles.map(v=>`<option value="${v.truckId}">${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
     box.innerHTML = `
       <h3 style="margin:0 0 4px 0; font-size:16px; color:#1E2A38;">Which truck is this receipt for?</h3>
@@ -1911,13 +1931,13 @@ function promptAddAnotherPage(pageCount){
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;";
     const box = document.createElement("div");
-    box.style.cssText = "background:#fff; border-radius:12px; padding:24px; max-width:340px; width:100%; text-align:center;";
+    box.style.cssText = "background:var(--bg); color:var(--charcoal); border-radius:12px; padding:24px; max-width:340px; width:100%; text-align:center;";
     box.innerHTML = `
       <h3 style="margin:0 0 4px 0; font-size:16px; color:#1E2A38;">Page ${pageCount} captured</h3>
       <p style="font-size:12px; color:#6B7280; margin:0 0 16px 0;">Add another page for this receipt, or finish scanning?</p>
       <div style="display:flex; gap:8px;">
         <button id="addAnotherBtn" class="btn-blue" style="flex:1;">+ Add Another Page</button>
-        <button id="finishScanBtn" class="btn-ghost" style="flex:1; background:var(--charcoal); color:#fff;">Finish</button>
+        <button id="finishScanBtn" class="btn-ghost" style="flex:1; background:var(--charcoal); color:var(--on-charcoal);">Finish</button>
       </div>
     `;
     overlay.appendChild(box);
@@ -2449,8 +2469,8 @@ async function uploadComplianceDocument(pathPrefix, mode){
 }
 
 function docUploadButtonsHTML(idBase){
-  return `<button class="btn-ghost btn-sm" data-doc-camera="${idBase}" style="background:var(--charcoal); color:#fff;">Take Photo</button>
-    <button class="btn-ghost btn-sm" data-doc-upload="${idBase}" style="background:var(--charcoal); color:#fff;">Upload File</button>`;
+  return `<button class="btn-ghost btn-sm" data-doc-camera="${idBase}" style="background:var(--charcoal); color:var(--on-charcoal);">Take Photo</button>
+    <button class="btn-ghost btn-sm" data-doc-upload="${idBase}" style="background:var(--charcoal); color:var(--on-charcoal);">Upload File</button>`;
 }
 
 /* Every driver/vehicle expiration flattened into one row shape, so the Overdue /
@@ -2481,8 +2501,8 @@ function docButtonForRow(r){
   const idBase = r.docKind + "-" + r.idx;
   const cameraBtn = `<button type="button" class="doc-camera-only" data-doc-menu="${idBase}" style="background:transparent; border:0; color:var(--charcoal); padding:6px; cursor:pointer;" title="Take a photo or upload a file">${CAMERA_ICON_SVG}</button>`;
   const viewBtn = has
-    ? `<button type="button" data-view-doc="${owner[r.docField]}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:var(--blue); color:#fff; border:0; padding:9px 14px; font-size:12px; font-weight:600; cursor:pointer; flex:1; text-align:center;">View</button>`
-    : `<button type="button" disabled style="background:var(--charcoal); color:#fff; border:0; padding:9px 14px; font-size:12px; font-weight:600; opacity:.45; cursor:not-allowed; flex:1; text-align:center;">View</button>`;
+    ? `<button type="button" data-view-doc="${owner[r.docField]}" data-doc-owner="${r.type}-${r.idx}-${r.docField}" style="background:var(--blue); color:#fff; border:0; padding:8px 10px; font-size:12px; font-weight:600; cursor:pointer; flex:1; min-width:0; text-align:center;">View</button>`
+    : `<button type="button" disabled style="background:transparent; color:var(--text-muted); border:1px solid var(--border); padding:8px 10px; font-size:12px; font-weight:600; opacity:.7; cursor:not-allowed; flex:1; text-align:center;">View</button>`;
   return `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;">${cameraBtn}${viewBtn}</div>`;
 }
 function complianceRowHTML(r){
@@ -2491,7 +2511,7 @@ function complianceRowHTML(r){
     : `<span class="hint">-</span>`;
   return `<tr>
     <td style="font-weight:600;">${r.item}</td>
-    <td>${r.subject}</td>
+    <td>${subjectLinkHTML(r.subject)}</td>
     <td><input class="compliance-date" data-type="${r.type}" data-idx="${r.idx}" data-field="${r.field}" data-done-field="${r.doneField}" type="date" value="${r.date||''}"></td>
     <td><span class="tag ${r.cls}">${r.status}</span></td>
     <td>${costCell}</td>
@@ -2501,7 +2521,7 @@ function complianceRowHTML(r){
 }
 function complianceTableHTML(list){
   if(!list.length) return "";
-  return `<div style="overflow-x:auto;"><table class="logtable logtable-compliance" style="table-layout:fixed;"><thead><tr><th style="width:20%;">Item</th><th style="width:18%;">Subject</th><th style="width:16%;">Due</th><th style="width:14%;">Status</th><th style="width:12%;">Cost</th><th style="width:10%;">Done</th><th style="width:10%;">Doc</th></tr></thead><tbody>${list.map(complianceRowHTML).join("")}</tbody></table></div>`;
+  return `<div style="overflow-x:auto;"><table class="logtable logtable-compliance" style="table-layout:fixed;"><thead><tr><th style="width:17%;">Item</th><th style="width:15%;">Subject</th><th style="width:19%;">Due</th><th style="width:13%;">Status</th><th style="width:12%;">Cost</th><th style="width:7%;">Done</th><th style="width:17%;">Doc</th></tr></thead><tbody>${list.map(complianceRowHTML).join("")}</tbody></table></div>`;
 }
 
 let currentDocketTab = "overview";
@@ -2542,7 +2562,7 @@ function renderCompliancePage(){
       const yearly = (parseFloat(v.insuranceMonthlyCost)||0)*12;
       const bobYearly = v.hasBobtailInsurance ? (parseFloat(v.bobtailInsuranceCost)||0)*12 : 0;
       html += `<tr>
-        <td style="font-weight:600;">${v.truckId}</td>
+        <td style="font-weight:600;">${entityLinkHTML("truck", v.truckId, v.truckId)}</td>
         <td><input class="input insurance-monthly" data-vehicle-idx="${idx}" type="text" inputmode="decimal" value="${v.insuranceMonthlyCost||''}"></td>
         <td>${moneyStr(yearly)}</td>
         <td><label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;"><input type="checkbox" class="insurance-bobtail-toggle" data-vehicle-idx="${idx}" ${v.hasBobtailInsurance?'checked':''}></label></td>
@@ -2740,7 +2760,7 @@ function showBlockingModal(title, message, doneLabel){
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1600; display:flex; align-items:center; justify-content:center; padding:16px;";
     const box = document.createElement("div");
-    box.style.cssText = "background:#fff; border-radius:12px; padding:24px; max-width:340px; width:100%; text-align:center;";
+    box.style.cssText = "background:var(--bg); color:var(--charcoal); border-radius:12px; padding:24px; max-width:340px; width:100%; text-align:center;";
     box.innerHTML = `
       <h3 style="margin:0 0 8px 0; font-size:16px; color:var(--charcoal);">${title}</h3>
       <p style="font-size:13px; color:var(--text-muted); margin:0 0 18px 0;">${message}</p>
@@ -3413,6 +3433,32 @@ async function refreshNotifStatus(){
   if(el) el.textContent = labels[status] || "";
 }
 
+
+/* ---- Clickable driver / truck names -> profile ---- */
+function entityLinkHTML(kind, id, label){
+  const attr = kind==="truck" ? "data-open-truck" : "data-open-driver";
+  return `<span class="entity-link" ${attr}="${id}" role="link" tabindex="0">${label==null?id:label}</span>`;
+}
+function subjectLinkHTML(subject){
+  const m = /^Truck (.+)$/.exec(subject||"");
+  if(m && typeof vehicleExists==="function" && vehicleExists(m[1])) return entityLinkHTML("truck", m[1], subject);
+  if(subject && drivers.some(d=>d.name===subject)) return entityLinkHTML("driver", subject, subject);
+  return subject;
+}
+document.addEventListener("click", (e)=>{
+  const el = e.target.closest && e.target.closest("[data-open-truck],[data-open-driver]");
+  if(!el) return;
+  e.preventDefault();
+  closeProfile();
+  if(el.hasAttribute("data-open-truck")) openProfile("truck", el.getAttribute("data-open-truck"));
+  else openProfile("driver", el.getAttribute("data-open-driver"));
+});
+document.addEventListener("keydown", (e)=>{
+  if(e.key!=="Enter") return;
+  const el = e.target.closest && e.target.closest("[data-open-truck],[data-open-driver]");
+  if(el) el.click();
+});
+
 /* ============ PROFILE (truck/driver detail overlay) ============ */
 let profileFilesRef = [];
 function openProfile(kind, id){
@@ -4007,7 +4053,7 @@ function renderDashboard(){
     alerts.forEach(a=>{
       html += `<tr>
         <td style="font-weight: 600;">${a.item}</td>
-        <td>${a.subject}</td>
+        <td>${subjectLinkHTML(a.subject)}</td>
         <td>${a.due}</td>
         <td><span class="tag ${a.cls}">${a.status}</span></td>
       </tr>`;
@@ -4205,7 +4251,7 @@ function renderCalendarSectionHTML(){
     const completedCount = tasksCompletedOn(cellDateStr).length;
     html += `<div class="cal-day-cell" data-date="${cellDateStr}" style="min-height:64px; min-width:0; overflow:hidden; padding:6px 8px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); font-size:12px; cursor:pointer;">
       <div style="display:flex; align-items:center; justify-content:space-between;">
-        <div style="font-weight:600; ${isToday?'background:var(--charcoal); color:#fff; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;':''}">${day}</div>
+        <div style="font-weight:600; ${isToday?'background:var(--charcoal); color:var(--on-charcoal); display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;':''}">${day}</div>
         ${completedCount?`<span style="width:5px; height:5px; background:var(--blue); border-radius:50%; flex-shrink:0;" title="${completedCount} completed"></span>`:''}
       </div>
       ${dayItems.map(it=>`<div style="font-size:9px; margin-top:3px; padding:1px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; box-sizing:border-box; background:${it.kind==='due'?'var(--blue-pale)':'#e8e5e1'}; color:${it.kind==='due'?'var(--blue-700)':'var(--charcoal)'};" title="${it.label}">${it.label}</div>`).join("")}
@@ -4244,7 +4290,7 @@ function openDayHistoryModal(dateStr){
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1500; display:flex; align-items:center; justify-content:center; padding:16px;";
   const box = document.createElement("div");
-  box.style.cssText = "background:#fff; padding:22px; max-width:440px; width:100%; max-height:80vh; display:flex; flex-direction:column;";
+  box.style.cssText = "background:var(--bg); color:var(--charcoal); padding:22px; max-width:440px; width:100%; max-height:80vh; display:flex; flex-direction:column;";
 
   let html = `<h3 style="margin:0 0 4px 0; color:var(--charcoal); font-family:'Archivo',sans-serif;">${label}</h3>
     <p class="hint" style="margin:0 0 14px;">${done.length} task${done.length===1?'':'s'} completed</p>
@@ -4260,7 +4306,7 @@ function openDayHistoryModal(dateStr){
       </div>`;
     });
   }
-  html += `</div><button class="btn-ghost btn-sm" id="dayHistoryClose" style="background:var(--charcoal); color:#fff; align-self:flex-end;">Close</button>`;
+  html += `</div><button class="btn-ghost btn-sm" id="dayHistoryClose" style="background:var(--charcoal); color:var(--on-charcoal); align-self:flex-end;">Close</button>`;
   box.innerHTML = html;
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -4808,10 +4854,10 @@ function showDocOptionsMenu(anchorEl, onCamera, onUpload){
   const rect = anchorEl.getBoundingClientRect();
   const menu = document.createElement("div");
   menu.className = "doc-options-menu";
-  menu.style.cssText = `position:fixed; top:${rect.bottom+6}px; left:${rect.left}px; background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.2); z-index:1700; overflow:hidden; min-width:180px;`;
+  menu.style.cssText = `position:fixed; top:${rect.bottom+6}px; left:${rect.left}px; background:var(--bg); border:1px solid var(--border); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.2); z-index:1700; overflow:hidden; min-width:180px;`;
   menu.innerHTML = `
-    <button type="button" style="display:block; width:100%; text-align:left; padding:12px 14px; background:#fff; border:none; border-bottom:1px solid var(--border); font-size:13px; color:var(--charcoal); font-weight:normal;">Take Photo</button>
-    <button type="button" style="display:block; width:100%; text-align:left; padding:12px 14px; background:#fff; border:none; font-size:13px; color:var(--charcoal); font-weight:normal;">Upload Picture or PDF</button>
+    <button type="button" style="display:block; width:100%; text-align:left; padding:12px 14px; background:var(--bg); border:none; border-bottom:1px solid var(--border); font-size:13px; color:var(--charcoal); font-weight:normal;">Take Photo</button>
+    <button type="button" style="display:block; width:100%; text-align:left; padding:12px 14px; background:var(--bg); border:none; font-size:13px; color:var(--charcoal); font-weight:normal;">Upload Picture or PDF</button>
   `;
   document.body.appendChild(menu);
   const [camBtn, upBtn] = menu.querySelectorAll("button");
@@ -4895,7 +4941,7 @@ function logRowHTML(cfg, e, idx){
       <td>${docBtn}</td>
       <td style="white-space:nowrap;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <button type="button" class="btn-ghost btn-sm log-edit" style="background:var(--charcoal); color:#fff;">Edit</button>
+          <button type="button" class="btn-ghost btn-sm log-edit" style="background:var(--charcoal); color:var(--on-charcoal);">Edit</button>
           <button type="button" class="log-delete" title="Delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button>
         </div>
       </td>
