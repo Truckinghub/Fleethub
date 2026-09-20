@@ -69,10 +69,17 @@
   .hamburger-wrap{display:none;}
   .hamburger-menu{display:none;}
   .tab-nav{display:flex; align-items:stretch; flex-wrap:wrap; flex-shrink:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow:visible;}
-  .toggle-switch{position:relative; display:block; flex:0 0 44px; width:44px; height:24px; padding:0; background:transparent; border:1.5px solid var(--charcoal); cursor:pointer;}
-  .toggle-switch .toggle-knob{position:absolute; top:3px; left:3px; width:14px; height:14px; background:var(--charcoal); transition:transform .15s;}
-  .toggle-switch.on{border-color:var(--blue); background:var(--blue-pale);}
-  .toggle-switch.on .toggle-knob{background:var(--blue); transform:translateX(20px);}
+  .toggle-switch{position:relative; display:block; flex:0 0 51px; width:51px; height:31px; padding:0; background:#78788033; border:0; cursor:pointer; transition:background .2s; -webkit-tap-highlight-color:transparent;}
+  .toggle-switch .toggle-knob{position:absolute; top:2px; left:2px; width:27px; height:27px; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.28), 0 0 1px rgba(0,0,0,.2); transition:transform .2s;}
+  .toggle-switch.on{background:#34c759;}
+  .toggle-switch.on .toggle-knob{transform:translateX(20px);}
+  .toggle-switch, .toggle-switch .toggle-knob{border-radius:999px !important;}
+  .toggle-switch:hover{opacity:1;}
+  .toggle-switch:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+  .dark-mode .toggle-switch{background:#78788052;}
+  .dark-mode .toggle-switch.on{background:#30d158;}
+  #settingsMenuBtn{background:transparent !important; border:0 !important; box-shadow:none !important; color:var(--charcoal); padding:8px !important; min-height:0;}
+  #settingsMenuBtn:hover, #settingsMenuBtn:focus-visible{background:transparent !important; color:var(--blue); opacity:1; outline:none;}
   .bottom-nav{display:none;}
   .tab-nav button{position:relative; display:flex; align-items:center; gap:7px; background:transparent; border:0; cursor:pointer; padding:13px 15px; color:var(--charcoal); font-weight:600; font-size:12px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;}
   .tab-nav button:hover{color:var(--blue); opacity:1;}
@@ -284,8 +291,6 @@
   .entity-link:hover, .entity-link:focus-visible{color:var(--blue); outline:none;}
   table.logtable-compliance td{overflow-wrap:anywhere;}
   table.logtable-compliance td input.input, table.logtable-compliance td input[type="date"]{min-width:0; width:100%;}
-  #headerAutosave{margin-right:4px;}
-  @media (max-width:640px){ #headerAutosave{display:none !important;} }
 </style>
 </head>
 <body>
@@ -328,7 +333,6 @@
   <div class="titles"><div class="name">FLEETHUB</div><div class="sub">Transport management, kept on one screen</div></div>
   </div>
   <div class="toolbar" style="position:relative;">
-    <span id="headerAutosave" title="Save status" style="display:inline-flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap;"><span id="headerAutosaveDot" style="width:6px; height:6px; background:var(--text-muted);"></span><span id="headerAutosaveText">Autosaved</span></span>
     <button id="settingsMenuBtn" class="btn-ghost btn-sm" title="Settings" style="padding:9px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
     <div id="settingsMenuPanel" style="display:none; position:absolute; right:0; top:calc(100% + 6px); background:var(--bg); border:1px solid var(--charcoal); min-width:270px; z-index:500;">
       <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em;"><span id="settingsAutosaveDot" style="width:6px; height:6px; background:var(--text-muted); flex-shrink:0;"></span><span id="settingsAutosaveText">Autosaved</span></div>
@@ -1096,7 +1100,46 @@ function scheduleAutoSave(){
 function flushIfNeeded(){
   if(autoSaveTimer){ clearTimeout(autoSaveTimer); autoSaveTimer=null; saveAll(); }
 }
-function markUnsaved(){ unsaved=true; setStatus("Unsaved changes..."); scheduleAutoSave(); }
+/* ---- Offline support: every change is mirrored to this device, so nothing is
+   lost with no connection. Autosave pushes it to Supabase when internet returns. ---- */
+function localKey(){ return "fleethub_local_" + (currentUserId || "anon"); }
+function buildSnapshot(){
+  return { vehicles, drivers, contractsEntries, fuelEntries, payrollEntries, loadsEntries, partsLog, mechanicLog, maintenanceLog, iftaRecords, yearRecords, tasks, tollsLog };
+}
+function writeLocal(dirty){
+  try{ localStorage.setItem(localKey(), JSON.stringify({ ts:Date.now(), dirty:!!dirty, data:buildSnapshot() })); }
+  catch(e){ console.warn("Could not save a local copy:", e); }
+}
+function readLocal(){
+  try{ const raw = localStorage.getItem(localKey()); return raw ? JSON.parse(raw) : null; }
+  catch(e){ return null; }
+}
+function restoreLocal(d){
+  yearRecords = d.yearRecords||[]; iftaRecords = d.iftaRecords||[];
+  vehicles = d.vehicles||[]; drivers = d.drivers||[];
+  contractsEntries = d.contractsEntries||[]; fuelEntries = d.fuelEntries||[]; payrollEntries = d.payrollEntries||[]; loadsEntries = d.loadsEntries||[];
+  partsLog = d.partsLog||[]; mechanicLog = d.mechanicLog||[]; maintenanceLog = d.maintenanceLog||[];
+  tasks = d.tasks||[]; tollsLog = d.tollsLog||[];
+  taskIdCounter = tasks.length ? Math.max(...tasks.map(t=>t.id))+1 : 1;
+  setActiveYear(latestOpenYear());
+}
+function isNetworkError(e){
+  return navigator.onLine===false || /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test((e && (e.message||e.details)) || String(e||""));
+}
+let localWriteTimer = null, saveInFlight = false, saveQueued = false;
+function markUnsaved(){
+  unsaved=true; setStatus("Unsaved changes..."); scheduleAutoSave();
+  clearTimeout(localWriteTimer); localWriteTimer = setTimeout(()=>writeLocal(true), 250);
+}
+window.addEventListener("online", ()=>{
+  showAppToast("Back online. Saving your changes...", "success");
+  if(unsaved && currentUserId) saveAll();
+});
+window.addEventListener("offline", ()=>{
+  showAppToast("You're offline. Changes are kept on this device and will save automatically when you're back online.", "warning");
+  if(unsaved) setStatus("Offline - saved on this device");
+});
+setInterval(()=>{ if(unsaved && currentUserId && navigator.onLine!==false && !saveInFlight) saveAll(); }, 30000);
 function markSaved(){ unsaved=false; setStatus(""); }
 function setStatus(msg){
   const el = document.getElementById("statusToast");
@@ -1106,9 +1149,6 @@ function setStatus(msg){
   const settingsDot = document.getElementById("settingsAutosaveDot");
   if(settingsText) settingsText.textContent = msg || "Autosaved";
   if(settingsDot) settingsDot.style.background = msg ? "var(--blue)" : "var(--text-muted)";
-  const hT = document.getElementById("headerAutosaveText"), hD = document.getElementById("headerAutosaveDot");
-  if(hT) hT.textContent = msg || "Autosaved";
-  if(hD) hD.style.background = msg ? "var(--blue)" : "var(--text-muted)";
 }
 
 /* In-app toast notifications - replaces native browser alert() popups so messages
@@ -1153,6 +1193,10 @@ function showProgressToast(message){
 
 async function saveAll(){
   if(!sb){ showAppToast("Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md", "error"); return; }
+  if(navigator.onLine===false){ writeLocal(true); unsaved=true; setStatus("Offline - saved on this device"); return; }
+  if(saveInFlight){ saveQueued = true; return; }
+  saveInFlight = true; saveQueued = false;
+  writeLocal(true);
   setStatus("Saving...");
   try{
     const vehicleRows = vehicles.map(v=>({
@@ -1192,29 +1236,46 @@ async function saveAll(){
     const taskRows = tasks.map(t=>({ user_id:currentUserId, task_id:t.id, text:t.text, list:t.list, truck:t.truck||null, due_date:t.dueDate||null, done:!!t.done, done_at:t.doneAt||null }));
     const tollsRows = tollsLog.map(t=>({ user_id:currentUserId, year:t.year, month:t.month, truck:t.truck||null, amount: t.amount!==""&&t.amount!=null?parseFloat(t.amount):null, submitted:!!t.submitted }));
 
-    const tasks = [
+    const saveJobs = [
       ["vehicles", vehicleRows], ["drivers", driverRows], ["contracts", contractRows],
       ["fuel", fuelRows], ["payroll", payrollRows], ["parts", partsRows], ["mechanic", mechRows], ["maintenance", maintRows],
       ["ifta", iftaRows], ["loads", loadsRows], ["years", yearRows], ["tasks", taskRows], ["tolls", tollsRows]
     ];
-    for(const [table, rows] of tasks){
+    for(const [table, rows] of saveJobs){
       const { error: delErr } = await sb.from(table).delete().eq("user_id", currentUserId);
       if(delErr) throw delErr;
       if(rows.length){ const { error: insErr } = await sb.from(table).insert(rows); if(insErr) throw insErr; }
     }
+    writeLocal(false);
     markSaved();
   } catch(e){
     console.error(e);
+    if(isNetworkError(e)){ unsaved=true; writeLocal(true); setStatus("Offline - saved on this device"); return; }
     setStatus("Save failed");
     const friendly = /uuid/i.test(e.message||"")
       ? "Save failed - you're not signed in. Please sign in to save changes."
       : "Save failed: " + (e.message||e);
     showAppToast(friendly, "error");
+  } finally {
+    saveInFlight = false;
+    if(saveQueued){ saveQueued = false; saveAll(); }
   }
 }
 
 async function loadAll(){
   if(!sb) return;
+  const local = readLocal();
+  if(navigator.onLine===false && local){
+    restoreLocal(local.data); unsaved = !!local.dirty;
+    setStatus(local.dirty ? "Offline - saved on this device" : "Offline");
+    return;
+  }
+  if(local && local.dirty){
+    // Changes made offline that never reached the server: push them first, never overwrite them.
+    restoreLocal(local.data); unsaved = true;
+    await saveAll();
+    if(unsaved) return;
+  }
   setStatus("Loading...");
   try{
     const [veh, drv, c, f, p, parts, mech, maint, iftaRes, loadsRes, yearsRes, tasksRes, tollsRes] = await Promise.all([
@@ -1276,8 +1337,10 @@ async function loadAll(){
     }
 
     setStatus(""); if(vehicles.length===0) markUnsaved(); else markSaved();
+    writeLocal(unsaved);
   } catch(e){
     console.error(e);
+    if(isNetworkError(e) && local){ restoreLocal(local.data); unsaved = !!local.dirty; setStatus(local.dirty ? "Offline - saved on this device" : "Offline"); return; }
     setStatus("Load failed");
   }
 }
@@ -2075,8 +2138,16 @@ function urlBase64ToUint8Array(base64String){
 
 async function registerServiceWorker(){
   if(!("serviceWorker" in navigator)) return null;
-  try{ return await navigator.serviceWorker.register("sw.js"); }
-  catch(e){ console.warn("Service worker registration failed:", e); return null; }
+  try{
+    const reg = await navigator.serviceWorker.register("sw.js");
+    reg.update().catch(()=>{});
+    return reg;
+  }
+  catch(e){
+    console.warn("Service worker registration failed:", e);
+    showAppToast("Offline mode and reminders are unavailable: sw.js could not be loaded. Upload sw.js next to index.html.", "warning");
+    return null;
+  }
 }
 
 /* Which kinds of push notifications exist. Each category can be turned on
@@ -4758,11 +4829,17 @@ function renderPayrollWeek(week){
   wireWeekRail("payrollWeek", week, w=>{ currentView={type:"week", week:w}; renderMain(); });
   wirePayrollTable(week, active, availableDrivers);
 }
+function payrollProfileLinkHTML(kind, id){
+  if(!id) return "";
+  if(kind==="driver" && !drivers.some(d=>d.name===id)) return "";
+  if(kind==="truck" && !vehicleExists(id)) return "";
+  return entityLinkHTML(kind, id, "Open profile");
+}
 function payrollRowHTML(e, idx, active, availableDrivers){
   if(e.submitted){
     return `<tr data-idx="${idx}">
-      <td style="font-weight:600;">${e.driver||'-'}</td>
-      <td>${e.truck?('Truck '+e.truck):'-'}</td>
+      <td style="font-weight:600;">${e.driver ? (drivers.some(d=>d.name===e.driver) ? entityLinkHTML("driver", e.driver) : e.driver) : '-'}</td>
+      <td>${e.truck ? (vehicleExists(e.truck) ? entityLinkHTML("truck", e.truck, "Truck "+e.truck) : 'Truck '+e.truck) : '-'}</td>
       <td>${moneyStr(parseFloat(e.amount)||0)}</td>
       <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-ghost btn-sm pr-edit">Edit</button><button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
     </tr>`;
@@ -4772,8 +4849,8 @@ function payrollRowHTML(e, idx, active, availableDrivers){
   const truckOptions = active.map(v=>`<option value="${v.truckId}" ${e.truck===v.truckId?'selected':''}>${v.truckId}${v.active?'':' (inactive)'}</option>`).join("");
   const orphanTruckOption = (e.truck && !active.some(v=>v.truckId===e.truck)) ? `<option value="${e.truck}" selected>${e.truck} (removed)</option>` : "";
   return `<tr data-idx="${idx}">
-    <td><select class="pr-driver"><option value="">-</option>${orphanDriverOption}${driverOptions}</select></td>
-    <td><select class="pr-truck"><option value="">-</option>${orphanTruckOption}${truckOptions}</select></td>
+    <td><select class="pr-driver"><option value="">-</option>${orphanDriverOption}${driverOptions}</select><div class="hint pr-driver-link" style="margin-top:4px;">${payrollProfileLinkHTML("driver", e.driver)}</div></td>
+    <td><select class="pr-truck"><option value="">-</option>${orphanTruckOption}${truckOptions}</select><div class="hint pr-truck-link" style="margin-top:4px;">${payrollProfileLinkHTML("truck", e.truck)}</div></td>
     <td><input class="pr-amount" type="text" inputmode="decimal" value="${e.amount||''}"><div class="hint pr-suggestion" style="margin-top:4px;"></div></td>
     <td style="white-space:nowrap;"><div style="display:flex; justify-content:space-between; align-items:center;"><button class="btn-blue btn-sm pr-save">Save</button><button class="pr-delete" style="background:transparent; border:none; color:var(--danger); padding:6px; cursor:pointer;">${TRASH_ICON_SVG}</button></div></td>
   </tr>`;
@@ -4812,8 +4889,9 @@ function wirePayrollTable(week, active, availableDrivers){
         markUnsaved();
       });
     };
-    if(driverEl) driverEl.addEventListener("change", e=>{ entries[idx].driver=e.target.value; markUnsaved(); refreshSuggestion(); });
-    if(truckEl) truckEl.addEventListener("change", e=>{ entries[idx].truck=e.target.value; markUnsaved(); refreshSuggestion(); });
+    const dLink = tr.querySelector(".pr-driver-link"), tLink = tr.querySelector(".pr-truck-link");
+    if(driverEl) driverEl.addEventListener("change", e=>{ entries[idx].driver=e.target.value; if(dLink) dLink.innerHTML = payrollProfileLinkHTML("driver", e.target.value); markUnsaved(); refreshSuggestion(); });
+    if(truckEl) truckEl.addEventListener("change", e=>{ entries[idx].truck=e.target.value; if(tLink) tLink.innerHTML = payrollProfileLinkHTML("truck", e.target.value); markUnsaved(); refreshSuggestion(); });
     if(amountEl) amountEl.addEventListener("input", e=>{ entries[idx].amount=e.target.value; markUnsaved(); });
     refreshSuggestion();
     const saveEl = tr.querySelector(".pr-save");
@@ -5183,7 +5261,7 @@ if(sb){
 }
 else if(DISABLE_LOGIN_SCREEN){ showApp(null); }
 else { showAuth(); authError.textContent="Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md"; }
-window.addEventListener("beforeunload", ()=>{ if(autoSaveTimer){ saveAll(); } });
+window.addEventListener("beforeunload", ()=>{ if(unsaved) writeLocal(true); if(autoSaveTimer){ saveAll(); } });
 </script>
 </body>
 </html>
