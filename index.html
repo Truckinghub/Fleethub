@@ -2859,8 +2859,8 @@ function renderFinancialsOverviewHTML(){
   </div>`;
 
   const fuelTotal = computeFuelTotals().company;
-  const partsTotal = computeLogSummary(partsLog,"sum").company;
-  const mechTotal = computeLogSummary(mechanicLog,"sum").company;
+  const partsTotal = computeLogSummary(partsLog,"sum").grand;
+  const mechTotal = computeLogSummary(mechanicLog,"sum").grand;
 
   const categories = [
     { key:"contracts", label:"Contracts", value:company.ytdContracts },
@@ -4047,17 +4047,17 @@ function renderTasksSectionHTML(){
 
   const truckOptions = activeVehicles().map(v=>`<option value="${v.truckId}">Truck ${v.truckId}</option>`).join("");
   html += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
-    <input class="input" id="taskCaptureInput" type="text" placeholder="Add a note..." style="flex:2; min-width:160px; max-width:100%;">
-    <select class="input" id="taskCaptureList" style="flex:0 0 auto; min-width:100px; max-width:100%;">
+    <input class="input" id="taskCaptureInput" type="text" placeholder="Add a note..." style="flex:2; min-width:160px; max-width:100%; width:auto;">
+    <select class="input" id="taskCaptureList" style="flex:0 0 auto; min-width:100px; max-width:100%; width:auto;">
       <option value="parts">Parts</option>
       <option value="mechanic">Mechanic</option>
       <option value="todo">To Do</option>
     </select>
-    <select class="input" id="taskCaptureTruck" style="flex:0 0 auto; min-width:110px; max-width:100%;">
+    <select class="input" id="taskCaptureTruck" style="flex:0 0 auto; min-width:110px; max-width:100%; width:auto;">
       <option value="">No truck</option>
       ${truckOptions}
     </select>
-    <input class="input" id="taskCaptureDueDate" type="date" style="flex:0 0 auto; min-width:0; max-width:100%;" title="Due date (optional)">
+    <input class="input" id="taskCaptureDueDate" type="date" style="flex:0 0 auto; min-width:0; max-width:100%; width:auto;" title="Due date (optional)">
     <button class="btn-blue btn-sm" id="taskCaptureAddBtn" style="height:36px;">Add</button>
   </div>`;
 
