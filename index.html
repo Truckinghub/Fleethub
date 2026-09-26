@@ -1233,9 +1233,8 @@ async function saveAll(){
     }));
     const driverRows = drivers.map(d=>({
       user_id:currentUserId, name:d.name, active:d.active, license_number: d.licenseNumber || null,
-      license_expiration: d.licenseExpiration || null, license_completed: !!d.licenseCompleted, license_document_path: d.licenseDocumentPath || null,
-      medical_card_expiration: d.medicalCardExpiration || null, medical_card_completed: !!d.medicalCardCompleted, medical_card_document_path: d.medicalCardDocumentPath || null,
-      w9_document_path: d.w9DocumentPath || null,
+      license_expiration: d.licenseExpiration || null, license_completed: !!d.licenseCompleted,
+      medical_card_expiration: d.medicalCardExpiration || null, medical_card_completed: !!d.medicalCardCompleted,
       pay_rate_per_block: d.payRatePerBlock!==""&&d.payRatePerBlock!=null?parseFloat(d.payRatePerBlock):null
     }));
     const contractRows = contractsEntries.map(e=>({
@@ -1247,9 +1246,9 @@ async function saveAll(){
     const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
     const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
     const loadsRows = loadsEntries.map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, load_id:e.loadId||null, base_pay:e.basePay!==""&&e.basePay!=null?parseFloat(e.basePay):null, total_pay:e.totalPay!==""&&e.totalPay!=null?parseFloat(e.totalPay):null, accessories:e.accessories!==""&&e.accessories!=null?parseFloat(e.accessories):null, submitted: e.submitted!==false }));
-    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
-    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
-    const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, receipt_path:e.receiptPath||null, submitted: e.submitted!==false }));
+    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
     const iftaRows = iftaRecords.flatMap(rec => [1,2,3,4].map(q=>({ user_id:currentUserId, year:rec.year, quarter:q, amount: rec[`q${q}Cost`]!==""&&rec[`q${q}Cost`]!=null?parseFloat(rec[`q${q}Cost`]):null, completed: !!rec[`q${q}Completed`] })));
     const yearRows = yearRecords.map(r=>({ user_id:currentUserId, year:r.year, closed_at:r.closedAt||null, closed_by:r.closedBy||null, excel_snapshot_path:r.excelSnapshotPath||null, pdf_snapshot_path:r.pdfSnapshotPath||null }));
     const taskRows = tasks.map(t=>({ user_id:currentUserId, task_id:t.id, text:t.text, list:t.list, truck:t.truck||null, due_date:t.dueDate||null, done:!!t.done, done_at:t.doneAt||null }));
