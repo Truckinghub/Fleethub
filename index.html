@@ -504,6 +504,14 @@ function isMobile(){ return window.innerWidth <= 760; }
 let ledgerMobileTruckIdx = 0;
 let partsLog = [], mechanicLog = [], maintenanceLog = [];
 let tollsLog = []; // {year, month(1-12), truck, amount} - monthly cadence, variable amount (unlike Parking, which is flat recurring)
+// Which tables (if any) failed to load on the most recent loadAll() call.
+// saveAll() refuses to touch any table in this list - a table whose load
+// failed has an in-memory state we don't actually trust (usually just the
+// initial empty array), and saving that would delete real rows and replace
+// them with nothing. This is what actually failed before: one table's load
+// error used to abort populating every other table too, silently leaving
+// them "empty" without anyone knowing, until the next save wiped them.
+let loadFailedTables = [];
 
 let currentModule = "contracts";
 let currentExpenseTab = "overview";
@@ -625,6 +633,19 @@ function daysBetween(today, expDateStr){
   const exp = new Date(expDateStr + "T00:00:00Z");
   const t = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
   return Math.round((exp - t) / 86400000);
+}
+/* Real IFTA filing deadlines - the last day of the month FOLLOWING each
+   quarter's end (Q1 Jan-Mar -> due Apr 30, Q2 -> Jul 31, Q3 -> Oct 31,
+   Q4 -> Jan 31 of the NEXT year). Previously three separate call sites each
+   hardcoded the quarter's own end date (Mar 31/Jun 30/Sep 30/Dec 31) as if
+   that were the due date, which understated every deadline by a month and
+   made Q3 falsely show as imminent while Q4's real January deadline was
+   never checked at all. This is now the single place that date is computed. */
+function iftaQuarterDueDate(year, quarter){
+  const dueMonth = {1:4, 2:7, 3:10, 4:1}[quarter]; // 1-indexed month the deadline falls in
+  const dueYear = quarter === 4 ? year + 1 : year;
+  const lastDayOfMonth = new Date(dueYear, dueMonth, 0).getDate();
+  return `${dueYear}-${String(dueMonth).padStart(2,"0")}-${String(lastDayOfMonth).padStart(2,"0")}`;
 }
 /* Matches the design's urgency() exactly: only two tag colors exist app-wide
    (tag-accent for anything within 14 days or overdue, tag-neutral for
@@ -1239,13 +1260,27 @@ async function saveAll(){
       ["fuel", fuelRows], ["payroll", payrollRows], ["parts", partsRows], ["mechanic", mechRows], ["maintenance", maintRows],
       ["ifta", iftaRows], ["loads", loadsRows], ["years", yearRows], ["tasks", taskRows], ["tolls", tollsRows]
     ];
+    const skippedTables = [];
     for(const [table, rows] of saveJobs){
+      if(loadFailedTables.includes(table)){
+        // Never delete-and-replace a table we don't have a trustworthy
+        // in-memory copy of - this is the exact mistake that wiped real
+        // data before. Leave it untouched in the database until a
+        // successful reload actually gives us its real current contents.
+        skippedTables.push(table);
+        continue;
+      }
       const { error: delErr } = await sb.from(table).delete().eq("user_id", currentUserId);
       if(delErr) throw delErr;
       if(rows.length){ const { error: insErr } = await sb.from(table).insert(rows); if(insErr) throw insErr; }
     }
     writeLocal(false);
-    markSaved();
+    if(skippedTables.length){
+      setStatus("Saved, but some sections were skipped");
+      showAppToast(`Saved everything except: ${skippedTables.join(", ")} - these failed to load earlier, so nothing was touched to avoid losing data. Reload the page to fix.`, "error");
+    } else {
+      markSaved();
+    }
   } catch(e){
     console.error(e);
     if(isNetworkError(e)){ unsaved=true; writeLocal(true); setStatus("Offline - saved on this device"); return; }
@@ -1282,48 +1317,73 @@ async function loadAll(){
       sb.from("parts").select("*"), sb.from("mechanic").select("*"), sb.from("maintenance").select("*"),
       sb.from("ifta").select("*"), sb.from("loads").select("*"), sb.from("years").select("*"), sb.from("tasks").select("*"), sb.from("tolls").select("*"),
     ]);
-    [veh,drv,c,f,p,parts,mech,maint,iftaRes,loadsRes,yearsRes,tasksRes,tollsRes].forEach(r=>{ if(r.error) throw r.error; });
-    yearRecords = (yearsRes.data||[]).map(r=>({ year:r.year, closedAt:r.closed_at||null, closedBy:r.closed_by||null, excelSnapshotPath:r.excel_snapshot_path||null, pdfSnapshotPath:r.pdf_snapshot_path||null }));
-    setActiveYear(latestOpenYear());
-    tasks = (tasksRes.data||[]).map(r=>({ id:r.task_id, text:r.text||"", list:r.list||"todo", truck:r.truck||null, dueDate:r.due_date||null, done:!!r.done, doneAt:r.done_at||null }));
-    tollsLog = (tollsRes.data||[]).map(r=>({ year:r.year??FIRST_YEAR, month:r.month||null, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
-    taskIdCounter = tasks.length ? Math.max(...tasks.map(t=>t.id))+1 : 1;
-
-    vehicles = (veh.data||[]).map(r=>({
-      truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false, vin:r.vin||"", plate:r.plate||"",
-      inspectionExpiration:r.inspection_expiration||"", inspectionCost:r.inspection_cost??"", inspectionCompleted:!!r.inspection_completed,
-      registrationExpiration:r.registration_expiration||"", registrationCost:r.registration_cost??"", registrationCompleted:!!r.registration_completed,
-      hvut2290Expiration:r.form2290_expiration||"", hvut2290Cost:r.form2290_cost??"", hvut2290Completed:!!r.form2290_completed, hvut2290ReceiptPath:r.form2290_receipt_path||"",
-      inspectionDocumentPath:r.inspection_document_path||"", registrationDocumentPath:r.registration_document_path||"",
-      purchasePrice:r.purchase_price??"",
-      addedYear:r.added_year||FIRST_YEAR, trackRoi:!!r.track_roi, acquisitionCosts:(()=>{ try{ return JSON.parse(r.acquisition_costs||"[]"); }catch(e){ return []; } })(), acquisitionClosed:r.acquisition_closed==null?true:!!r.acquisition_closed,
-      insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??"", parkingMonthlyCost:r.parking_monthly_cost??""
-    }));
-    drivers = (drv.data||[]).map(r=>({
-      name:r.name, active:r.active!==false, licenseNumber:r.license_number||"",
-      licenseExpiration:r.license_expiration||"", licenseCompleted:!!r.license_completed, licenseDocumentPath:r.license_document_path||"",
-      medicalCardExpiration:r.medical_card_expiration||"", medicalCardCompleted:!!r.medical_card_completed, medicalCardDocumentPath:r.medical_card_document_path||"",
-      w9DocumentPath:r.w9_document_path||"", payRatePerBlock:r.pay_rate_per_block??""
-    }));
-    contractsEntries = (c.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"", submitted:r.submitted!==false }));
-    fuelEntries = (f.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, amount:r.amount??"", submitted:r.submitted!==false }));
-    payrollEntries = (p.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
-    loadsEntries = (loadsRes.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, loadId:r.load_id||"", basePay:r.base_pay??"", totalPay:r.total_pay??"", accessories:r.accessories??"", submitted:r.submitted!==false }));
-    partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
-    mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
-    maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", receiptPath:r.receipt_path||"", submitted: r.submitted!==false }));
-
-    const iftaRows = iftaRes.data||[];
-    iftaRecords = [];
-    iftaRows.forEach(r=>{
-      if(r.quarter<1 || r.quarter>4) return;
-      const y = r.year ?? FIRST_YEAR; // rows saved before this fix have no year - treat as FIRST_YEAR
-      const rec = getOrCreateIftaRecord(y);
-      rec[`q${r.quarter}Cost`] = r.amount??"";
-      rec[`q${r.quarter}Completed`] = !!r.completed;
+    // Each table is checked and processed INDEPENDENTLY now. Previously, the
+    // first table with an error threw immediately, which aborted every
+    // assignment below it too - even for tables that fetched successfully.
+    // Those tables were then left silently at their initial empty state,
+    // and the next save's delete-then-reinsert would wipe their real DB
+    // data with nothing. Now a failing table is flagged in loadFailedTables
+    // and skipped; every other table still loads and saves normally, and
+    // saveAll() refuses to touch anything still flagged as failed.
+    loadFailedTables = [];
+    const loadResults = { vehicles:veh, drivers:drv, contracts:c, fuel:f, payroll:p, parts, mechanic:mech, maintenance:maint, ifta:iftaRes, loads:loadsRes, years:yearsRes, tasks:tasksRes, tolls:tollsRes };
+    Object.entries(loadResults).forEach(([table, r])=>{
+      if(r.error){ console.error(`Failed to load ${table}:`, r.error); loadFailedTables.push(table); }
     });
 
-    if(vehicles.length===0){
+    if(!yearsRes.error){
+      yearRecords = (yearsRes.data||[]).map(r=>({ year:r.year, closedAt:r.closed_at||null, closedBy:r.closed_by||null, excelSnapshotPath:r.excel_snapshot_path||null, pdfSnapshotPath:r.pdf_snapshot_path||null }));
+      setActiveYear(latestOpenYear());
+    }
+    if(!tasksRes.error){
+      tasks = (tasksRes.data||[]).map(r=>({ id:r.task_id, text:r.text||"", list:r.list||"todo", truck:r.truck||null, dueDate:r.due_date||null, done:!!r.done, doneAt:r.done_at||null }));
+      taskIdCounter = tasks.length ? Math.max(...tasks.map(t=>t.id))+1 : 1;
+    }
+    if(!tollsRes.error){
+      tollsLog = (tollsRes.data||[]).map(r=>({ year:r.year??FIRST_YEAR, month:r.month||null, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
+    }
+
+    if(!veh.error){
+      vehicles = (veh.data||[]).map(r=>({
+        truckId:r.truck_id, addedWeek:r.added_week, active:r.active!==false, vin:r.vin||"", plate:r.plate||"",
+        inspectionExpiration:r.inspection_expiration||"", inspectionCost:r.inspection_cost??"", inspectionCompleted:!!r.inspection_completed,
+        registrationExpiration:r.registration_expiration||"", registrationCost:r.registration_cost??"", registrationCompleted:!!r.registration_completed,
+        hvut2290Expiration:r.form2290_expiration||"", hvut2290Cost:r.form2290_cost??"", hvut2290Completed:!!r.form2290_completed, hvut2290ReceiptPath:r.form2290_receipt_path||"",
+        inspectionDocumentPath:r.inspection_document_path||"", registrationDocumentPath:r.registration_document_path||"",
+        purchasePrice:r.purchase_price??"",
+        addedYear:r.added_year||FIRST_YEAR, trackRoi:!!r.track_roi, acquisitionCosts:(()=>{ try{ return JSON.parse(r.acquisition_costs||"[]"); }catch(e){ return []; } })(), acquisitionClosed:r.acquisition_closed==null?true:!!r.acquisition_closed,
+        insuranceMonthlyCost:r.insurance_monthly_cost??"", hasBobtailInsurance:!!r.has_bobtail_insurance, bobtailInsuranceCost:r.bobtail_insurance_cost??"", parkingMonthlyCost:r.parking_monthly_cost??""
+      }));
+    }
+    if(!drv.error){
+      drivers = (drv.data||[]).map(r=>({
+        name:r.name, active:r.active!==false, licenseNumber:r.license_number||"",
+        licenseExpiration:r.license_expiration||"", licenseCompleted:!!r.license_completed, licenseDocumentPath:r.license_document_path||"",
+        medicalCardExpiration:r.medical_card_expiration||"", medicalCardCompleted:!!r.medical_card_completed, medicalCardDocumentPath:r.medical_card_document_path||"",
+        w9DocumentPath:r.w9_document_path||"", payRatePerBlock:r.pay_rate_per_block??""
+      }));
+    }
+    if(!c.error) contractsEntries = (c.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, contractId:r.contract_id??"", blockRate:r.block_rate??"", numBlocks:r.num_blocks??"", block1:r.block1??"", block2:r.block2??"", block3:r.block3??"", submitted:r.submitted!==false }));
+    if(!f.error) fuelEntries = (f.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, amount:r.amount??"", submitted:r.submitted!==false }));
+    if(!p.error) payrollEntries = (p.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, driver:r.driver, truck:r.truck||"", amount:r.amount??"", submitted:r.submitted!==false }));
+    if(!loadsRes.error) loadsEntries = (loadsRes.data||[]).map(r=>({ year:r.year??FIRST_YEAR, week:r.week, truck:r.truck, loadId:r.load_id||"", basePay:r.base_pay??"", totalPay:r.total_pay??"", accessories:r.accessories??"", submitted:r.submitted!==false }));
+    if(!parts.error) partsLog = (parts.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
+    if(!mech.error) mechanicLog = (mech.data||[]).map(r=>({ truck:r.truck||"", date:r.entry_date||"", description:r.description||"", amount:r.amount??"", receiptPath:r.receipt_path||"", submitted:r.submitted!==false }));
+    if(!maint.error) maintenanceLog = (maint.data||[]).map(r=>({ truck:r.truck||"", description:r.description||"", date:r.entry_date||"", amount:r.mileage??"", receiptPath:r.receipt_path||"", submitted: r.submitted!==false }));
+
+    if(!iftaRes.error){
+      const iftaRows = iftaRes.data||[];
+      iftaRecords = [];
+      iftaRows.forEach(r=>{
+        if(r.quarter<1 || r.quarter>4) return;
+        const y = r.year ?? FIRST_YEAR; // rows saved before this fix have no year - treat as FIRST_YEAR
+        const rec = getOrCreateIftaRecord(y);
+        rec[`q${r.quarter}Cost`] = r.amount??"";
+        rec[`q${r.quarter}Completed`] = !!r.completed;
+      });
+    }
+
+    if(vehicles.length===0 && !loadFailedTables.includes("vehicles")){
       const seen = {};
       const noteTruck = (truck, week)=>{ if(!truck) return; if(!seen[truck] || week<seen[truck]) seen[truck] = week ?? 34; };
       contractsEntries.forEach(e=>noteTruck(e.truck, e.week));
@@ -1334,7 +1394,12 @@ async function loadAll(){
       if(vehicles.length) markUnsaved();
     }
 
-    setStatus(""); if(vehicles.length===0) markUnsaved(); else markSaved();
+    if(loadFailedTables.length){
+      setStatus(`Couldn't load: ${loadFailedTables.join(", ")} - reload to fix`);
+      showAppToast(`Some sections failed to load: ${loadFailedTables.join(", ")}. Everything else works normally, but changes to those sections won't be saved until this succeeds - try reloading the page.`, "error");
+    } else {
+      setStatus(""); if(vehicles.length===0) markUnsaved(); else markSaved();
+    }
     writeLocal(unsaved);
   } catch(e){
     console.error(e);
@@ -2681,14 +2746,14 @@ function renderCompliancePage(){
   }
 
   if(currentDocketTab==="ifta"){
-    const quarterEndDates = { 1:`${iftaData.year}-03-31`, 2:`${iftaData.year}-06-30`, 3:`${iftaData.year}-09-30`, 4:`${iftaData.year}-12-31` };
+    const quarterDueDates = { 1:iftaQuarterDueDate(iftaData.year,1), 2:iftaQuarterDueDate(iftaData.year,2), 3:iftaQuarterDueDate(iftaData.year,3), 4:iftaQuarterDueDate(iftaData.year,4) };
     html += `<div style="display:flex; align-items:baseline; gap:12px; margin-bottom:12px;"><h2 style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; margin:0;">IFTA ${iftaData.year}</h2><div style="flex:1; height:1px; background:var(--border);"></div><div style="font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted);">Company-wide</div></div>`;
     html += `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); border-top:2px solid var(--charcoal); border-bottom:1px solid var(--border);">`;
     [1,2,3,4].forEach(q=>{
-      const urg = getComplianceUrgency(quarterEndDates[q], iftaData[`q${q}Completed`]);
+      const urg = getComplianceUrgency(quarterDueDates[q], iftaData[`q${q}Completed`]);
       html += `<div style="padding:16px 18px; border-right:1px solid var(--border);">
         <div style="display:flex; align-items:baseline; gap:8px;"><div style="font-family:'Archivo',sans-serif; font-weight:600; font-size:15px;">Q${q}</div><span class="tag ${urg.cls}" style="margin-left:auto;">${urg.status}</span></div>
-        <div class="hint" style="margin:6px 0 10px;">Due ${dueLabel(quarterEndDates[q])}</div>
+        <div class="hint" style="margin:6px 0 10px;">Due ${dueLabel(quarterDueDates[q])}</div>
         <input class="input ifta-cost" data-q="${q}" type="text" inputmode="decimal" value="${iftaData[`q${q}Cost`]||''}">
         <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-top:10px; cursor:pointer;"><input type="checkbox" class="ifta-done" data-q="${q}" ${iftaData[`q${q}Completed`]?'checked':''}> Filed and paid</label>
       </div>`;
@@ -4086,7 +4151,7 @@ function computeNeedsAttention(){
   const alerts = overdue.concat(soon).slice(0,6).map(x=>({ item:x.item, subject:x.subject, due:dueLabel(x.date), status:x.u.status, cls:x.u.cls, overdue:x.u.level==="expired", navModule:x.navModule }));
 
   const year = iftaData.year || 2026;
-  const qDates = {1:`${year}-03-31`,2:`${year}-06-30`,3:`${year}-09-30`,4:`${year}-12-31`};
+  const qDates = {1:iftaQuarterDueDate(year,1),2:iftaQuarterDueDate(year,2),3:iftaQuarterDueDate(year,3),4:iftaQuarterDueDate(year,4)};
   [1,2,3,4].forEach(q=>{
     const u = getComplianceUrgency(qDates[q], iftaData[`q${q}Completed`]);
     if(u.level==="expired"||u.level==="due-soon"||u.level==="upcoming"){
@@ -4302,13 +4367,24 @@ function calendarDueItemsForMonth(y, m){
     const d = new Date(it.date+"T00:00:00");
     if(d.getFullYear()===y && d.getMonth()===m) items.push({ day:d.getDate(), label:`${it.item} - ${it.subject}`, kind:"due" });
   });
-  [1,2,3,4].forEach(q=>{
-    const qd = {1:`${y}-03-31`,2:`${y}-06-30`,3:`${y}-09-30`,4:`${y}-12-31`}[q];
+  [1,2,3].forEach(q=>{
+    const qd = iftaQuarterDueDate(y,q);
     const rec = iftaRecords.find(r=>r.year===y);
     if(rec && rec[`q${q}Completed`]) return;
     const d = new Date(qd+"T00:00:00");
     if(d.getFullYear()===y && d.getMonth()===m) items.push({ day:d.getDate(), label:`IFTA Q${q}`, kind:"due" });
   });
+  // Q4's real deadline (Jan 31) falls in January of the YEAR AFTER its own
+  // record year, so when viewing January it's the PREVIOUS year's Q4 record
+  // whose due-date marker belongs on this month - not the current year's.
+  if(m===0){
+    const qd4 = iftaQuarterDueDate(y-1,4);
+    const rec4 = iftaRecords.find(r=>r.year===y-1);
+    if(!(rec4 && rec4.q4Completed)){
+      const d4 = new Date(qd4+"T00:00:00");
+      if(d4.getFullYear()===y && d4.getMonth()===m) items.push({ day:d4.getDate(), label:"IFTA Q4", kind:"due" });
+    }
+  }
   tasks.filter(t=>t.dueDate && !t.done).forEach(t=>{
     const d = new Date(t.dueDate+"T00:00:00");
     if(d.getFullYear()===y && d.getMonth()===m) items.push({ day:d.getDate(), label:t.text, kind:"todo" });
