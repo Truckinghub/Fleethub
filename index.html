@@ -518,6 +518,12 @@ let currentExpenseTab = "overview";
 let currentView = { type:"summary" };
 let unsaved = false;
 let currentUserId = null;
+// Every table requires org_id (added for multi-company support). This is
+// looked up once per session, right after sign-in, from this user's active
+// membership - see showApp(). Every write payload in saveAll() includes it.
+// If this is null, saveAll() refuses to save anything rather than send a
+// row that will fail the database's not-null constraint.
+let currentOrgId = null;
 let showInactive = false; // "show inactive too" toggle for week pages
 
 function activeVehicles(){ return vehicles.filter(v=>v.active); }
@@ -1214,12 +1220,20 @@ async function saveAll(){
   if(!sb){ showAppToast("Supabase isn't configured yet - see SETUP_INSTRUCTIONS.md", "error"); return; }
   if(navigator.onLine===false){ writeLocal(true); unsaved=true; setStatus("Offline - saved on this device"); return; }
   if(saveInFlight){ saveQueued = true; return; }
+  if(!currentOrgId){
+    // Every row needs org_id now. Without it, every insert below would fail
+    // the database's not-null constraint - refuse up front instead, with a
+    // clear message, rather than let 13 confusing raw errors happen.
+    showAppToast("Can't save - no organization found for this account. Try reloading the page.", "error");
+    setStatus("Save failed - no organization");
+    return;
+  }
   saveInFlight = true; saveQueued = false;
   writeLocal(true);
   setStatus("Saving...");
   try{
     const vehicleRows = vehicles.map(v=>({
-      user_id:currentUserId, truck_id:v.truckId, added_week:v.addedWeek, active:v.active,
+      user_id:currentUserId, org_id:currentOrgId, truck_id:v.truckId, added_week:v.addedWeek, active:v.active,
       vin: v.vin || null, plate: v.plate || null,
       inspection_expiration: v.inspectionExpiration || null, inspection_cost: v.inspectionCost!==""&&v.inspectionCost!=null?parseFloat(v.inspectionCost):null, inspection_completed: !!v.inspectionCompleted,
       registration_expiration: v.registrationExpiration || null, registration_cost: v.registrationCost!==""&&v.registrationCost!=null?parseFloat(v.registrationCost):null, registration_completed: !!v.registrationCompleted,
@@ -1232,27 +1246,27 @@ async function saveAll(){
       parking_monthly_cost: v.parkingMonthlyCost!==""&&v.parkingMonthlyCost!=null?parseFloat(v.parkingMonthlyCost):null
     }));
     const driverRows = drivers.map(d=>({
-      user_id:currentUserId, name:d.name, active:d.active, license_number: d.licenseNumber || null,
+      user_id:currentUserId, org_id:currentOrgId, name:d.name, active:d.active, license_number: d.licenseNumber || null,
       license_expiration: d.licenseExpiration || null, license_completed: !!d.licenseCompleted,
       medical_card_expiration: d.medicalCardExpiration || null, medical_card_completed: !!d.medicalCardCompleted,
       pay_rate_per_block: d.payRatePerBlock!==""&&d.payRatePerBlock!=null?parseFloat(d.payRatePerBlock):null
     }));
     const contractRows = contractsEntries.map(e=>({
-      user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, contract_id:e.contractId||null,
+      user_id:currentUserId, org_id:currentOrgId, year:entryYear(e), week:e.week, truck:e.truck, contract_id:e.contractId||null,
       block_rate:e.blockRate!==""?parseFloat(e.blockRate):null, num_blocks:e.numBlocks!==""?parseFloat(e.numBlocks):null,
       block1:e.block1!==""?parseFloat(e.block1):null, block2:e.block2!==""?parseFloat(e.block2):null, block3:e.block3!==""?parseFloat(e.block3):null,
       submitted: e.submitted!==false
     }));
-    const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
-    const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
-    const loadsRows = loadsEntries.map(e=>({ user_id:currentUserId, year:entryYear(e), week:e.week, truck:e.truck, load_id:e.loadId||null, base_pay:e.basePay!==""&&e.basePay!=null?parseFloat(e.basePay):null, total_pay:e.totalPay!==""&&e.totalPay!=null?parseFloat(e.totalPay):null, accessories:e.accessories!==""&&e.accessories!=null?parseFloat(e.accessories):null, submitted: e.submitted!==false }));
-    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
-    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
-    const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
-    const iftaRows = iftaRecords.flatMap(rec => [1,2,3,4].map(q=>({ user_id:currentUserId, year:rec.year, quarter:q, amount: rec[`q${q}Cost`]!==""&&rec[`q${q}Cost`]!=null?parseFloat(rec[`q${q}Cost`]):null, completed: !!rec[`q${q}Completed`] })));
-    const yearRows = yearRecords.map(r=>({ user_id:currentUserId, year:r.year, closed_at:r.closedAt||null, closed_by:r.closedBy||null, excel_snapshot_path:r.excelSnapshotPath||null, pdf_snapshot_path:r.pdfSnapshotPath||null }));
-    const taskRows = tasks.map(t=>({ user_id:currentUserId, task_id:t.id, text:t.text, list:t.list, truck:t.truck||null, due_date:t.dueDate||null, done:!!t.done, done_at:t.doneAt||null }));
-    const tollsRows = tollsLog.map(t=>({ user_id:currentUserId, year:t.year, month:t.month, truck:t.truck||null, amount: t.amount!==""&&t.amount!=null?parseFloat(t.amount):null, submitted:!!t.submitted }));
+    const fuelRows = fuelEntries.map(e=>({ user_id:currentUserId, org_id:currentOrgId, year:entryYear(e), week:e.week, truck:e.truck, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const payrollRows = payrollEntries.filter(e=>e.driver).map(e=>({ user_id:currentUserId, org_id:currentOrgId, year:entryYear(e), week:e.week, driver:e.driver, truck:e.truck||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const loadsRows = loadsEntries.map(e=>({ user_id:currentUserId, org_id:currentOrgId, year:entryYear(e), week:e.week, truck:e.truck, load_id:e.loadId||null, base_pay:e.basePay!==""&&e.basePay!=null?parseFloat(e.basePay):null, total_pay:e.totalPay!==""&&e.totalPay!=null?parseFloat(e.totalPay):null, accessories:e.accessories!==""&&e.accessories!=null?parseFloat(e.accessories):null, submitted: e.submitted!==false }));
+    const partsRows = partsLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, org_id:currentOrgId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const mechRows = mechanicLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, org_id:currentOrgId, truck:e.truck||null, entry_date:e.date||null, description:e.description||null, amount:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const maintRows = maintenanceLog.filter(e=>e.truck||e.date||e.description||e.amount).map(e=>({ user_id:currentUserId, org_id:currentOrgId, truck:e.truck||null, description:e.description||null, entry_date:e.date||null, mileage:e.amount!==""?parseFloat(e.amount):null, submitted: e.submitted!==false }));
+    const iftaRows = iftaRecords.flatMap(rec => [1,2,3,4].map(q=>({ user_id:currentUserId, org_id:currentOrgId, year:rec.year, quarter:q, amount: rec[`q${q}Cost`]!==""&&rec[`q${q}Cost`]!=null?parseFloat(rec[`q${q}Cost`]):null, completed: !!rec[`q${q}Completed`] })));
+    const yearRows = yearRecords.map(r=>({ user_id:currentUserId, org_id:currentOrgId, year:r.year, closed_at:r.closedAt||null, closed_by:r.closedBy||null, excel_snapshot_path:r.excelSnapshotPath||null, pdf_snapshot_path:r.pdfSnapshotPath||null }));
+    const taskRows = tasks.map(t=>({ user_id:currentUserId, org_id:currentOrgId, task_id:t.id, text:t.text, list:t.list, truck:t.truck||null, due_date:t.dueDate||null, done:!!t.done, done_at:t.doneAt||null }));
+    const tollsRows = tollsLog.map(t=>({ user_id:currentUserId, org_id:currentOrgId, year:t.year, month:t.month, truck:t.truck||null, amount: t.amount!==""&&t.amount!=null?parseFloat(t.amount):null, submitted:!!t.submitted }));
 
     const saveJobs = [
       ["vehicles", vehicleRows], ["drivers", driverRows], ["contracts", contractRows],
@@ -5324,6 +5338,15 @@ async function showApp(userId){
   currentUserId=userId; authScreen.style.display="none"; appRoot.style.display="flex";
   const w=document.getElementById("autosaveWatermark"); if(w) w.style.display="flex";
   registerServiceWorker();
+  try {
+    const { data: mem, error: memErr } = await sb.from("memberships").select("org_id").eq("user_id", currentUserId).eq("status","active").limit(1).maybeSingle();
+    if(memErr) throw memErr;
+    currentOrgId = mem ? mem.org_id : null;
+    if(!currentOrgId) console.error("No active organization membership found for this user - saves will fail until one exists.");
+  } catch(e) {
+    console.error("Failed to determine current organization:", e);
+    currentOrgId = null;
+  }
   await loadAll(); // sets the active year and rebuilds WEEKS first
   try{
     const saved = localStorage.getItem("fleethub_navstate");
